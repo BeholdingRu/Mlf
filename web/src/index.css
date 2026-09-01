@@ -555,6 +555,10 @@ nav {
   border-color: var(--done-line);
 }
 
+.task-row.automatic:not(.done) {
+  border-style: dashed;
+}
+
 .check {
   width: 28px;
   height: 28px;
@@ -568,6 +572,18 @@ nav {
 .task-row.done .check {
   background: var(--moss);
   color: var(--on-accent);
+}
+
+.task-row.automatic .check:disabled {
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--moss) 18%, var(--surface)),
+    color-mix(in srgb, var(--moss) 18%, var(--surface)) 4px,
+    var(--surface) 4px,
+    var(--surface) 8px
+  );
+  cursor: not-allowed;
+  opacity: 0.8;
 }
 
 .task-body {

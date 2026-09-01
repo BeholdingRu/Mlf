@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { useData } from '../context/DataContext'
 import { localISODate, percent } from '../lib/dates'
+import { isNutritionTask } from '../lib/nutrition-task'
 
 export function DailyTasks() {
-  const { tasks, completions, completeToday } = useData()
+  const { tasks, completions, completeToday, profile } = useData()
   const [busyId, setBusyId] = useState<string | null>(null)
   const today = localISODate()
 
@@ -24,12 +25,16 @@ export function DailyTasks() {
         )
         const totalDays = completions.filter((c) => c.task_id === task.id).length
         const habit = percent(totalDays, task.habit_days)
+        const automaticNutritionTask = profile?.weight_enabled && isNutritionTask(task)
         return (
-          <li key={task.id} className={doneToday ? 'task-row done' : 'task-row'}>
+          <li
+            key={task.id}
+            className={`task-row${doneToday ? ' done' : ''}${automaticNutritionTask ? ' automatic' : ''}`}
+          >
             <button
               type="button"
               className="check"
-              disabled={busyId === task.id || doneToday}
+              disabled={busyId === task.id || doneToday || automaticNutritionTask}
               onClick={async () => {
                 setBusyId(task.id)
                 try {
@@ -39,14 +44,26 @@ export function DailyTasks() {
                 }
               }}
               aria-pressed={doneToday}
-              aria-label={doneToday ? 'Выполнено сегодня' : 'Отметить выполнение'}
+              aria-label={
+                automaticNutritionTask
+                  ? 'Ручное выполнение недоступно: задача отмечается автоматически по калориям'
+                  : doneToday
+                    ? 'Выполнено сегодня'
+                    : 'Отметить выполнение'
+              }
             >
               {doneToday ? '✓' : ''}
             </button>
             <div className="task-body">
               <strong>{task.title}</strong>
               <span className="hint">
-                {doneToday ? 'Выполнено сегодня' : 'Можно отметить один раз в сутки'}
+                {automaticNutritionTask
+                  ? doneToday
+                    ? 'Выполнено автоматически по дневной норме калорий'
+                    : 'Будет отмечена автоматически в 00:00, если норма калорий не превышена'
+                  : doneToday
+                    ? 'Выполнено сегодня'
+                    : 'Можно отметить один раз в сутки'}
               </span>
             </div>
             <HabitBar value={habit} />

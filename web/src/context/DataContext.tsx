@@ -11,6 +11,7 @@ import { requireSupabase } from '../lib/supabase'
 import { localISODate } from '../lib/dates'
 import type { FoodLog, Profile, SavedProduct, Task, TaskCompletion, WeightLog } from '../lib/types'
 import type { ThemeId } from '../lib/theme'
+import { isNutritionTask } from '../lib/nutrition-task'
 import { useAuth } from './AuthContext'
 
 type DataContextValue = {
@@ -148,6 +149,72 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timeout)
   }, [user, refresh])
 
+  useEffect(() => {
+    if (!user || !profile?.weight_enabled || profile.daily_calories_norm == null) return
+
+    const userId = user.id
+    const nutritionTasks = tasks.filter(isNutritionTask)
+    if (!nutritionTasks.length) return
+
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const previousDate = localISODate(yesterday)
+    const totalCalories = foodHistoryLogs
+      .filter((log) => log.logged_on === previousDate)
+      .reduce((sum, log) => sum + (log.weight_grams / 100) * log.calories_per_100g, 0)
+
+    if (totalCalories > profile.daily_calories_norm) return
+
+    const incompleteTasks = nutritionTasks.filter(
+      (task) => !completions.some(
+        (completion) => completion.task_id === task.id && completion.completed_on === previousDate,
+      ),
+    )
+    if (!incompleteTasks.length) return
+
+    let cancelled = false
+
+    async function completeNutritionTasks() {
+      const client = requireSupabase()
+      const results = await Promise.all(
+        incompleteTasks.map((task) =>
+          client
+            .from('task_completions')
+            .upsert(
+              {
+                task_id: task.id,
+                user_id: userId,
+                completed_on: previousDate,
+              },
+              { onConflict: 'task_id,completed_on' },
+            )
+            .select('*')
+            .single(),
+        ),
+      )
+
+      const failedResult = results.find((result) => result.error)
+      if (failedResult?.error) {
+        if (!cancelled) setError(failedResult.error.message)
+        return
+      }
+      if (cancelled) return
+
+      const automaticCompletions = results.map((result) => result.data as TaskCompletion)
+      setCompletions((previous) => [
+        ...previous.filter(
+          (completion) => !automaticCompletions.some((automatic) => automatic.id === completion.id),
+        ),
+        ...automaticCompletions,
+      ])
+    }
+
+    void completeNutritionTasks()
+    return () => {
+      cancelled = true
+    }
+  }, [user, profile, tasks, completions, foodHistoryLogs])
+
   const value = useMemo<DataContextValue>(
     () => ({
       profile,
@@ -162,6 +229,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       refresh,
       async completeToday(taskId) {
         if (!user) return
+        const task = tasks.find((item) => item.id === taskId)
+        if (profile?.weight_enabled && task && isNutritionTask(task)) {
+          throw new Error('Эта задача отмечается автоматически по дневной норме калорий')
+        }
         const today = localISODate()
         const existing = completions.find(
           (c) => c.task_id === taskId && c.completed_on === today,
