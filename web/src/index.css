@@ -842,8 +842,9 @@ nav {
 }
 
 .weight-progress-goal {
-  right: 10px;
+  left: 50%;
   color: var(--ink);
+  transform: translate(-50%, -50%);
 }
 
 .modal-backdrop {

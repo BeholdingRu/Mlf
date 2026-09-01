@@ -30,7 +30,7 @@ export type WeightLog = {
   logged_on: string
 }
 
-export type CabinetTab = 'daily' | 'all' | 'calories' | 'diary'
+export type CabinetTab = 'daily' | 'all' | 'calories' | 'products' | 'diary'
 
 export type FoodLog = {
   id: string
