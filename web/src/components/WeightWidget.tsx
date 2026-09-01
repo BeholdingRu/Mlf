@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { daysInclusive, localISODate, parseISODate } from '../lib/dates'
 import { useData } from '../context/DataContext'
+import type { WeightLog } from '../lib/types'
 
 export function WeightWidget() {
   const { profile, weightLogs, logTodayWeight } = useData()
@@ -13,8 +14,10 @@ export function WeightWidget() {
 
   const today = localISODate()
   const todayLog = weightLogs.find((w) => w.logged_on === today)
-  const target = profile.target_weight
-  const current = todayLog?.value ?? null
+  const current = weightLogs.reduce<WeightLog | null>(
+    (latest, log) => (!latest || log.logged_on > latest.logged_on ? log : latest),
+    null,
+  )?.value ?? null
   const dayCount = profile.weight_started_on
     ? daysInclusive(parseISODate(profile.weight_started_on), new Date())
     : 0
@@ -40,24 +43,30 @@ export function WeightWidget() {
 
   return (
     <div className="weight-block">
-      <button type="button" className="weight-btn" onClick={() => setOpen(true)}>
-        <span className="weight-label">Вес</span>
-        <span className="weight-values">
-          {formatNum(target)} <span className="gt">&gt;</span> {formatNum(current)}
-        </span>
+      <button
+        type="button"
+        className="weight-btn"
+        onClick={() => {
+          setValue(todayLog ? String(todayLog.value) : '')
+          setError(null)
+          setOpen(true)
+        }}
+      >
+        <span className="weight-label">Текущий вес</span>
+        <span className="weight-values">{current != null ? `${formatNum(current)} кг` : '—'}</span>
       </button>
       {dayCount > 0 && <p className="day-counter">День {dayCount}</p>}
 
       {open && (
         <div className="popover">
-          <p>Текущий вес</p>
+          <p>{todayLog ? 'Отредактируйте вес за сегодня' : 'Внесите вес за сегодня'}</p>
           <input
             type="number"
             step="0.1"
             min="1"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder={current != null ? String(current) : 'например 72.4'}
+            placeholder={todayLog ? String(todayLog.value) : current != null ? String(current) : 'например 72.4'}
           />
           {error && <p className="banner error">{error}</p>}
           <div className="row-actions">

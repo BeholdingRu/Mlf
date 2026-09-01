@@ -20,13 +20,13 @@ const MONTHS = [
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 export function DiaryView() {
-  const { foodHistoryLogs } = useData()
-  const datesWithFood = useMemo(
-    () => new Set(foodHistoryLogs.map((food) => food.logged_on)),
-    [foodHistoryLogs],
+  const { foodHistoryLogs, weightLogs } = useData()
+  const datesWithRecords = useMemo(
+    () => new Set([...foodHistoryLogs, ...weightLogs].map((record) => record.logged_on)),
+    [foodHistoryLogs, weightLogs],
   )
-  const latestDate = foodHistoryLogs.reduce<string | null>(
-    (latest, food) => (!latest || food.logged_on > latest ? food.logged_on : latest),
+  const latestDate = [...foodHistoryLogs, ...weightLogs].reduce<string | null>(
+    (latest, record) => (!latest || record.logged_on > latest ? record.logged_on : latest),
     null,
   )
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -40,6 +40,9 @@ export function DiaryView() {
   const selectedLogs = activeSelectedDate
     ? foodHistoryLogs.filter((food) => food.logged_on === activeSelectedDate)
     : []
+  const selectedWeight = activeSelectedDate
+    ? weightLogs.find((weight) => weight.logged_on === activeSelectedDate) ?? null
+    : null
   const totalCalories = selectedLogs.reduce(
     (sum, food) => sum + (food.weight_grams / 100) * food.calories_per_100g,
     0,
@@ -98,7 +101,7 @@ export function DiaryView() {
             const iso = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day))
             const classes = [
               'calendar-day',
-              datesWithFood.has(iso) ? 'has-food' : '',
+              datesWithRecords.has(iso) ? 'has-food' : '',
               activeSelectedDate === iso ? 'selected' : '',
               today === iso ? 'today' : '',
             ]
@@ -112,14 +115,17 @@ export function DiaryView() {
             )
           })}
         </div>
-        <p className="calendar-hint">Зелёные дни содержат записи из учёта калорий.</p>
+        <p className="calendar-hint">Зелёные дни содержат записи о питании или весе.</p>
       </div>
 
       <div className="food-list diary-food-list">
         <div className="diary-list-head">
           <div>
             <h2>{selectedLabel}</h2>
-            <p>{selectedLogs.length ? `Всего: ${totalCalories.toFixed(0)} ккал` : 'Записей нет'}</p>
+            <p>
+              {selectedLogs.length ? `Всего: ${totalCalories.toFixed(0)} ккал` : 'Продукты не добавлялись'}
+              {selectedWeight ? ` · Вес: ${formatWeight(selectedWeight.value)} кг` : ''}
+            </p>
           </div>
         </div>
         {!selectedLogs.length ? (
@@ -148,4 +154,8 @@ export function DiaryView() {
       </div>
     </section>
   )
+}
+
+function formatWeight(value: number) {
+  return Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
 }

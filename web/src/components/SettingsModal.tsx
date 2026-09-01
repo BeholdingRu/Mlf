@@ -1,18 +1,32 @@
 import { useEffect, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useAuth } from '../context/AuthContext'
+import { localISODate } from '../lib/dates'
 
 type SettingsModalProps = {
   onClose: () => void
 }
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
-  const { profile, tasks, addTask, updateTask, deleteTask, saveWeightSettings, saveCaloriesNorm, saveDesiredWeight } = useData()
+  const {
+    profile,
+    tasks,
+    weightLogs,
+    addTask,
+    updateTask,
+    deleteTask,
+    saveWeightSettings,
+    logTodayWeight,
+    saveCaloriesNorm,
+    saveDesiredWeight,
+  } = useData()
   const { user, signOut } = useAuth()
+  const todayWeight = weightLogs.find((log) => log.logged_on === localISODate())
   const [enabled, setEnabled] = useState(profile?.weight_enabled ?? false)
   const [target, setTarget] = useState(
     profile?.target_weight != null ? String(profile.target_weight) : '',
   )
+  const [currentWeight, setCurrentWeight] = useState(todayWeight ? String(todayWeight.value) : '')
   const [desired, setDesired] = useState(
     profile?.desired_weight != null ? String(profile.desired_weight) : '',
   )
@@ -45,6 +59,23 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       await saveWeightSettings(enabled, parsed)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить вес')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveCurrentWeight() {
+    setBusy(true)
+    setError(null)
+    try {
+      const parsed = Number(currentWeight.replace(',', '.'))
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error('Укажите текущий вес больше нуля')
+      }
+      await logTodayWeight(parsed)
+      setCurrentWeight(String(parsed))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить текущий вес')
     } finally {
       setBusy(false)
     }
@@ -122,7 +153,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         </header>
 
         <section className="settings-block">
-          <h3>Вес</h3>
+          <h3>Текущий вес</h3>
           <label className="toggle">
             <input
               type="checkbox"
@@ -135,7 +166,29 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
             <div>
               <label>
-                Стартовый вес
+                Текущий вес
+                <input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  value={currentWeight}
+                  onChange={(e) => setCurrentWeight(e.target.value)}
+                  placeholder={todayWeight ? String(todayWeight.value) : 'например 72.4'}
+                />
+              </label>
+              <p className="hint">
+                {todayWeight
+                  ? 'Вес за сегодня можно отредактировать.'
+                  : 'Вес можно внести один раз в сутки.'}
+              </p>
+              <button type="button" className="primary compact" onClick={saveCurrentWeight} disabled={busy} style={{ marginTop: '8px' }}>
+                {todayWeight ? 'Сохранить изменения' : 'Сохранить текущий вес'}
+              </button>
+            </div>
+
+            <div>
+              <label>
+                Начальный вес
                 <input
                   type="number"
                   step="0.1"
@@ -145,7 +198,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 />
               </label>
               <button type="button" className="primary compact" onClick={saveWeight} disabled={busy} style={{ marginTop: '8px' }}>
-                Сохранить стартовый вес
+                Сохранить начальный вес
               </button>
             </div>
 
