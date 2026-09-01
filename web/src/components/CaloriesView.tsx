@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useData } from '../context/DataContext'
 
 export function CaloriesView() {
-  const { profile, foodLogs, logFoodToday, deleteFoodLog } = useData()
+  const { profile, foodLogs, savedProducts, logFoodToday, deleteFoodLog } = useData()
   const [productName, setProductName] = useState('')
   const [weightGrams, setWeightGrams] = useState('')
   const [caloriesPer100g, setCaloriesPer100g] = useState('')
@@ -50,6 +50,13 @@ export function CaloriesView() {
     }
   }
 
+  const selectSavedProduct = (id: string) => {
+    const product = savedProducts.find((item) => item.id === id)
+    if (!product) return
+    setProductName(product.name)
+    setCaloriesPer100g(String(product.calories_per_100g))
+  }
+
   return (
     <div className="calories-view">
       <div className="calories-header">
@@ -77,14 +84,32 @@ export function CaloriesView() {
         <h3>Добавить продукт</h3>
         <div className="form-group">
           <label htmlFor="product-name">Название продукта</label>
-          <input
-            id="product-name"
-            type="text"
-            value={productName}
-            onChange={(e) => setProductName(e.target.value)}
-            placeholder="Введите название продукта"
-            disabled={submitting}
-          />
+          <div className="product-name-row">
+            <input
+              id="product-name"
+              type="text"
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
+              placeholder="Введите название продукта"
+              disabled={submitting}
+            />
+            <select
+              aria-label="Выбрать сохранённый продукт"
+              defaultValue=""
+              disabled={submitting || savedProducts.length === 0}
+              onChange={(e) => {
+                selectSavedProduct(e.target.value)
+                e.currentTarget.value = ''
+              }}
+            >
+              <option value="">{savedProducts.length ? 'Из продуктов' : 'Нет продуктов'}</option>
+              {savedProducts.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name} — {product.calories_per_100g} ккал
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="form-group">
           <label htmlFor="weight">Вес (гр)</label>

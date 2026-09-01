@@ -4,6 +4,7 @@ import { SettingsModal } from '../components/SettingsModal'
 import { Sidebar } from '../components/Sidebar'
 import { StatsView } from '../components/StatsView'
 import { CaloriesView } from '../components/CaloriesView'
+import { ProductsView } from '../components/ProductsView'
 import { useData } from '../context/DataContext'
 import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
@@ -36,7 +37,9 @@ export function CabinetPage() {
             ? 'Статистика за всё время'
             : tab === 'calories'
               ? 'Учет калорий'
-              : 'Дневник'
+              : tab === 'products'
+                ? 'Продукты'
+                : 'Дневник'
 
   return (
     <div className="cabinet">
@@ -53,6 +56,7 @@ export function CabinetPage() {
         {!loading && tab === 'daily' && <DailyTasks />}
         {!loading && (tab === 'week' || tab === 'month' || tab === 'all') && <StatsView tab={tab} />}
         {!loading && tab === 'calories' && <CaloriesView />}
+        {!loading && tab === 'products' && <ProductsView />}
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>

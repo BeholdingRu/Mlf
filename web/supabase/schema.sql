@@ -36,10 +36,31 @@ create table if not exists public.weight_logs (
   unique (user_id, logged_on)
 );
 
+create table if not exists public.daily_food_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  logged_on date not null,
+  product_name text not null,
+  weight_grams numeric(8, 1) not null check (weight_grams > 0),
+  calories_per_100g numeric(6, 2) not null check (calories_per_100g > 0),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.saved_products (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  name text not null check (char_length(trim(name)) > 0),
+  calories_per_100g numeric(6, 2) not null check (calories_per_100g > 0),
+  created_at timestamptz not null default now(),
+  unique (user_id, name)
+);
+
 create index if not exists tasks_user_id_idx on public.tasks (user_id, sort_order);
 create index if not exists completions_user_on_idx on public.task_completions (user_id, completed_on);
 create index if not exists completions_task_on_idx on public.task_completions (task_id, completed_on);
 create index if not exists weight_logs_user_on_idx on public.weight_logs (user_id, logged_on desc);
+create index if not exists food_logs_user_on_idx on public.daily_food_logs (user_id, logged_on desc);
+create index if not exists saved_products_user_name_idx on public.saved_products (user_id, name);
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -64,6 +85,8 @@ alter table public.profiles enable row level security;
 alter table public.tasks enable row level security;
 alter table public.task_completions enable row level security;
 alter table public.weight_logs enable row level security;
+alter table public.daily_food_logs enable row level security;
+alter table public.saved_products enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles
@@ -87,4 +110,12 @@ create policy "completions_all_own" on public.task_completions
 
 drop policy if exists "weight_logs_all_own" on public.weight_logs;
 create policy "weight_logs_all_own" on public.weight_logs
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "food_logs_all_own" on public.daily_food_logs;
+create policy "food_logs_all_own" on public.daily_food_logs
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "saved_products_all_own" on public.saved_products;
+create policy "saved_products_all_own" on public.saved_products
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { requireSupabase } from '../lib/supabase'
 import { localISODate } from '../lib/dates'
-import type { Profile, Task, TaskCompletion, WeightLog, FoodLog } from '../lib/types'
+import type { FoodLog, Profile, SavedProduct, Task, TaskCompletion, WeightLog } from '../lib/types'
 import { useAuth } from './AuthContext'
 
 type DataContextValue = {
@@ -18,6 +18,7 @@ type DataContextValue = {
   completions: TaskCompletion[]
   weightLogs: WeightLog[]
   foodLogs: FoodLog[]
+  savedProducts: SavedProduct[]
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -31,6 +32,8 @@ type DataContextValue = {
   saveDesiredWeight: (desired: number | null) => Promise<void>
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
+  addSavedProduct: (name: string, caloriesPer100g: number) => Promise<void>
+  deleteSavedProduct: (id: string) => Promise<void>
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -42,6 +45,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
+  const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,7 +53,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!user) return
     const client = requireSupabase()
     const today = localISODate()
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes] = await Promise.all([
+    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, productsRes] = await Promise.all([
       client.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       client.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
       client.from('task_completions').select('*').eq('user_id', user.id),
@@ -57,6 +61,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ascending: false,
       }),
       client.from('daily_food_logs').select('*').eq('user_id', user.id).eq('logged_on', today),
+      client.from('saved_products').select('*').eq('user_id', user.id).order('name'),
     ])
 
     const firstError =
@@ -64,7 +69,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       tasksRes.error?.message ||
       completionsRes.error?.message ||
       weightRes.error?.message ||
-      foodRes.error?.message
+      foodRes.error?.message ||
+      productsRes.error?.message
     if (firstError) {
       setError(firstError)
       return
@@ -92,6 +98,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCompletions((completionsRes.data ?? []) as TaskCompletion[])
     setWeightLogs((weightRes.data ?? []) as WeightLog[])
     setFoodLogs((foodRes.data ?? []) as FoodLog[])
+    setSavedProducts((productsRes.data ?? []) as SavedProduct[])
     setError(null)
   }, [user])
 
@@ -102,6 +109,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setCompletions([])
       setWeightLogs([])
       setFoodLogs([])
+      setSavedProducts([])
       setLoading(false)
       return
     }
@@ -116,6 +124,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       completions,
       weightLogs,
       foodLogs,
+      savedProducts,
       loading,
       error,
       refresh,
@@ -259,8 +268,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (delError) throw delError
         setFoodLogs((prev) => prev.filter((f) => f.id !== id))
       },
+      async addSavedProduct(name, caloriesPer100g) {
+        if (!user) return
+        const { data, error: insError } = await requireSupabase()
+          .from('saved_products')
+          .insert({
+            user_id: user.id,
+            name,
+            calories_per_100g: caloriesPer100g,
+          })
+          .select('*')
+          .single()
+        if (insError) throw insError
+        setSavedProducts((prev) =>
+          [...prev, data as SavedProduct].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+        )
+      },
+      async deleteSavedProduct(id) {
+        const { error: delError } = await requireSupabase()
+          .from('saved_products')
+          .delete()
+          .eq('id', id)
+        if (delError) throw delError
+        setSavedProducts((prev) => prev.filter((product) => product.id !== id))
+      },
     }),
-    [profile, tasks, completions, weightLogs, foodLogs, loading, error, refresh, user],
+    [profile, tasks, completions, weightLogs, foodLogs, savedProducts, loading, error, refresh, user],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
