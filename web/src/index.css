@@ -1095,6 +1095,55 @@ nav {
   font-weight: 500;
 }
 
+.weight-visibility-setting {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weight-visibility-setting .toggle {
+  min-width: 0;
+}
+
+.info-button {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--moss-deep);
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.info-button:hover,
+.info-button[aria-expanded='true'] {
+  border-color: var(--moss);
+  background: var(--info-bg);
+}
+
+.nutrition-task-info {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(420px, 100%);
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
 .theme-options {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

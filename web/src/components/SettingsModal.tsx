@@ -41,6 +41,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [edits, setEdits] = useState<Record<string, { title: string; habit_days: string }>>({})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [nutritionInfoOpen, setNutritionInfoOpen] = useState(false)
   const [theme, setTheme] = useState<ThemeId>(() =>
     profile ? normalizeTheme(profile.theme) : getSavedTheme(),
   )
@@ -214,14 +215,34 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         </section>
 
         <section className="settings-block">
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
-            />
-            Показывать данные о весе в кабинете и статистике
-          </label>
+          <div className="weight-visibility-setting">
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+              />
+              Показывать данные о весе в кабинете и статистике
+            </label>
+            <button
+              type="button"
+              className="info-button"
+              aria-label="Дополнительные сведения об автоматической задаче питания"
+              aria-expanded={nutritionInfoOpen}
+              aria-controls="nutrition-task-info"
+              onClick={() => setNutritionInfoOpen((open) => !open)}
+            >
+              i
+            </button>
+            {nutritionInfoOpen && (
+              <div id="nutrition-task-info" className="nutrition-task-info" role="status">
+                Если вы включили отображение данных о весе, то можете создать новую задачу, которая
+                называется «Телостроительство:Питание», строго так, без кавычек. Эта задача будет
+                помечаться каждый новый день как выполненная автоматически, если вы не превысили
+                дневную норму калорий.
+              </div>
+            )}
+          </div>
           <button type="button" className="primary compact" onClick={saveWeightVisibility} disabled={busy}>
             Сохранить отображение
           </button>
