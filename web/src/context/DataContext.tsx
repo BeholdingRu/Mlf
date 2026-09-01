@@ -10,6 +10,7 @@ import {
 import { requireSupabase } from '../lib/supabase'
 import { localISODate } from '../lib/dates'
 import type { FoodLog, Profile, SavedProduct, Task, TaskCompletion, WeightLog } from '../lib/types'
+import type { ThemeId } from '../lib/theme'
 import { useAuth } from './AuthContext'
 
 type DataContextValue = {
@@ -31,6 +32,7 @@ type DataContextValue = {
   logTodayWeight: (value: number) => Promise<void>
   saveCaloriesNorm: (norm: number | null) => Promise<void>
   saveDesiredWeight: (desired: number | null) => Promise<void>
+  saveTheme: (theme: ThemeId) => Promise<void>
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
   addSavedProduct: (name: string, caloriesPer100g: number) => Promise<void>
@@ -266,6 +268,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .update({
             desired_weight: desired,
           })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
+      async saveTheme(theme) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({ theme })
           .eq('id', user.id)
           .select('*')
           .single()

@@ -85,7 +85,7 @@ export function WeightChart({ logs, startDate, startWeight, desiredWeight }: Wei
               cy={chartPadding + ((maxValue - startWeight) / range) * graphHeight}
               r="4"
               fill="var(--moss)"
-              stroke="white"
+              stroke="var(--chart-point-border)"
               strokeWidth="1"
               vectorEffect="non-scaling-stroke"
             />

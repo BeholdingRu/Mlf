@@ -9,9 +9,10 @@ import { DiaryView } from '../components/DiaryView'
 import { useData } from '../context/DataContext'
 import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
+import { applyTheme, normalizeTheme } from '../lib/theme'
 
 export function CabinetPage() {
-  const { loading, error } = useData()
+  const { loading, error, profile } = useData()
   const viewport = useViewport()
   const [tab, setTab] = useState<CabinetTab>('daily')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -26,6 +27,10 @@ export function CabinetPage() {
       return () => clearTimeout(timer)
     }
   }, [tab, viewport.isMobile])
+
+  useEffect(() => {
+    if (profile) applyTheme(normalizeTheme(profile.theme))
+  }, [profile])
 
   const heading =
     tab === 'daily'

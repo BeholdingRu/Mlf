@@ -8,8 +8,12 @@ create table if not exists public.profiles (
   desired_weight numeric(6, 1),
   weight_started_on date,
   daily_calories_norm numeric(6, 1),
+  theme text not null default 'green',
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists theme text not null default 'green';
 
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),

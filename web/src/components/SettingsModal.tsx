@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { useAuth } from '../context/AuthContext'
 import { localISODate } from '../lib/dates'
+import { applyTheme, getSavedTheme, normalizeTheme, themes, type ThemeId } from '../lib/theme'
 
 type SettingsModalProps = {
   onClose: () => void
@@ -19,6 +20,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     logTodayWeight,
     saveCaloriesNorm,
     saveDesiredWeight,
+    saveTheme,
   } = useData()
   const { user, signOut } = useAuth()
   const todayWeight = weightLogs.find((log) => log.logged_on === localISODate())
@@ -38,6 +40,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [edits, setEdits] = useState<Record<string, { title: string; habit_days: string }>>({})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [theme, setTheme] = useState<ThemeId>(() =>
+    profile ? normalizeTheme(profile.theme) : getSavedTheme(),
+  )
 
   useEffect(() => {
     const next: Record<string, { title: string; habit_days: string }> = {}
@@ -137,6 +142,24 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     }
   }
 
+  async function selectTheme(nextTheme: ThemeId) {
+    if (nextTheme === theme || busy) return
+    setTheme(nextTheme)
+    applyTheme(nextTheme)
+    setBusy(true)
+    setError(null)
+    try {
+      await saveTheme(nextTheme)
+    } catch (err) {
+      const previousTheme = profile ? normalizeTheme(profile.theme) : getSavedTheme()
+      setTheme(previousTheme)
+      applyTheme(previousTheme)
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить тему')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <div
@@ -151,6 +174,31 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             ×
           </button>
         </header>
+
+        <section className="settings-block">
+          <h3>Оформление</h3>
+          <p className="hint">Тема сохраняется в профиле и будет доступна на всех устройствах.</p>
+          <div className="theme-options" role="radiogroup" aria-label="Выбор темы">
+            {themes.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`theme-option${theme === option.id ? ' active' : ''}`}
+                role="radio"
+                aria-checked={theme === option.id}
+                disabled={busy}
+                onClick={() => selectTheme(option.id)}
+              >
+                <span className="theme-swatches" aria-hidden="true">
+                  {option.colors.map((color) => (
+                    <span key={color} style={{ backgroundColor: color }} />
+                  ))}
+                </span>
+                <span>{option.name}</span>
+              </button>
+            ))}
+          </div>
+        </section>
 
         <section className="settings-block">
           <h3>Текущий вес</h3>

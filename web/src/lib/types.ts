@@ -1,3 +1,5 @@
+import type { ThemeId } from './theme'
+
 export type Profile = {
   id: string
   email: string
@@ -6,6 +8,7 @@ export type Profile = {
   desired_weight: number | null
   weight_started_on: string | null
   daily_calories_norm: number | null
+  theme: ThemeId
 }
 
 export type Task = {
