@@ -136,56 +136,15 @@ export function WeightChart({ logs, startDate, startWeight, desiredWeight }: Wei
         <line x1="40" y1={chartPadding} x2="40" y2={chartHeight - chartPadding} stroke="var(--line)" strokeWidth="1" />
       </svg>
 
-      {progressPercent != null && (
+      {progressPercent != null && desiredWeight != null && (
         <div className="progress-bar-container">
-          <div
-            style={{
-              width: '100%',
-              height: '28px',
-              backgroundColor: 'var(--bg-secondary, #f0f0f0)',
-              borderRadius: '14px',
-              overflow: 'hidden',
-              position: 'relative',
-              border: '1px solid var(--line)',
-            }}
-          >
+          <div className="weight-progress" aria-label={`Целевой вес: ${desiredWeight.toFixed(1)} кг`}>
             <div
-              style={{
-                width: `${Math.min(Math.max(progressPercent, 0), 100)}%`,
-                height: '100%',
-                backgroundColor: 'var(--moss, #4a9d5f)',
-                transition: 'width 0.3s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                paddingRight: '10px',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '13px',
-                  fontWeight: 'bold',
-                  color: progressPercent > 15 ? 'white' : 'transparent',
-                }}
-              >
-                {progressPercent.toFixed(2)}%
-              </span>
-            </div>
-            {progressPercent <= 15 && (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '10px',
-                  transform: 'translateY(-50%)',
-                  fontSize: '13px',
-                  fontWeight: 'bold',
-                  color: 'var(--text, #333)',
-                }}
-              >
-                {progressPercent.toFixed(2)}%
-              </span>
-            )}
+              className="weight-progress-fill"
+              style={{ width: `${Math.min(Math.max(progressPercent, 0), 100)}%` }}
+            />
+            <span className="weight-progress-percent">{progressPercent.toFixed(2)}%</span>
+            <span className="weight-progress-goal">Цель: {desiredWeight.toFixed(1)} кг</span>
           </div>
         </div>
       )}
