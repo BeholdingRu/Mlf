@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useData } from '../context/DataContext'
+import { ProductsView } from './ProductsView'
 
 export function CaloriesView() {
   const { profile, foodLogs, savedProducts, logFoodToday, deleteFoodLog } = useData()
@@ -175,6 +176,8 @@ export function CaloriesView() {
           </ul>
         )}
       </div>
+
+      <ProductsView />
     </div>
   )
 }

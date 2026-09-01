@@ -12,7 +12,6 @@ const NAV: { id: CabinetTab; label: string }[] = [
   { id: 'month', label: 'Месячная статистика' },
   { id: 'all', label: 'Статистика за всё время' },
   { id: 'calories', label: 'Учет калорий' },
-  { id: 'products', label: 'Продукты' },
   { id: 'diary', label: 'Дневник' },
 ]
 
