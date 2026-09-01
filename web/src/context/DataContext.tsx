@@ -18,6 +18,7 @@ type DataContextValue = {
   completions: TaskCompletion[]
   weightLogs: WeightLog[]
   foodLogs: FoodLog[]
+  foodHistoryLogs: FoodLog[]
   savedProducts: SavedProduct[]
   loading: boolean
   error: string | null
@@ -45,6 +46,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
+  const [foodHistoryLogs, setFoodHistoryLogs] = useState<FoodLog[]>([])
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +55,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!user) return
     const client = requireSupabase()
     const today = localISODate()
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, productsRes] = await Promise.all([
+    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes] = await Promise.all([
       client.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       client.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
       client.from('task_completions').select('*').eq('user_id', user.id),
@@ -61,6 +63,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ascending: false,
       }),
       client.from('daily_food_logs').select('*').eq('user_id', user.id).eq('logged_on', today),
+      client
+        .from('daily_food_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('logged_on', { ascending: false })
+        .order('created_at'),
       client.from('saved_products').select('*').eq('user_id', user.id).order('name'),
     ])
 
@@ -70,6 +78,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       completionsRes.error?.message ||
       weightRes.error?.message ||
       foodRes.error?.message ||
+      foodHistoryRes.error?.message ||
       productsRes.error?.message
     if (firstError) {
       setError(firstError)
@@ -98,6 +107,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCompletions((completionsRes.data ?? []) as TaskCompletion[])
     setWeightLogs((weightRes.data ?? []) as WeightLog[])
     setFoodLogs((foodRes.data ?? []) as FoodLog[])
+    setFoodHistoryLogs((foodHistoryRes.data ?? []) as FoodLog[])
     setSavedProducts((productsRes.data ?? []) as SavedProduct[])
     setError(null)
   }, [user])
@@ -109,12 +119,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setCompletions([])
       setWeightLogs([])
       setFoodLogs([])
+      setFoodHistoryLogs([])
       setSavedProducts([])
       setLoading(false)
       return
     }
     setLoading(true)
     refresh().finally(() => setLoading(false))
+  }, [user, refresh])
+
+  useEffect(() => {
+    if (!user) return
+
+    let timeout: number
+    const scheduleRefreshAtMidnight = () => {
+      const now = new Date()
+      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      timeout = window.setTimeout(async () => {
+        await refresh()
+        scheduleRefreshAtMidnight()
+      }, nextMidnight.getTime() - now.getTime())
+    }
+
+    scheduleRefreshAtMidnight()
+    return () => window.clearTimeout(timeout)
   }, [user, refresh])
 
   const value = useMemo<DataContextValue>(
@@ -124,6 +152,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       completions,
       weightLogs,
       foodLogs,
+      foodHistoryLogs,
       savedProducts,
       loading,
       error,
@@ -259,6 +288,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (insError) throw insError
         setFoodLogs((prev) => [...prev, data as FoodLog])
+        setFoodHistoryLogs((prev) => [...prev, data as FoodLog])
       },
       async deleteFoodLog(id) {
         const { error: delError } = await requireSupabase()
@@ -267,6 +297,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .eq('id', id)
         if (delError) throw delError
         setFoodLogs((prev) => prev.filter((f) => f.id !== id))
+        setFoodHistoryLogs((prev) => prev.filter((f) => f.id !== id))
       },
       async addSavedProduct(name, caloriesPer100g) {
         if (!user) return
@@ -293,7 +324,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSavedProducts((prev) => prev.filter((product) => product.id !== id))
       },
     }),
-    [profile, tasks, completions, weightLogs, foodLogs, savedProducts, loading, error, refresh, user],
+    [
+      profile,
+      tasks,
+      completions,
+      weightLogs,
+      foodLogs,
+      foodHistoryLogs,
+      savedProducts,
+      loading,
+      error,
+      refresh,
+      user,
+    ],
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

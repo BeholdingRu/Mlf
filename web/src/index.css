@@ -544,6 +544,106 @@ nav {
   gap: 16px;
 }
 
+.diary-view {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.diary-calendar {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.calendar-head,
+.diary-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.calendar-head h2,
+.diary-list-head h2 {
+  font-size: 18px;
+  text-align: center;
+}
+
+.calendar-nav {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--moss-deep);
+  font-size: 18px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 16px;
+}
+
+.calendar-weekday {
+  padding-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.calendar-day:hover {
+  background: var(--info-bg);
+}
+
+.calendar-day.has-food {
+  background: var(--done);
+  color: var(--done-ink);
+  font-weight: 700;
+}
+
+.calendar-day.today {
+  border-color: var(--moss);
+}
+
+.calendar-day.selected {
+  background: var(--moss);
+  color: #fff;
+}
+
+.calendar-hint,
+.diary-list-head p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.diary-food-list {
+  min-height: 160px;
+}
+
+.diary-list-head {
+  margin-bottom: 12px;
+}
+
+.diary-list-head p {
+  margin-top: 4px;
+}
+
 .food-form h3 {
   font-size: 16px;
   margin: 0;
@@ -1032,6 +1132,19 @@ nav {
   .calories-info {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .diary-view {
+    grid-template-columns: 1fr;
+  }
+
+  .diary-calendar {
+    padding: 12px;
+  }
+
+  .calendar-head h2,
+  .diary-list-head h2 {
+    font-size: 16px;
   }
 
   .info-item .value {
