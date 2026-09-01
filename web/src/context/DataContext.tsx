@@ -28,7 +28,8 @@ type DataContextValue = {
   addTask: (title: string, habitDays: number) => Promise<void>
   updateTask: (id: string, patch: { title?: string; habit_days?: number }) => Promise<void>
   deleteTask: (id: string) => Promise<void>
-  saveWeightSettings: (enabled: boolean, target: number | null) => Promise<void>
+  saveWeightSettings: (target: number | null) => Promise<void>
+  saveWeightVisibility: (enabled: boolean) => Promise<void>
   logTodayWeight: (value: number) => Promise<void>
   saveCaloriesNorm: (norm: number | null) => Promise<void>
   saveDesiredWeight: (desired: number | null) => Promise<void>
@@ -209,7 +210,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setTasks((prev) => prev.filter((t) => t.id !== id))
         setCompletions((prev) => prev.filter((c) => c.task_id !== id))
       },
-      async saveWeightSettings(enabled, target) {
+      async saveWeightSettings(target) {
         if (!user || !profile) return
         const started =
           profile.weight_started_on ??
@@ -217,10 +218,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { data, error: updError } = await requireSupabase()
           .from('profiles')
           .update({
-            weight_enabled: enabled,
             target_weight: target,
             weight_started_on: started,
           })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
+      async saveWeightVisibility(enabled) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({ weight_enabled: enabled })
           .eq('id', user.id)
           .select('*')
           .single()

@@ -36,7 +36,7 @@ export function CabinetPage() {
     tab === 'daily'
       ? 'Ежедневные задачи'
       : tab === 'all'
-        ? 'Статистика за всё время'
+        ? 'Статистика'
         : tab === 'calories'
           ? 'Учет калорий'
           : tab === 'products'

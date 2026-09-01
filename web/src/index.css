@@ -824,6 +824,12 @@ nav {
   margin-top: 4px;
 }
 
+.diary-summary-value {
+  color: var(--moss-deep);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .food-form h3 {
   font-size: 16px;
   margin: 0;

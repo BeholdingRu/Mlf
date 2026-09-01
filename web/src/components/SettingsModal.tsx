@@ -17,6 +17,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     updateTask,
     deleteTask,
     saveWeightSettings,
+    saveWeightVisibility: persistWeightVisibility,
     logTodayWeight,
     saveCaloriesNorm,
     saveDesiredWeight,
@@ -58,12 +59,24 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setError(null)
     try {
       const parsed = target.trim() === '' ? null : Number(target.replace(',', '.'))
-      if (enabled && (parsed == null || !Number.isFinite(parsed) || parsed <= 0)) {
-        throw new Error('Укажите значение веса в настройках')
+      if (parsed != null && (!Number.isFinite(parsed) || parsed <= 0)) {
+        throw new Error('Укажите начальный вес больше нуля')
       }
-      await saveWeightSettings(enabled, parsed)
+      await saveWeightSettings(parsed)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить вес')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveWeightVisibility() {
+    setBusy(true)
+    setError(null)
+    try {
+      await persistWeightVisibility(enabled)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить настройку отображения')
     } finally {
       setBusy(false)
     }
@@ -201,15 +214,17 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         </section>
 
         <section className="settings-block">
-          <h3>Текущий вес</h3>
           <label className="toggle">
             <input
               type="checkbox"
               checked={enabled}
               onChange={(e) => setEnabled(e.target.checked)}
             />
-            Показывать блок с весом в кабинете
+            Показывать данные о весе в кабинете и статистике
           </label>
+          <button type="button" className="primary compact" onClick={saveWeightVisibility} disabled={busy}>
+            Сохранить отображение
+          </button>
           
           <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
             <div>

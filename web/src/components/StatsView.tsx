@@ -9,7 +9,7 @@ export function StatsView() {
   return (
     <section>
       <header className="page-head">
-        <h2>Статистика за всё время</h2>
+        <h2>Статистика</h2>
         <p>Сколько дней вы отмечали каждую задачу</p>
       </header>
 

@@ -8,7 +8,7 @@ type SidebarProps = {
 
 const NAV: { id: CabinetTab; label: string }[] = [
   { id: 'daily', label: 'Ежедневные задачи' },
-  { id: 'all', label: 'Статистика за всё время' },
+  { id: 'all', label: 'Статистика' },
   { id: 'calories', label: 'Учет калорий' },
   { id: 'products', label: 'Продукты' },
   { id: 'diary', label: 'Дневник' },

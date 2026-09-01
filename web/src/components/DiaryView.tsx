@@ -123,8 +123,14 @@ export function DiaryView() {
           <div>
             <h2>{selectedLabel}</h2>
             <p>
-              {selectedLogs.length ? `Всего: ${totalCalories.toFixed(0)} ккал` : 'Продукты не добавлялись'}
-              {selectedWeight ? ` · Вес: ${formatWeight(selectedWeight.value)} кг` : ''}
+              {selectedLogs.length ? (
+                <span className="diary-summary-value">Всего: {totalCalories.toFixed(0)} ккал</span>
+              ) : (
+                'Продукты не добавлялись'
+              )}
+              {selectedWeight && (
+                <span className="diary-summary-value"> · Вес: {formatWeight(selectedWeight.value)} кг</span>
+              )}
             </p>
           </div>
         </div>
