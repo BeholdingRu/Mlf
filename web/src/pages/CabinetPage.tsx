@@ -29,15 +29,11 @@ export function CabinetPage() {
   const heading =
     tab === 'daily'
       ? 'Ежедневные задачи'
-      : tab === 'week'
-        ? 'Недельная статистика'
-        : tab === 'month'
-          ? 'Месячная статистика'
-          : tab === 'all'
-            ? 'Статистика за всё время'
-            : tab === 'calories'
-              ? 'Учет калорий'
-              : 'Дневник'
+      : tab === 'all'
+        ? 'Статистика за всё время'
+        : tab === 'calories'
+          ? 'Учет калорий'
+          : 'Дневник'
 
   return (
     <div className="cabinet">
@@ -52,7 +48,7 @@ export function CabinetPage() {
         {loading && <p className="muted">Загрузка кабинета…</p>}
         {error && <p className="banner error">{error}</p>}
         {!loading && tab === 'daily' && <DailyTasks />}
-        {!loading && (tab === 'week' || tab === 'month' || tab === 'all') && <StatsView tab={tab} />}
+        {!loading && tab === 'all' && <StatsView />}
         {!loading && tab === 'calories' && <CaloriesView />}
         {!loading && tab === 'diary' && <DiaryView />}
       </main>
