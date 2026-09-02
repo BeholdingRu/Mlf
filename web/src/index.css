@@ -1775,6 +1775,7 @@ nav {
   }
 
   .sidebar .sidebar-settings-button {
+    display: grid;
     position: absolute;
     top: 12px;
     right: 12px;
