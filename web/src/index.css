@@ -1660,6 +1660,13 @@ nav {
     overflow: hidden;
   }
 
+  .modal-backdrop {
+    inset: 0 auto auto 0;
+    width: calc(100vw / var(--font-scale));
+    height: calc(100dvh / var(--font-scale));
+    padding: calc(10px / var(--font-scale));
+  }
+
   .cabinet {
     min-height: 100%;
     height: 100dvh;
@@ -2064,6 +2071,10 @@ nav {
     padding: 14px;
   }
 
+  .modal-backdrop {
+    padding: calc(10px / var(--font-scale));
+  }
+
   .auth-card {
     padding: 20px;
   }
@@ -2219,6 +2230,10 @@ nav {
 
   .modal {
     width: calc((100vw - 16px) / var(--font-scale));
+  }
+
+  .modal-backdrop {
+    padding: calc(8px / var(--font-scale));
   }
 
   .icon-close {
