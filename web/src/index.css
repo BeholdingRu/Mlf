@@ -61,144 +61,62 @@
   --overlay: rgba(0, 0, 0, 0.65);
 }
 
-:root[data-theme='blue'] {
-  --ink: #172554;
-  --muted: #526581;
-  --paper: #f5f8ff;
-  --panel: #ffffff;
-  --line: #ced8ec;
-  --moss: #2563eb;
-  --moss-deep: #1d4ed8;
-  --leaf: #3b82f6;
-  --done: #dbeafe;
-  --done-ink: #1e3a8a;
-  --warn: #b42318;
-  --warn-bg: #fee4e2;
-  --info-bg: #e0edff;
-  --shadow: 0 12px 40px rgba(37, 99, 235, 0.1);
-  --body-glow: #dbeafe;
-  --body-top: #eaf2ff;
-  --sidebar: #f1f6ff;
-  --surface: #ffffff;
-  --surface-muted: #f7faff;
-  --surface-disabled: #edf2fa;
-  --track: #dbe6f5;
-  --progress-track: #e5edf9;
-  --done-line: #a9c7f5;
+:root[data-theme='dark-blue'] {
+  color-scheme: dark;
+  --ink: #e0e7ff;
+  --muted: #94a3b8;
+  --paper: #0f172a;
+  --panel: #1e293b;
+  --line: #334155;
+  --moss: #3b82f6;
+  --moss-deep: #60a5fa;
+  --leaf: #2563eb;
+  --done: #1e3a5f;
+  --done-ink: #bfdbfe;
+  --warn: #fb7185;
+  --warn-bg: #4c1d24;
+  --info-bg: #1e3a5f;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  --body-glow: #1e3a5f;
+  --body-top: #0c1220;
+  --sidebar: #0c1220;
+  --surface: #1e293b;
+  --surface-muted: #293548;
+  --surface-disabled: #334155;
+  --track: #475569;
+  --progress-track: #475569;
+  --done-line: #1e40af;
   --on-accent: #ffffff;
-  --overlay: rgba(23, 37, 84, 0.38);
+  --overlay: rgba(0, 0, 0, 0.7);
 }
 
-:root[data-theme='purple'] {
-  --ink: #2e1065;
-  --muted: #6d6284;
-  --paper: #faf7ff;
-  --panel: #ffffff;
-  --line: #ded1ef;
-  --moss: #7c3aed;
-  --moss-deep: #6d28d9;
-  --leaf: #a855f7;
-  --done: #ede9fe;
-  --done-ink: #4c1d95;
-  --warn: #be185d;
-  --warn-bg: #fce7f3;
-  --info-bg: #f1edff;
-  --shadow: 0 12px 40px rgba(124, 58, 237, 0.1);
-  --body-glow: #ede9fe;
-  --body-top: #f5f0ff;
-  --sidebar: #f8f3ff;
-  --surface: #ffffff;
-  --surface-muted: #fcfaff;
-  --surface-disabled: #f4eff9;
-  --track: #e6dff1;
-  --progress-track: #eee9f5;
-  --done-line: #cfc1f2;
+:root[data-theme='dark-purple'] {
+  color-scheme: dark;
+  --ink: #e9d5ff;
+  --muted: #a8a0b8;
+  --paper: #1e1b2e;
+  --panel: #2a2438;
+  --line: #3d3551;
+  --moss: #a78bfa;
+  --moss-deep: #c4b5fd;
+  --leaf: #8b5cf6;
+  --done: #3d2b5f;
+  --done-ink: #ddd6fe;
+  --warn: #fb7185;
+  --warn-bg: #4c1d24;
+  --info-bg: #3d2b5f;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  --body-glow: #2e1f47;
+  --body-top: #181525;
+  --sidebar: #181525;
+  --surface: #2a2438;
+  --surface-muted: #352d45;
+  --surface-disabled: #3d3551;
+  --track: #4a4560;
+  --progress-track: #4a4560;
+  --done-line: #6d28d9;
   --on-accent: #ffffff;
-  --overlay: rgba(46, 16, 101, 0.38);
-}
-
-:root[data-theme='rose'] {
-  --ink: #4a1027;
-  --muted: #7d5967;
-  --paper: #fff7f8;
-  --panel: #ffffff;
-  --line: #f0d1da;
-  --moss: #db2777;
-  --moss-deep: #be185d;
-  --leaf: #f43f5e;
-  --done: #fce7f3;
-  --done-ink: #9d174d;
-  --warn: #c2410c;
-  --warn-bg: #ffedd5;
-  --info-bg: #fceaf1;
-  --shadow: 0 12px 40px rgba(219, 39, 119, 0.1);
-  --body-glow: #fce7f3;
-  --body-top: #fff0f4;
-  --sidebar: #fff4f6;
-  --surface: #ffffff;
-  --surface-muted: #fffafb;
-  --surface-disabled: #f9eff2;
-  --track: #f0dfe5;
-  --progress-track: #f7e8ed;
-  --done-line: #f2b8ca;
-  --on-accent: #ffffff;
-  --overlay: rgba(74, 16, 39, 0.38);
-}
-
-:root[data-theme='amber'] {
-  --ink: #422006;
-  --muted: #786144;
-  --paper: #fffbeb;
-  --panel: #fffef9;
-  --line: #ead8ad;
-  --moss: #d97706;
-  --moss-deep: #b45309;
-  --leaf: #f59e0b;
-  --done: #fef3c7;
-  --done-ink: #78350f;
-  --warn: #b91c1c;
-  --warn-bg: #fee2e2;
-  --info-bg: #fef3d7;
-  --shadow: 0 12px 40px rgba(180, 83, 9, 0.1);
-  --body-glow: #fef3c7;
-  --body-top: #fff7de;
-  --sidebar: #fff9e8;
-  --surface: #fffef9;
-  --surface-muted: #fffdf5;
-  --surface-disabled: #f7f0dc;
-  --track: #efe3c5;
-  --progress-track: #f6eedb;
-  --done-line: #e7c978;
-  --on-accent: #ffffff;
-  --overlay: rgba(66, 32, 6, 0.38);
-}
-
-:root[data-theme='ocean'] {
-  --ink: #103d3d;
-  --muted: #587475;
-  --paper: #f0fdfa;
-  --panel: #fbfffe;
-  --line: #bfe1dc;
-  --moss: #0f766e;
-  --moss-deep: #115e59;
-  --leaf: #14b8a6;
-  --done: #ccfbf1;
-  --done-ink: #134e4a;
-  --warn: #c2410c;
-  --warn-bg: #ffedd5;
-  --info-bg: #d9f8f2;
-  --shadow: 0 12px 40px rgba(15, 118, 110, 0.1);
-  --body-glow: #ccfbf1;
-  --body-top: #e1faf6;
-  --sidebar: #ebfbf8;
-  --surface: #fbfffe;
-  --surface-muted: #f5fffd;
-  --surface-disabled: #e8f5f2;
-  --track: #d2eae5;
-  --progress-track: #e1f2ef;
-  --done-line: #93ddd2;
-  --on-accent: #ffffff;
-  --overlay: rgba(16, 61, 61, 0.38);
+  --overlay: rgba(0, 0, 0, 0.7);
 }
 
 * {
@@ -677,6 +595,35 @@ nav {
 .calories-view {
   display: grid;
   gap: 24px;
+}
+
+.calories-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.calories-tab {
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.calories-tab:hover {
+  color: var(--ink);
+}
+
+.calories-tab.active {
+  color: var(--moss-deep);
+  border-bottom-color: var(--moss-deep);
 }
 
 .calories-header {
@@ -1484,6 +1431,16 @@ nav {
   .calories-info {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .calories-tabs {
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .calories-tab {
+    padding: 10px 14px;
+    font-size: 13px;
   }
 
   .diary-view {

@@ -31,6 +31,7 @@ export function DiaryView() {
   )
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [visibleMonth, setVisibleMonth] = useState<Date | null>(null)
+  const [showProducts, setShowProducts] = useState(false)
   const activeSelectedDate = selectedDate ?? latestDate
   const activeMonth = visibleMonth ?? (() => {
     const date = latestDate ? parseISODate(latestDate) : new Date()
@@ -134,28 +135,43 @@ export function DiaryView() {
             </p>
           </div>
         </div>
-        {!selectedLogs.length ? (
-          <p className="empty">В этот день продукты не добавлялись.</p>
-        ) : (
-          <ul>
-            {selectedLogs.map((food) => {
-              const consumed = (food.weight_grams / 100) * food.calories_per_100g
-              return (
-                <li key={food.id} className="food-item">
-                  <div className="food-details">
-                    <div className="food-name">{food.product_name}</div>
-                    <div className="food-info">
-                      <span>{food.weight_grams}г</span>
-                      <span>•</span>
-                      <span>{food.calories_per_100g} ккал/100г</span>
-                      <span>•</span>
-                      <span className="consumed">{consumed.toFixed(0)} ккал</span>
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+        {selectedLogs.length > 0 && (
+          <button
+            type="button"
+            className="primary compact"
+            onClick={() => setShowProducts(!showProducts)}
+            aria-expanded={showProducts}
+            style={{ marginBottom: '12px' }}
+          >
+            {showProducts ? 'Скрыть продукты' : 'Потребленные продукты'}
+          </button>
+        )}
+        {showProducts && (
+          <>
+            {!selectedLogs.length ? (
+              <p className="empty">В этот день продукты не добавлялись.</p>
+            ) : (
+              <ul>
+                {selectedLogs.map((food) => {
+                  const consumed = (food.weight_grams / 100) * food.calories_per_100g
+                  return (
+                    <li key={food.id} className="food-item">
+                      <div className="food-details">
+                        <div className="food-name">{food.product_name}</div>
+                        <div className="food-info">
+                          <span>{food.weight_grams}г</span>
+                          <span>•</span>
+                          <span>{food.calories_per_100g} ккал/100г</span>
+                          <span>•</span>
+                          <span className="consumed">{consumed.toFixed(0)} ккал</span>
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </>
         )}
       </div>
     </section>
