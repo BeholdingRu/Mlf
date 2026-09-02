@@ -59,13 +59,13 @@ export function CabinetPage() {
 
   return (
     <div className="cabinet">
-      <Sidebar tab={tab} onTab={setTab} />
+      <Sidebar tab={tab} onTab={setTab} onOpenSettings={() => setSettingsOpen(true)} />
       <main className="main">
         <header className="topbar">
           <h1>{heading}</h1>
           <button
             type="button"
-            className="primary settings-button"
+            className="primary settings-button topbar-settings-button"
             onClick={() => setSettingsOpen(true)}
             aria-label="Настройки"
             title="Настройки"

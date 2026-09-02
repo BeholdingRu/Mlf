@@ -4,6 +4,7 @@ import type { CabinetTab } from '../lib/types'
 type SidebarProps = {
   tab: CabinetTab
   onTab: (tab: CabinetTab) => void
+  onOpenSettings: () => void
 }
 
 const NAV: { id: CabinetTab; label: string }[] = [
@@ -14,10 +15,19 @@ const NAV: { id: CabinetTab; label: string }[] = [
   { id: 'diary', label: 'Дневник' },
 ]
 
-export function Sidebar({ tab, onTab }: SidebarProps) {
+export function Sidebar({ tab, onTab, onOpenSettings }: SidebarProps) {
   return (
     <aside className="sidebar">
       <WeightWidget />
+      <button
+        type="button"
+        className="primary settings-button sidebar-settings-button"
+        onClick={onOpenSettings}
+        aria-label="Настройки"
+        title="Настройки"
+      >
+        <span aria-hidden="true">⚙</span>
+      </button>
       <nav>
         {NAV.map((item) => (
           <button

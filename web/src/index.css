@@ -263,6 +263,10 @@ input:not([type]) {
   line-height: 1;
 }
 
+.sidebar-settings-button {
+  display: none;
+}
+
 .primary:disabled,
 .check:disabled {
   opacity: 0.7;
@@ -1685,6 +1689,8 @@ nav {
   }
 
   .sidebar {
+    --mobile-weight-control-height: 60px;
+    position: relative;
     padding: 12px;
     gap: 8px;
     flex-shrink: 0;
@@ -1713,7 +1719,8 @@ nav {
   }
 
   .weight-btn {
-    padding: 10px;
+    min-height: var(--mobile-weight-control-height);
+    padding: 10px 60px 10px 10px;
     font-size: 14px;
   }
 
@@ -1763,15 +1770,20 @@ nav {
     font-size: 14px;
   }
 
-  .topbar .settings-button {
-    position: fixed;
-    top: max(12px, env(safe-area-inset-top));
+  .topbar-settings-button {
+    display: none;
+  }
+
+  .sidebar .sidebar-settings-button {
+    position: absolute;
+    top: 12px;
     right: 12px;
-    z-index: 10;
-    width: 44px;
-    height: 44px;
+    z-index: 1;
+    width: 52px;
+    height: var(--mobile-weight-control-height);
     padding: 0;
     font-size: 24px;
+    border-radius: 0 12px 12px 0;
   }
 
   .task-list {
@@ -2059,6 +2071,11 @@ nav {
     gap: 6px;
   }
 
+  .sidebar .sidebar-settings-button {
+    top: 10px;
+    right: 10px;
+  }
+
   .main {
     padding: 10px 12px var(--mobile-bottom-scroll-padding);
   }
@@ -2240,11 +2257,11 @@ nav {
     font-size: 13px;
   }
 
-  .topbar .settings-button {
-    top: max(8px, env(safe-area-inset-top));
+  .sidebar .sidebar-settings-button {
+    top: 8px;
     right: 8px;
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: var(--mobile-weight-control-height);
     padding: 0;
     font-size: 22px;
   }
