@@ -9,11 +9,16 @@ create table if not exists public.profiles (
   weight_started_on date,
   daily_calories_norm numeric(6, 1),
   theme text not null default 'green',
+  font_scale numeric(3, 2) not null default 1 check (font_scale in (0.9, 1, 1.1, 1.2)),
   created_at timestamptz not null default now()
 );
 
 alter table public.profiles
   add column if not exists theme text not null default 'green';
+
+alter table public.profiles
+  add column if not exists font_scale numeric(3, 2) not null default 1
+  check (font_scale in (0.9, 1, 1.1, 1.2));
 
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),

@@ -31,6 +31,7 @@
   --sans: 'Manrope', system-ui, sans-serif;
   --serif: 'Fraunces', Georgia, serif;
   --vh: 1vh;
+  --font-scale: 1;
 }
 
 :root[data-theme='dark'] {
@@ -140,6 +141,12 @@ body {
   background:
     radial-gradient(circle at top left, var(--body-glow) 0, transparent 42%),
     linear-gradient(180deg, var(--body-top) 0%, var(--paper) 40%);
+}
+
+@supports (zoom: 1) {
+  #root {
+    zoom: var(--font-scale);
+  }
 }
 
 h1,
@@ -459,6 +466,117 @@ nav {
   gap: 12px;
 }
 
+.daily-tasks-view {
+  display: grid;
+  gap: 16px;
+}
+
+.stats-view {
+  display: grid;
+  gap: 16px;
+}
+
+.daily-tasks-tabs {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  border-bottom: 2px solid var(--line);
+}
+
+.daily-tasks-tab {
+  margin-bottom: -2px;
+  padding: 12px 20px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.daily-tasks-tab:hover {
+  color: var(--ink);
+}
+
+.daily-tasks-tab.active {
+  border-bottom-color: var(--moss-deep);
+  color: var(--moss-deep);
+}
+
+.task-settings-tab {
+  width: 44px;
+  padding-right: 0;
+  padding-left: 0;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.statistics-tab {
+  width: 48px;
+  padding-right: 0;
+  padding-left: 0;
+  line-height: 1;
+}
+
+.statistics-tab-icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+:root[data-theme^='dark'] .statistics-tab-icon {
+  filter: invert(1);
+}
+
+.task-settings {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 720px);
+}
+
+.task-settings > .hint {
+  margin: 0;
+}
+
+.task-editor-add,
+.task-editor-row {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+}
+
+.task-editor-add {
+  grid-template-columns: minmax(0, 1fr) 88px auto;
+}
+
+.task-editor-row {
+  grid-template-columns: minmax(0, 1fr) 88px auto auto;
+}
+
+.task-settings-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.weight-settings {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 420px);
+}
+
+.weight-settings > div {
+  display: grid;
+  gap: 8px;
+}
+
 .task-row {
   display: grid;
   grid-template-columns: auto 1fr minmax(220px, 280px);
@@ -559,6 +677,7 @@ nav {
 }
 
 .weight-chart {
+  width: min(100%, 720px);
   margin-top: 16px;
   padding: 16px;
   background: var(--surface);
@@ -584,9 +703,9 @@ nav {
 
 .chart-svg {
   width: 100%;
-  min-height: 250px;
+  min-height: 190px;
   display: block;
-  margin: 16px 0;
+  margin: 12px 0;
 }
 
 .weight-chart-empty {
@@ -866,6 +985,31 @@ nav {
   font-size: 24px;
   font-weight: 700;
   color: var(--ink);
+}
+
+.daily-norm-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.daily-norm-editor input {
+  width: min(100%, 150px);
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.daily-norm-error {
+  color: var(--warn);
+  font-size: 12px;
 }
 
 .info-item .label.remaining.positive {
@@ -1377,6 +1521,44 @@ nav {
   gap: 8px;
 }
 
+.font-scale-setting {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.font-scale-setting h4,
+.font-scale-setting p {
+  margin: 0;
+}
+
+.font-scale-setting h4 {
+  font-size: 15px;
+}
+
+.font-scale-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.font-scale-option {
+  min-width: 62px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+}
+
+.font-scale-option.active {
+  border-color: var(--moss);
+  background: var(--info-bg);
+  color: var(--moss-deep);
+}
+
 .theme-option {
   display: flex;
   align-items: center;
@@ -1408,22 +1590,6 @@ nav {
 
 .theme-swatches span {
   flex: 1;
-}
-
-.add-row,
-.settings-tasks li {
-  display: grid;
-  grid-template-columns: 1fr 88px auto auto;
-  gap: 8px;
-  align-items: center;
-}
-
-.settings-tasks {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
 }
 
 .days {
@@ -1468,11 +1634,6 @@ nav {
     grid-column: 1 / -1;
     justify-self: start;
     font-size: 24px;
-  }
-
-  .add-row,
-  .settings-tasks li {
-    grid-template-columns: 1fr auto auto;
   }
 
   .days {
@@ -1627,14 +1788,46 @@ nav {
     padding: 12px 0;
   }
 
-  .add-row,
-  .settings-tasks li {
-    grid-template-columns: 1fr auto;
+  .daily-tasks-tabs {
+    gap: 4px;
+  }
+
+  .daily-tasks-tab {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .task-settings-tab {
+    width: 40px;
+    padding-right: 0;
+    padding-left: 0;
+    font-size: 19px;
+  }
+
+  .statistics-tab {
+    width: 40px;
+  }
+
+  .statistics-tab-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .task-editor-add {
+    grid-template-columns: minmax(0, 1fr) 72px;
+  }
+
+  .task-editor-add button {
+    grid-column: 1 / -1;
+  }
+
+  .task-editor-row {
+    grid-template-columns: minmax(0, 1fr) 72px;
     gap: 6px;
   }
 
-  .settings-tasks {
-    gap: 6px;
+  .task-editor-row > :first-child {
+    grid-column: 1 / -1;
   }
 
   .days {

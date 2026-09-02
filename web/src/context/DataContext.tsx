@@ -21,7 +21,7 @@ import type {
   TaskCompletion,
   WeightLog,
 } from '../lib/types'
-import type { ThemeId } from '../lib/theme'
+import type { FontScale, ThemeId } from '../lib/theme'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { useAuth } from './AuthContext'
 
@@ -48,6 +48,7 @@ type DataContextValue = {
   saveCaloriesNorm: (norm: number | null) => Promise<void>
   saveDesiredWeight: (desired: number | null) => Promise<void>
   saveTheme: (theme: ThemeId) => Promise<void>
+  saveFontScale: (scale: FontScale) => Promise<void>
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
   addSavedProduct: (name: string, caloriesPer100g: number) => Promise<void>
@@ -414,6 +415,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { data, error: updError } = await requireSupabase()
           .from('profiles')
           .update({ theme })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
+      async saveFontScale(fontScale) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({ font_scale: fontScale })
           .eq('id', user.id)
           .select('*')
           .single()

@@ -9,7 +9,7 @@ import { DiaryView } from '../components/DiaryView'
 import { useData } from '../context/DataContext'
 import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
-import { applyTheme, normalizeTheme } from '../lib/theme'
+import { applyFontScale, applyTheme, normalizeFontScale, normalizeTheme } from '../lib/theme'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
 const CABINET_TABS: CabinetTab[] = ['daily', 'all', 'calories', 'training', 'diary']
@@ -37,7 +37,9 @@ export function CabinetPage() {
   }, [tab, viewport.isMobile])
 
   useEffect(() => {
-    if (profile) applyTheme(normalizeTheme(profile.theme))
+    if (!profile) return
+    applyTheme(normalizeTheme(profile.theme))
+    applyFontScale(normalizeFontScale(profile.font_scale))
   }, [profile])
 
   useEffect(() => {

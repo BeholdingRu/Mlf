@@ -9,6 +9,7 @@ export type Profile = {
   weight_started_on: string | null
   daily_calories_norm: number | null
   theme: ThemeId
+  font_scale: number
 }
 
 export type Task = {

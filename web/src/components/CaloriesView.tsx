@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { ProductsView } from './ProductsView'
 
@@ -13,14 +13,20 @@ function getSavedCaloriesSubTab(): CaloriesSubTab {
 }
 
 export function CaloriesView() {
-  const { profile, foodLogs, savedProducts, logFoodToday, deleteFoodLog } = useData()
+  const { profile, foodLogs, savedProducts, logFoodToday, deleteFoodLog, saveCaloriesNorm } = useData()
   const [subTab, setSubTab] = useState<CaloriesSubTab>(getSavedCaloriesSubTab)
   const [productName, setProductName] = useState('')
   const [weightGrams, setWeightGrams] = useState('')
   const [caloriesPer100g, setCaloriesPer100g] = useState('')
+  const [dailyNormInput, setDailyNormInput] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [savingNorm, setSavingNorm] = useState(false)
+  const [editingNorm, setEditingNorm] = useState(false)
+  const [normError, setNormError] = useState<string | null>(null)
+  const dailyNormInputRef = useRef<HTMLInputElement>(null)
 
   const dailyNorm = profile?.daily_calories_norm ?? 0
+  const displayedDailyNorm = dailyNormInput ?? (profile?.daily_calories_norm != null ? String(profile.daily_calories_norm) : '')
 
   const totalConsumed = foodLogs.reduce((sum, food) => {
     const consumed = (food.weight_grams / 100) * food.calories_per_100g
@@ -32,6 +38,32 @@ export function CaloriesView() {
   useEffect(() => {
     window.sessionStorage.setItem(CALORIES_SUB_TAB_STORAGE_KEY, subTab)
   }, [subTab])
+
+  const handleSaveDailyNorm = async () => {
+    const parsed = displayedDailyNorm.trim() === '' ? null : Number(displayedDailyNorm.replace(',', '.'))
+    if (parsed != null && (!Number.isFinite(parsed) || parsed <= 0)) {
+      setNormError('Укажите положительное значение для дневной нормы калорий')
+      return
+    }
+
+    setSavingNorm(true)
+    setNormError(null)
+    try {
+      await saveCaloriesNorm(parsed)
+      setDailyNormInput(parsed != null ? String(parsed) : '')
+      setEditingNorm(false)
+    } catch (err) {
+      setNormError(err instanceof Error ? err.message : 'Не удалось сохранить дневную норму калорий')
+    } finally {
+      setSavingNorm(false)
+    }
+  }
+
+  const handleEditDailyNorm = () => {
+    setNormError(null)
+    setEditingNorm(true)
+    requestAnimationFrame(() => dailyNormInputRef.current?.focus())
+  }
 
   const handleAddFood = async () => {
     if (!productName.trim() || !weightGrams || !caloriesPer100g) {
@@ -97,8 +129,29 @@ export function CaloriesView() {
           <div className="calories-header">
             <div className="calories-info">
               <div className="info-item">
-                <span className="label">Дневная норма калорий:</span>
-                <span className="value">{dailyNorm.toFixed(0)}</span>
+                <label className="label" htmlFor="daily-calories-norm">Дневная норма калорий:</label>
+                <div className="daily-norm-editor">
+                  <input
+                    id="daily-calories-norm"
+                    ref={dailyNormInputRef}
+                    type="number"
+                    step="1"
+                    min="1"
+                    value={displayedDailyNorm}
+                    onChange={(e) => setDailyNormInput(e.target.value)}
+                    disabled={!editingNorm || savingNorm}
+                    placeholder="Не задана"
+                  />
+                  <button
+                    type="button"
+                    className="primary compact"
+                    onClick={editingNorm ? handleSaveDailyNorm : handleEditDailyNorm}
+                    disabled={savingNorm}
+                  >
+                    {savingNorm ? 'Сохранение…' : editingNorm ? 'Сохранить' : 'Редактировать'}
+                  </button>
+                </div>
+                {normError && <span className="daily-norm-error">{normError}</span>}
               </div>
               <div className="info-item">
                 <span className="label">Потреблено:</span>
