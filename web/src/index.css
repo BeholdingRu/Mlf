@@ -253,6 +253,16 @@ input:not([type]) {
   font-weight: 700;
 }
 
+.settings-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+}
+
 .primary:disabled,
 .check:disabled {
   opacity: 0.7;
@@ -1753,6 +1763,17 @@ nav {
     font-size: 14px;
   }
 
+  .topbar .settings-button {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    z-index: 10;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 24px;
+  }
+
   .task-list {
     gap: 10px;
   }
@@ -2217,6 +2238,15 @@ nav {
   .topbar button {
     padding: 10px 12px;
     font-size: 13px;
+  }
+
+  .topbar .settings-button {
+    top: max(8px, env(safe-area-inset-top));
+    right: 8px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    font-size: 22px;
   }
 
   nav {

@@ -63,8 +63,14 @@ export function CabinetPage() {
       <main className="main">
         <header className="topbar">
           <h1>{heading}</h1>
-          <button type="button" className="primary" onClick={() => setSettingsOpen(true)}>
-            Настройки
+          <button
+            type="button"
+            className="primary settings-button"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Настройки"
+            title="Настройки"
+          >
+            <span aria-hidden="true">⚙</span>
           </button>
         </header>
         {loading && <p className="muted">Загрузка кабинета…</p>}
