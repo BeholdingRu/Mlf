@@ -1693,9 +1693,7 @@ nav {
     position: relative;
     padding: 12px;
     gap: 8px;
-    flex-shrink: 0;
-    max-height: 25%;
-    overflow-y: auto;
+    flex: 0 0 auto;
   }
 
   .main {
@@ -2405,10 +2403,6 @@ nav {
 
 /* Обработка ориентации */
 @media (max-height: 500px) and (orientation: landscape) {
-  .sidebar {
-    max-height: 35%;
-  }
-
   .main {
     flex: 1;
   }
