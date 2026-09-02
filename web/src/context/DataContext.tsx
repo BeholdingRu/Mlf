@@ -38,6 +38,7 @@ type DataContextValue = {
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
   addSavedProduct: (name: string, caloriesPer100g: number) => Promise<void>
+  updateSavedProduct: (id: string, name: string, caloriesPer100g: number) => Promise<void>
   deleteSavedProduct: (id: string) => Promise<void>
 }
 
@@ -408,6 +409,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (insError) throw insError
         setSavedProducts((prev) =>
           [...prev, data as SavedProduct].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+        )
+      },
+      async updateSavedProduct(id, name, caloriesPer100g) {
+        const { data, error: updError } = await requireSupabase()
+          .from('saved_products')
+          .update({
+            name,
+            calories_per_100g: caloriesPer100g,
+          })
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setSavedProducts((prev) =>
+          prev.map((product) => (product.id === id ? (data as SavedProduct) : product))
+            .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
         )
       },
       async deleteSavedProduct(id) {
