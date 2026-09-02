@@ -14,6 +14,7 @@
   --warn: #8a3b2a;
   --warn-bg: #f8e4dd;
   --info-bg: #e7efe3;
+  --training-marker: #c69232;
   --shadow: 0 12px 40px rgba(40, 48, 32, 0.08);
   --body-glow: #e6efd9;
   --body-top: #efe8d6;
@@ -47,6 +48,7 @@
   --warn: #fda4af;
   --warn-bg: #4c2028;
   --info-bg: #253b3c;
+  --training-marker: #5c4215;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
   --body-glow: #1e3a3b;
   --body-top: #17252a;
@@ -76,6 +78,7 @@
   --warn: #fb7185;
   --warn-bg: #4c1d24;
   --info-bg: #1e3a5f;
+  --training-marker: #614718;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   --body-glow: #1e3a5f;
   --body-top: #0c1220;
@@ -105,6 +108,7 @@
   --warn: #fb7185;
   --warn-bg: #4c1d24;
   --info-bg: #3d2b5f;
+  --training-marker: #654c1e;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   --body-glow: #2e1f47;
   --body-top: #181525;
@@ -626,6 +630,213 @@ nav {
   border-bottom-color: var(--moss-deep);
 }
 
+.exercise-groups {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: min(100%, 320px);
+}
+
+.exercise-group {
+  position: relative;
+  min-height: 56px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 4px 12px rgba(40, 48, 32, 0.06);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.exercise-group:hover {
+  border-color: var(--moss);
+  box-shadow: 0 8px 20px rgba(40, 48, 32, 0.12);
+  transform: translateY(-2px);
+}
+
+.exercise-group.active {
+  border-color: var(--moss);
+  background: var(--info-bg);
+  color: var(--moss-deep);
+}
+
+.exercise-category {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 520px);
+}
+
+.training-planner {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.planner-content {
+  display: grid;
+  gap: 16px;
+}
+
+.planner-head h2,
+.planner-head p {
+  margin: 0;
+}
+
+.planner-head p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.planner-groups {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 520px);
+}
+
+.saved-exercises {
+  display: grid;
+  gap: 10px;
+}
+
+.saved-exercises h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.saved-exercise-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.saved-exercise-option {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.saved-exercise-option:hover:not(:disabled) {
+  border-color: var(--moss);
+  background: var(--info-bg);
+}
+
+.saved-exercise-option span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.today-workout {
+  width: min(100%, 620px);
+}
+
+.workout-exercise-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.workout-exercise-form {
+  display: grid;
+  gap: 10px;
+}
+
+.workout-exercise-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.exercise-execution {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.exercise-execution > button {
+  justify-self: start;
+}
+
+.exercise-completed {
+  background: var(--leaf);
+}
+
+.worked-weight {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--info-bg);
+  color: var(--moss-deep);
+  font-size: 13px;
+}
+
+.exercise-set-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.remaining-sets,
+.rest-countdown {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.remaining-sets strong,
+.rest-countdown {
+  color: var(--ink);
+}
+
+.rest-countdown {
+  background: var(--info-bg);
+  border-color: var(--moss);
+  font-weight: 700;
+}
+
+.workout-exercise-fields label {
+  min-width: 0;
+  grid-template-rows: minmax(29px, auto) auto;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workout-exercise-fields input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.workout-exercise-fields input:disabled {
+  background: var(--surface-disabled);
+  color: var(--muted);
+}
+
 .calories-header {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -759,6 +970,10 @@ nav {
   font-weight: 700;
 }
 
+.diary-calendar .calendar-day.has-training {
+  border-color: var(--training-marker);
+}
+
 .calendar-day.today {
   border-color: var(--moss);
 }
@@ -793,6 +1008,35 @@ nav {
   font-weight: 700;
 }
 
+.diary-food-list > .primary.compact {
+  margin: 0 8px 12px 0;
+}
+
+.diary-exercises-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.diary-exercises-controls .primary.compact {
+  margin: 0;
+}
+
+.diary-exercises ul {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.diary-exercises .food-info span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .food-form h3 {
   font-size: 16px;
   margin: 0;
@@ -810,6 +1054,16 @@ nav {
 }
 
 .form-group input {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.form-group select {
+  width: 100%;
   border: 1px solid var(--line);
   background: var(--surface);
   border-radius: 10px;
@@ -1447,6 +1701,14 @@ nav {
     grid-template-columns: 1fr;
   }
 
+  .training-planner {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-groups {
+    width: 100%;
+  }
+
   .diary-calendar {
     padding: 12px;
   }
@@ -1537,6 +1799,18 @@ nav {
   }
 
   .primary {
+    width: 100%;
+  }
+
+  .diary-exercises-controls {
+    align-items: stretch;
+  }
+
+  .diary-exercises-controls .worked-weight {
+    flex: 1 1 100%;
+  }
+
+  .exercise-execution > .worked-weight {
     width: 100%;
   }
 

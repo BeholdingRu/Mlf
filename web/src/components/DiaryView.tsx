@@ -20,10 +20,14 @@ const MONTHS = [
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 export function DiaryView() {
-  const { foodHistoryLogs, weightLogs } = useData()
+  const { foodHistoryLogs, weightLogs, scheduledExercises } = useData()
   const datesWithRecords = useMemo(
     () => new Set([...foodHistoryLogs, ...weightLogs].map((record) => record.logged_on)),
     [foodHistoryLogs, weightLogs],
+  )
+  const datesWithTraining = useMemo(
+    () => new Set(scheduledExercises.map((exercise) => exercise.planned_on)),
+    [scheduledExercises],
   )
   const latestDate = [...foodHistoryLogs, ...weightLogs].reduce<string | null>(
     (latest, record) => (!latest || record.logged_on > latest ? record.logged_on : latest),
@@ -32,6 +36,7 @@ export function DiaryView() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [visibleMonth, setVisibleMonth] = useState<Date | null>(null)
   const [showProducts, setShowProducts] = useState(false)
+  const [showExercises, setShowExercises] = useState(false)
   const activeSelectedDate = selectedDate ?? latestDate
   const activeMonth = visibleMonth ?? (() => {
     const date = latestDate ? parseISODate(latestDate) : new Date()
@@ -44,6 +49,15 @@ export function DiaryView() {
   const selectedWeight = activeSelectedDate
     ? weightLogs.find((weight) => weight.logged_on === activeSelectedDate) ?? null
     : null
+  const completedExercises = activeSelectedDate
+    ? scheduledExercises
+      .filter((exercise) => exercise.planned_on === activeSelectedDate && exercise.completed)
+      .sort((a, b) => a.sort_order - b.sort_order)
+    : []
+  const totalWorkedWeight = completedExercises.reduce(
+    (total, exercise) => total + (getWorkedWeight(exercise) ?? 0),
+    0,
+  )
   const totalCalories = selectedLogs.reduce(
     (sum, food) => sum + (food.weight_grams / 100) * food.calories_per_100g,
     0,
@@ -103,6 +117,7 @@ export function DiaryView() {
             const classes = [
               'calendar-day',
               datesWithRecords.has(iso) ? 'has-food' : '',
+              datesWithTraining.has(iso) ? 'has-training' : '',
               activeSelectedDate === iso ? 'selected' : '',
               today === iso ? 'today' : '',
             ]
@@ -116,7 +131,7 @@ export function DiaryView() {
             )
           })}
         </div>
-        <p className="calendar-hint">Зелёные дни содержат записи о питании или весе.</p>
+        <p className="calendar-hint">Зелёные дни содержат записи о питании или весе, жёлтая рамка — запланированные тренировки.</p>
       </div>
 
       <div className="food-list diary-food-list">
@@ -146,6 +161,21 @@ export function DiaryView() {
             {showProducts ? 'Скрыть продукты' : 'Потребленные продукты'}
           </button>
         )}
+        <div className="diary-exercises-controls">
+          <button
+            type="button"
+            className="primary compact"
+            onClick={() => setShowExercises(!showExercises)}
+            aria-expanded={showExercises}
+          >
+            {showExercises ? 'Скрыть упражнения' : 'Упражнения'}
+          </button>
+          {showExercises && (
+            <p className="worked-weight">
+              Всего поднято доп. веса: <strong>{formatWeight(totalWorkedWeight)} кг</strong>
+            </p>
+          )}
+        </div>
         {showProducts && (
           <>
             {!selectedLogs.length ? (
@@ -173,6 +203,42 @@ export function DiaryView() {
             )}
           </>
         )}
+        {showExercises && (
+          <section className="diary-exercises">
+            {completedExercises.length === 0 ? (
+              <p className="empty">В этот день нет завершённых упражнений.</p>
+            ) : (
+              <ul>
+                {completedExercises.map((exercise) => (
+                  <li key={exercise.id} className="food-item">
+                    <div className="food-details">
+                      <div className="food-name">{exercise.exercise_name}</div>
+                      <div className="food-info">
+                        {exercise.weight_kg !== null && <span>Вес снаряда: {formatWeight(exercise.weight_kg)} кг</span>}
+                        {exercise.weight_kg !== null && <span>•</span>}
+                        <span>Повторения: {exercise.repetitions ?? '—'}</span>
+                        <span>•</span>
+                        <span>Подходы: {exercise.sets ?? '—'}</span>
+                        {getWorkedWeight(exercise) !== null && (
+                          <>
+                            <span>•</span>
+                            <span>Отработанный вес: {formatWeight(getWorkedWeight(exercise)!)} кг</span>
+                          </>
+                        )}
+                        {exercise.rest_timer_enabled && (
+                          <>
+                            <span>•</span>
+                            <span>Время между подходами: {exercise.rest_duration ?? '00:00'}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </div>
     </section>
   )
@@ -180,4 +246,10 @@ export function DiaryView() {
 
 function formatWeight(value: number) {
   return Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
+}
+
+function getWorkedWeight(exercise: { exercise_type: string; weight_kg: number | null; repetitions: number | null; sets: number | null }) {
+  if (exercise.exercise_type !== 'Свободные веса / в блоке') return null
+  if (exercise.weight_kg === null || exercise.repetitions === null || exercise.sets === null) return null
+  return exercise.weight_kg * exercise.repetitions * exercise.sets
 }

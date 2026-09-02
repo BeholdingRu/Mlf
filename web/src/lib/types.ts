@@ -33,7 +33,7 @@ export type WeightLog = {
   logged_on: string
 }
 
-export type CabinetTab = 'daily' | 'all' | 'calories' | 'diary'
+export type CabinetTab = 'daily' | 'all' | 'calories' | 'training' | 'diary'
 
 export type FoodLog = {
   id: string
@@ -49,4 +49,33 @@ export type SavedProduct = {
   user_id: string
   name: string
   calories_per_100g: number
+}
+
+export type ExerciseCategory = 'Спина' | 'Грудь' | 'Плечи' | 'Руки' | 'Ноги' | 'Кор'
+export type ExerciseType = 'Свободные веса / в блоке' | 'Собственный вес'
+
+export type SavedExercise = {
+  id: string
+  user_id: string
+  name: string
+  category: ExerciseCategory
+  exercise_type: ExerciseType
+  rest_timer_enabled: boolean
+}
+
+export type ScheduledExercise = {
+  id: string
+  user_id: string
+  planned_on: string
+  exercise_name: string
+  category: ExerciseCategory
+  exercise_type: ExerciseType
+  rest_timer_enabled: boolean
+  sort_order: number
+  weight_kg: number | null
+  repetitions: number | null
+  sets: number | null
+  rest_duration: string | null
+  parameters_locked: boolean
+  completed: boolean
 }

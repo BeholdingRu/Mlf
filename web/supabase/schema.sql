@@ -59,12 +59,44 @@ create table if not exists public.saved_products (
   unique (user_id, name)
 );
 
+create table if not exists public.saved_exercises (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  name text not null check (char_length(trim(name)) > 0),
+  category text not null check (category in ('Спина', 'Грудь', 'Плечи', 'Руки', 'Ноги', 'Кор')),
+  exercise_type text not null default 'Свободные веса / в блоке'
+    check (exercise_type in ('Свободные веса / в блоке', 'Собственный вес')),
+  rest_timer_enabled boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (user_id, category, name)
+);
+
+create table if not exists public.scheduled_exercises (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  planned_on date not null,
+  exercise_name text not null check (char_length(trim(exercise_name)) > 0),
+  category text not null check (category in ('Спина', 'Грудь', 'Плечи', 'Руки', 'Ноги', 'Кор')),
+  exercise_type text not null check (exercise_type in ('Свободные веса / в блоке', 'Собственный вес')),
+  rest_timer_enabled boolean not null default true,
+  sort_order integer not null default 0 check (sort_order >= 0),
+  weight_kg numeric(7, 1) check (weight_kg >= 0),
+  repetitions integer check (repetitions > 0),
+  sets integer check (sets > 0),
+  rest_duration text check (rest_duration is null or rest_duration ~ '^\d+:[0-5][0-9]$'),
+  parameters_locked boolean not null default false,
+  completed boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists tasks_user_id_idx on public.tasks (user_id, sort_order);
 create index if not exists completions_user_on_idx on public.task_completions (user_id, completed_on);
 create index if not exists completions_task_on_idx on public.task_completions (task_id, completed_on);
 create index if not exists weight_logs_user_on_idx on public.weight_logs (user_id, logged_on desc);
 create index if not exists food_logs_user_on_idx on public.daily_food_logs (user_id, logged_on desc);
 create index if not exists saved_products_user_name_idx on public.saved_products (user_id, name);
+create index if not exists saved_exercises_user_category_name_idx on public.saved_exercises (user_id, category, name);
+create index if not exists scheduled_exercises_user_date_order_idx on public.scheduled_exercises (user_id, planned_on, sort_order);
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -91,6 +123,8 @@ alter table public.task_completions enable row level security;
 alter table public.weight_logs enable row level security;
 alter table public.daily_food_logs enable row level security;
 alter table public.saved_products enable row level security;
+alter table public.saved_exercises enable row level security;
+alter table public.scheduled_exercises enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles
@@ -122,4 +156,12 @@ create policy "food_logs_all_own" on public.daily_food_logs
 
 drop policy if exists "saved_products_all_own" on public.saved_products;
 create policy "saved_products_all_own" on public.saved_products
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "saved_exercises_all_own" on public.saved_exercises;
+create policy "saved_exercises_all_own" on public.saved_exercises
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "scheduled_exercises_all_own" on public.scheduled_exercises;
+create policy "scheduled_exercises_all_own" on public.scheduled_exercises
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

@@ -10,6 +10,7 @@ const NAV: { id: CabinetTab; label: string }[] = [
   { id: 'daily', label: 'Ежедневные задачи' },
   { id: 'all', label: 'Статистика' },
   { id: 'calories', label: 'Учет калорий' },
+  { id: 'training', label: 'Тренеровки' },
   { id: 'diary', label: 'Дневник' },
 ]
 

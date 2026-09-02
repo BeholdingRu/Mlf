@@ -1,12 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { ProductsView } from './ProductsView'
 
 type CaloriesSubTab = 'consumption' | 'products'
 
+const CALORIES_SUB_TAB_STORAGE_KEY = 'mlf:calories-sub-tab'
+
+function getSavedCaloriesSubTab(): CaloriesSubTab {
+  return window.sessionStorage.getItem(CALORIES_SUB_TAB_STORAGE_KEY) === 'products'
+    ? 'products'
+    : 'consumption'
+}
+
 export function CaloriesView() {
   const { profile, foodLogs, savedProducts, logFoodToday, deleteFoodLog } = useData()
-  const [subTab, setSubTab] = useState<CaloriesSubTab>('consumption')
+  const [subTab, setSubTab] = useState<CaloriesSubTab>(getSavedCaloriesSubTab)
   const [productName, setProductName] = useState('')
   const [weightGrams, setWeightGrams] = useState('')
   const [caloriesPer100g, setCaloriesPer100g] = useState('')
@@ -20,6 +28,10 @@ export function CaloriesView() {
   }, 0)
 
   const remaining = dailyNorm - totalConsumed
+
+  useEffect(() => {
+    window.sessionStorage.setItem(CALORIES_SUB_TAB_STORAGE_KEY, subTab)
+  }, [subTab])
 
   const handleAddFood = async () => {
     if (!productName.trim() || !weightGrams || !caloriesPer100g) {

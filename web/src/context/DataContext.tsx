@@ -9,7 +9,18 @@ import {
 } from 'react'
 import { requireSupabase } from '../lib/supabase'
 import { localISODate } from '../lib/dates'
-import type { FoodLog, Profile, SavedProduct, Task, TaskCompletion, WeightLog } from '../lib/types'
+import type {
+  ExerciseCategory,
+  ExerciseType,
+  FoodLog,
+  Profile,
+  ScheduledExercise,
+  SavedExercise,
+  SavedProduct,
+  Task,
+  TaskCompletion,
+  WeightLog,
+} from '../lib/types'
 import type { ThemeId } from '../lib/theme'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { useAuth } from './AuthContext'
@@ -22,6 +33,8 @@ type DataContextValue = {
   foodLogs: FoodLog[]
   foodHistoryLogs: FoodLog[]
   savedProducts: SavedProduct[]
+  savedExercises: SavedExercise[]
+  scheduledExercises: ScheduledExercise[]
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -40,6 +53,33 @@ type DataContextValue = {
   addSavedProduct: (name: string, caloriesPer100g: number) => Promise<void>
   updateSavedProduct: (id: string, name: string, caloriesPer100g: number) => Promise<void>
   deleteSavedProduct: (id: string) => Promise<void>
+  addSavedExercise: (
+    name: string,
+    category: ExerciseCategory,
+    exerciseType: ExerciseType,
+    restTimerEnabled: boolean,
+  ) => Promise<void>
+  updateSavedExercise: (
+    id: string,
+    name: string,
+    exerciseType: ExerciseType,
+    restTimerEnabled: boolean,
+  ) => Promise<void>
+  deleteSavedExercise: (id: string) => Promise<void>
+  scheduleExercise: (plannedOn: string, exercise: SavedExercise) => Promise<void>
+  deleteScheduledExercise: (id: string) => Promise<void>
+  moveScheduledExercise: (id: string, direction: 'up' | 'down') => Promise<void>
+  updateScheduledExercise: (
+    id: string,
+    patch: {
+      weight_kg?: number | null
+      repetitions?: number | null
+      sets?: number | null
+      rest_duration?: string | null
+      parameters_locked?: boolean
+      completed?: boolean
+    },
+  ) => Promise<void>
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -53,6 +93,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
   const [foodHistoryLogs, setFoodHistoryLogs] = useState<FoodLog[]>([])
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([])
+  const [savedExercises, setSavedExercises] = useState<SavedExercise[]>([])
+  const [scheduledExercises, setScheduledExercises] = useState<ScheduledExercise[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -60,7 +102,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!user) return
     const client = requireSupabase()
     const today = localISODate()
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes] = await Promise.all([
+    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes] = await Promise.all([
       client.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       client.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
       client.from('task_completions').select('*').eq('user_id', user.id),
@@ -75,6 +117,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .order('logged_on', { ascending: false })
         .order('created_at'),
       client.from('saved_products').select('*').eq('user_id', user.id).order('name'),
+      client.from('saved_exercises').select('*').eq('user_id', user.id).order('name'),
+      client.from('scheduled_exercises').select('*').eq('user_id', user.id).order('planned_on').order('sort_order'),
     ])
 
     const firstError =
@@ -84,7 +128,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightRes.error?.message ||
       foodRes.error?.message ||
       foodHistoryRes.error?.message ||
-      productsRes.error?.message
+      productsRes.error?.message ||
+      exercisesRes.error?.message ||
+      scheduledExercisesRes.error?.message
     if (firstError) {
       setError(firstError)
       return
@@ -114,6 +160,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setFoodLogs((foodRes.data ?? []) as FoodLog[])
     setFoodHistoryLogs((foodHistoryRes.data ?? []) as FoodLog[])
     setSavedProducts((productsRes.data ?? []) as SavedProduct[])
+    setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
+    setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
     setError(null)
   }, [user])
 
@@ -126,6 +174,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setFoodLogs([])
       setFoodHistoryLogs([])
       setSavedProducts([])
+      setSavedExercises([])
+      setScheduledExercises([])
       setLoading(false)
       return
     }
@@ -225,6 +275,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodLogs,
       foodHistoryLogs,
       savedProducts,
+      savedExercises,
+      scheduledExercises,
       loading,
       error,
       refresh,
@@ -435,6 +487,114 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (delError) throw delError
         setSavedProducts((prev) => prev.filter((product) => product.id !== id))
       },
+      async addSavedExercise(name, category, exerciseType, restTimerEnabled) {
+        if (!user) return
+        const { data, error: insError } = await requireSupabase()
+          .from('saved_exercises')
+          .insert({
+            user_id: user.id,
+            name,
+            category,
+            exercise_type: exerciseType,
+            rest_timer_enabled: restTimerEnabled,
+          })
+          .select('*')
+          .single()
+        if (insError) throw insError
+        setSavedExercises((prev) =>
+          [...prev, data as SavedExercise].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+        )
+      },
+      async updateSavedExercise(id, name, exerciseType, restTimerEnabled) {
+        const { data, error: updError } = await requireSupabase()
+          .from('saved_exercises')
+          .update({
+            name,
+            exercise_type: exerciseType,
+            rest_timer_enabled: restTimerEnabled,
+          })
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setSavedExercises((prev) =>
+          prev.map((exercise) => (exercise.id === id ? (data as SavedExercise) : exercise))
+            .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+        )
+      },
+      async deleteSavedExercise(id) {
+        const { error: delError } = await requireSupabase()
+          .from('saved_exercises')
+          .delete()
+          .eq('id', id)
+        if (delError) throw delError
+        setSavedExercises((prev) => prev.filter((exercise) => exercise.id !== id))
+      },
+      async scheduleExercise(plannedOn, exercise) {
+        if (!user) return
+        const dayExercises = scheduledExercises.filter((item) => item.planned_on === plannedOn)
+        const { data, error: insError } = await requireSupabase()
+          .from('scheduled_exercises')
+          .insert({
+            user_id: user.id,
+            planned_on: plannedOn,
+            exercise_name: exercise.name,
+            category: exercise.category,
+            exercise_type: exercise.exercise_type,
+            rest_timer_enabled: exercise.rest_timer_enabled,
+            sort_order: dayExercises.length,
+          })
+          .select('*')
+          .single()
+        if (insError) throw insError
+        setScheduledExercises((prev) => [...prev, data as ScheduledExercise])
+      },
+      async deleteScheduledExercise(id) {
+        const { error: delError } = await requireSupabase()
+          .from('scheduled_exercises')
+          .delete()
+          .eq('id', id)
+        if (delError) throw delError
+        setScheduledExercises((prev) => prev.filter((exercise) => exercise.id !== id))
+      },
+      async moveScheduledExercise(id, direction) {
+        const current = scheduledExercises.find((exercise) => exercise.id === id)
+        if (!current) return
+        const dayExercises = scheduledExercises
+          .filter((exercise) => exercise.planned_on === current.planned_on)
+          .sort((a, b) => a.sort_order - b.sort_order)
+        const index = dayExercises.findIndex((exercise) => exercise.id === id)
+        const target = dayExercises[index + (direction === 'up' ? -1 : 1)]
+        if (!target) return
+
+        const { error: firstError } = await requireSupabase()
+          .from('scheduled_exercises')
+          .update({ sort_order: target.sort_order })
+          .eq('id', current.id)
+        if (firstError) throw firstError
+        const { error: secondError } = await requireSupabase()
+          .from('scheduled_exercises')
+          .update({ sort_order: current.sort_order })
+          .eq('id', target.id)
+        if (secondError) throw secondError
+        setScheduledExercises((prev) => prev.map((exercise) => {
+          if (exercise.id === current.id) return { ...exercise, sort_order: target.sort_order }
+          if (exercise.id === target.id) return { ...exercise, sort_order: current.sort_order }
+          return exercise
+        }))
+      },
+      async updateScheduledExercise(id, patch) {
+        const { data, error: updError } = await requireSupabase()
+          .from('scheduled_exercises')
+          .update(patch)
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setScheduledExercises((prev) =>
+          prev.map((exercise) => (exercise.id === id ? (data as ScheduledExercise) : exercise)),
+        )
+      },
     }),
     [
       profile,
@@ -444,6 +604,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodLogs,
       foodHistoryLogs,
       savedProducts,
+      savedExercises,
+      scheduledExercises,
       loading,
       error,
       refresh,
