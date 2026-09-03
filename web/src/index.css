@@ -1463,10 +1463,8 @@ nav {
 }
 
 .saved-product-option {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 3px;
   padding: 8px 10px;
 }
 
@@ -1475,9 +1473,11 @@ nav {
 }
 
 .saved-product-option span:last-child {
-  flex: 0 0 auto;
+  min-width: 0;
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .saved-products-empty {
