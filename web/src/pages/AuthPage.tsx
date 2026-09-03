@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 
 type Mode = 'login' | 'register' | 'recovery'
 type RecoveryStep = 'email' | 'code' | 'password'
+const RECOVERY_CODE_LENGTH = 8
 
 export function AuthPage() {
   const { signIn, signUp, requestRecovery, verifyRecovery, updatePassword } = useAuth()
@@ -14,7 +15,7 @@ export function AuthPage() {
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [recoveryStep, setRecoveryStep] = useState<RecoveryStep>('email')
-  const [code, setCode] = useState(['', '', '', '', '', ''])
+  const [code, setCode] = useState<string[]>(Array(RECOVERY_CODE_LENGTH).fill(''))
   const codeRefs = useRef<Array<HTMLInputElement | null>>([])
 
   useEffect(() => {
@@ -48,13 +49,13 @@ export function AuthPage() {
       if (recoveryStep === 'email') {
         await requestRecovery(email.trim())
         setRecoveryStep('code')
-        setInfo('Код из 6 цифр отправлен на почту.')
+        setInfo('Код из 8 цифр отправлен на почту.')
         return
       }
       if (recoveryStep === 'code') {
         const token = code.join('')
-        if (!/^\d{6}$/.test(token)) {
-          throw new Error('Введите 6-значный код из письма')
+        if (!/^\d{8}$/.test(token)) {
+          throw new Error('Введите 8-значный код из письма')
         }
         await verifyRecovery(email.trim(), token)
         setRecoveryStep('password')
@@ -80,7 +81,7 @@ export function AuthPage() {
     const next = [...code]
     next[index] = digit
     setCode(next)
-    if (digit && index < 5) {
+    if (digit && index < RECOVERY_CODE_LENGTH - 1) {
       codeRefs.current[index + 1]?.focus()
     }
   }
@@ -92,14 +93,14 @@ export function AuthPage() {
   }
 
   function onCodePaste(value: string) {
-    const digits = value.replace(/\D/g, '').slice(0, 6).split('')
+    const digits = value.replace(/\D/g, '').slice(0, RECOVERY_CODE_LENGTH).split('')
     if (!digits.length) return
-    const next = ['', '', '', '', '', '']
+    const next = Array(RECOVERY_CODE_LENGTH).fill('')
     digits.forEach((d, i) => {
       next[i] = d
     })
     setCode(next)
-    const focusAt = Math.min(digits.length, 5)
+    const focusAt = Math.min(digits.length, RECOVERY_CODE_LENGTH - 1)
     codeRefs.current[focusAt]?.focus()
   }
 
