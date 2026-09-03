@@ -2516,6 +2516,12 @@ nav {
     font-size: 13px;
   }
 
+  .saved-products-menu {
+    right: auto;
+    left: 0;
+    width: 100%;
+  }
+
   .food-list h3 {
     font-size: 13px;
     margin: 0 0 8px;
