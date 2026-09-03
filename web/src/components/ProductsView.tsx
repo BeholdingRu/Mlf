@@ -20,6 +20,9 @@ export function ProductsView() {
   const { savedProducts, addSavedProduct, updateSavedProduct, setSavedProductFavorite, deleteSavedProduct } = useData()
   const [name, setName] = useState('')
   const [caloriesPer100g, setCaloriesPer100g] = useState('')
+  const [proteinsPer100g, setProteinsPer100g] = useState('')
+  const [fatsPer100g, setFatsPer100g] = useState('')
+  const [carbohydratesPer100g, setCarbohydratesPer100g] = useState('')
   const [category, setCategory] = useState<ProductCategory>(DEFAULT_PRODUCT_CATEGORY)
   const [isFavorite, setIsFavorite] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -27,21 +30,33 @@ export function ProductsView() {
   const [editingProduct, setEditingProduct] = useState<SavedProduct | null>(null)
   const [editName, setEditName] = useState('')
   const [editCalories, setEditCalories] = useState('')
+  const [editProteins, setEditProteins] = useState('')
+  const [editFats, setEditFats] = useState('')
+  const [editCarbohydrates, setEditCarbohydrates] = useState('')
   const [editCategory, setEditCategory] = useState<ProductCategory>(DEFAULT_PRODUCT_CATEGORY)
   const [favoriteProductId, setFavoriteProductId] = useState<string | null>(null)
 
   const handleAddProduct = async () => {
     const calories = Number(caloriesPer100g)
-    if (!name.trim() || !Number.isFinite(calories) || calories <= 0) {
-      alert('Укажите название и калорийность больше нуля')
+    const proteins = Number(proteinsPer100g)
+    const fats = Number(fatsPer100g)
+    const carbohydrates = Number(carbohydratesPer100g)
+    if (!name.trim() || !Number.isFinite(calories) || calories <= 0
+      || !Number.isFinite(proteins) || proteins < 0
+      || !Number.isFinite(fats) || fats < 0
+      || !Number.isFinite(carbohydrates) || carbohydrates < 0) {
+      alert('Укажите название, калорийность больше нуля и БЖУ не меньше нуля')
       return
     }
 
     setSubmitting(true)
     try {
-      await addSavedProduct(name.trim(), calories, category, isFavorite)
+      await addSavedProduct(name.trim(), calories, proteins, fats, carbohydrates, category, isFavorite)
       setName('')
       setCaloriesPer100g('')
+      setProteinsPer100g('')
+      setFatsPer100g('')
+      setCarbohydratesPer100g('')
       setCategory(DEFAULT_PRODUCT_CATEGORY)
       setIsFavorite(false)
     } catch (err) {
@@ -68,6 +83,9 @@ export function ProductsView() {
     setEditingProduct(product)
     setEditName(product.name)
     setEditCalories(String(product.calories_per_100g))
+    setEditProteins(String(product.proteins_per_100g))
+    setEditFats(String(product.fats_per_100g))
+    setEditCarbohydrates(String(product.carbohydrates_per_100g))
     setEditCategory(product.category)
   }
 
@@ -75,6 +93,9 @@ export function ProductsView() {
     setEditingProduct(null)
     setEditName('')
     setEditCalories('')
+    setEditProteins('')
+    setEditFats('')
+    setEditCarbohydrates('')
     setEditCategory(DEFAULT_PRODUCT_CATEGORY)
   }
 
@@ -82,8 +103,14 @@ export function ProductsView() {
     if (!editingProduct) return
 
     const calories = Number(editCalories)
-    if (!editName.trim() || !Number.isFinite(calories) || calories <= 0) {
-      alert('Укажите название и калорийность больше нуля')
+    const proteins = Number(editProteins)
+    const fats = Number(editFats)
+    const carbohydrates = Number(editCarbohydrates)
+    if (!editName.trim() || !Number.isFinite(calories) || calories <= 0
+      || !Number.isFinite(proteins) || proteins < 0
+      || !Number.isFinite(fats) || fats < 0
+      || !Number.isFinite(carbohydrates) || carbohydrates < 0) {
+      alert('Укажите название, калорийность больше нуля и БЖУ не меньше нуля')
       return
     }
 
@@ -93,6 +120,9 @@ export function ProductsView() {
         editingProduct.id,
         editName.trim(),
         calories,
+        proteins,
+        fats,
+        carbohydrates,
         editCategory,
         editingProduct.is_favorite,
       )
@@ -149,6 +179,20 @@ export function ProductsView() {
             step="0.1"
             min="0"
           />
+        </div>
+        <div className="nutrition-inputs">
+          <div className="form-group">
+            <label htmlFor="saved-product-proteins">Белки, г</label>
+            <input id="saved-product-proteins" type="number" value={proteinsPer100g} onChange={(e) => setProteinsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+          </div>
+          <div className="form-group">
+            <label htmlFor="saved-product-fats">Жиры, г</label>
+            <input id="saved-product-fats" type="number" value={fatsPer100g} onChange={(e) => setFatsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+          </div>
+          <div className="form-group">
+            <label htmlFor="saved-product-carbohydrates">Углеводы, г</label>
+            <input id="saved-product-carbohydrates" type="number" value={carbohydratesPer100g} onChange={(e) => setCarbohydratesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+          </div>
         </div>
         <div className="form-group">
           <label htmlFor="saved-product-category">Категория</label>
@@ -210,7 +254,9 @@ export function ProductsView() {
                           <div className="food-name">
                             {product.name}{product.is_favorite && <span className="favorite-mark" aria-label="Избранное"> ★</span>}
                           </div>
-                          <div className="food-info">{product.calories_per_100g} ккал/100г</div>
+                          <div className="food-info">
+                            {product.calories_per_100g} ккал/100г · Б {product.proteins_per_100g} г · Ж {product.fats_per_100g} г · У {product.carbohydrates_per_100g} г
+                          </div>
                         </div>
                         <div className="food-actions">
                           <label className="favorite-control" title="Избранное">
@@ -293,6 +339,20 @@ export function ProductsView() {
                 step="0.1"
                 min="0"
               />
+            </div>
+            <div className="nutrition-inputs">
+              <div className="form-group">
+                <label htmlFor="edit-product-proteins">Белки, г</label>
+                <input id="edit-product-proteins" type="number" value={editProteins} onChange={(e) => setEditProteins(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-product-fats">Жиры, г</label>
+                <input id="edit-product-fats" type="number" value={editFats} onChange={(e) => setEditFats(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-product-carbohydrates">Углеводы, г</label>
+                <input id="edit-product-carbohydrates" type="number" value={editCarbohydrates} onChange={(e) => setEditCarbohydrates(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+              </div>
             </div>
             <div className="modal-actions">
               <button

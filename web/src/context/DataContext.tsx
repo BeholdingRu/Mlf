@@ -50,11 +50,21 @@ type DataContextValue = {
   saveDesiredWeight: (desired: number | null) => Promise<void>
   saveTheme: (theme: ThemeId) => Promise<void>
   saveFontScale: (scale: FontScale) => Promise<void>
-  logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number) => Promise<void>
+  logFoodToday: (
+    productName: string,
+    weightGrams: number,
+    caloriesPer100g: number,
+    proteinsPer100g: number,
+    fatsPer100g: number,
+    carbohydratesPer100g: number,
+  ) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
   addSavedProduct: (
     name: string,
     caloriesPer100g: number,
+    proteinsPer100g: number,
+    fatsPer100g: number,
+    carbohydratesPer100g: number,
     category: ProductCategory,
     isFavorite: boolean,
   ) => Promise<void>
@@ -62,6 +72,9 @@ type DataContextValue = {
     id: string,
     name: string,
     caloriesPer100g: number,
+    proteinsPer100g: number,
+    fatsPer100g: number,
+    carbohydratesPer100g: number,
     category: ProductCategory,
     isFavorite: boolean,
   ) => Promise<void>
@@ -171,15 +184,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setTasks((tasksRes.data ?? []) as Task[])
     setCompletions((completionsRes.data ?? []) as TaskCompletion[])
     setWeightLogs((weightRes.data ?? []) as WeightLog[])
-    setFoodLogs((foodRes.data ?? []) as FoodLog[])
-    setFoodHistoryLogs((foodHistoryRes.data ?? []) as FoodLog[])
-    setSavedProducts(
-      ((productsRes.data ?? []) as SavedProduct[]).map((product) => ({
+    const normalizedSavedProducts = ((productsRes.data ?? []) as SavedProduct[]).map((product) => ({
         ...product,
         category: product.category ?? DEFAULT_PRODUCT_CATEGORY,
         is_favorite: product.is_favorite ?? false,
-      })),
+        proteins_per_100g: product.proteins_per_100g ?? 0,
+        fats_per_100g: product.fats_per_100g ?? 0,
+        carbohydrates_per_100g: product.carbohydrates_per_100g ?? 0,
+      }))
+    const savedProductsByName = new Map(
+      normalizedSavedProducts.map((product) => [product.name.trim().toLocaleLowerCase('ru-RU'), product]),
     )
+    const normalizeFoodLogs = (logs: unknown) => (logs as FoodLog[]).map((food) => {
+      const lacksNutrition = !food.proteins_per_100g && !food.fats_per_100g && !food.carbohydrates_per_100g
+      const savedProduct = savedProductsByName.get(food.product_name.trim().toLocaleLowerCase('ru-RU'))
+      return {
+        ...food,
+        proteins_per_100g: lacksNutrition ? savedProduct?.proteins_per_100g ?? 0 : food.proteins_per_100g,
+        fats_per_100g: lacksNutrition ? savedProduct?.fats_per_100g ?? 0 : food.fats_per_100g,
+        carbohydrates_per_100g: lacksNutrition ? savedProduct?.carbohydrates_per_100g ?? 0 : food.carbohydrates_per_100g,
+      }
+    })
+    setFoodLogs(normalizeFoodLogs(foodRes.data ?? []))
+    setFoodHistoryLogs(normalizeFoodLogs(foodHistoryRes.data ?? []))
+    setSavedProducts(normalizedSavedProducts)
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
     setError(null)
@@ -451,7 +479,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (updError) throw updError
         setProfile(data as Profile)
       },
-      async logFoodToday(productName, weightGrams, caloriesPer100g) {
+      async logFoodToday(productName, weightGrams, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
         if (!user) return
         const today = localISODate()
         const { data, error: insError } = await requireSupabase()
@@ -462,6 +490,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             product_name: productName,
             weight_grams: weightGrams,
             calories_per_100g: caloriesPer100g,
+            proteins_per_100g: proteinsPer100g,
+            fats_per_100g: fatsPer100g,
+            carbohydrates_per_100g: carbohydratesPer100g,
           })
           .select('*')
           .single()
@@ -478,16 +509,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setFoodLogs((prev) => prev.filter((f) => f.id !== id))
         setFoodHistoryLogs((prev) => prev.filter((f) => f.id !== id))
       },
-      async addSavedProduct(name, caloriesPer100g, category, isFavorite) {
+      async addSavedProduct(name, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g, category, isFavorite) {
         if (!user) return
         const { data, error: insError } = await requireSupabase()
           .from('saved_products')
           .insert({
             user_id: user.id,
-            name,
-            calories_per_100g: caloriesPer100g,
-            category,
-            is_favorite: isFavorite,
+          name,
+          calories_per_100g: caloriesPer100g,
+          proteins_per_100g: proteinsPer100g,
+          fats_per_100g: fatsPer100g,
+          carbohydrates_per_100g: carbohydratesPer100g,
+          category,
+          is_favorite: isFavorite,
           })
           .select('*')
           .single()
@@ -496,14 +530,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
           [...prev, data as SavedProduct].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
         )
       },
-      async updateSavedProduct(id, name, caloriesPer100g, category, isFavorite) {
+      async updateSavedProduct(id, name, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g, category, isFavorite) {
         const { data, error: updError } = await requireSupabase()
           .from('saved_products')
           .update({
-            name,
-            calories_per_100g: caloriesPer100g,
-            category,
-            is_favorite: isFavorite,
+          name,
+          calories_per_100g: caloriesPer100g,
+          proteins_per_100g: proteinsPer100g,
+          fats_per_100g: fatsPer100g,
+          carbohydrates_per_100g: carbohydratesPer100g,
+          category,
+          is_favorite: isFavorite,
           })
           .eq('id', id)
           .select('*')

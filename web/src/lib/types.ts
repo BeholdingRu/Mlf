@@ -43,6 +43,9 @@ export type FoodLog = {
   product_name: string
   weight_grams: number
   calories_per_100g: number
+  proteins_per_100g: number
+  fats_per_100g: number
+  carbohydrates_per_100g: number
 }
 
 import type { ProductCategory } from './product-categories'
@@ -52,6 +55,9 @@ export type SavedProduct = {
   user_id: string
   name: string
   calories_per_100g: number
+  proteins_per_100g: number
+  fats_per_100g: number
+  carbohydrates_per_100g: number
   category: ProductCategory
   is_favorite: boolean
 }

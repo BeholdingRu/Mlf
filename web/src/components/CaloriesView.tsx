@@ -19,7 +19,11 @@ export function CaloriesView() {
   const [productName, setProductName] = useState('')
   const [weightGrams, setWeightGrams] = useState('')
   const [caloriesPer100g, setCaloriesPer100g] = useState('')
+  const [proteinsPer100g, setProteinsPer100g] = useState('')
+  const [fatsPer100g, setFatsPer100g] = useState('')
+  const [carbohydratesPer100g, setCarbohydratesPer100g] = useState('')
   const [savedProductGroup, setSavedProductGroup] = useState<ProductCategory | 'favorites' | ''>('')
+  const [savedProductMenuOpen, setSavedProductMenuOpen] = useState(false)
   const [dailyNormInput, setDailyNormInput] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [savingNorm, setSavingNorm] = useState(false)
@@ -34,6 +38,15 @@ export function CaloriesView() {
     const consumed = (food.weight_grams / 100) * food.calories_per_100g
     return sum + consumed
   }, 0)
+
+  const totalNutrition = foodLogs.reduce((totals, food) => {
+    const multiplier = food.weight_grams / 100
+    return {
+      proteins: totals.proteins + multiplier * food.proteins_per_100g,
+      fats: totals.fats + multiplier * food.fats_per_100g,
+      carbohydrates: totals.carbohydrates + multiplier * food.carbohydrates_per_100g,
+    }
+  }, { proteins: 0, fats: 0, carbohydrates: 0 })
 
   const remaining = dailyNorm - totalConsumed
 
@@ -68,7 +81,13 @@ export function CaloriesView() {
   }
 
   const handleAddFood = async () => {
-    if (!productName.trim() || !weightGrams || !caloriesPer100g) {
+    const proteins = Number(proteinsPer100g)
+    const fats = Number(fatsPer100g)
+    const carbohydrates = Number(carbohydratesPer100g)
+    if (!productName.trim() || !weightGrams || !caloriesPer100g
+      || !Number.isFinite(proteins) || proteins < 0
+      || !Number.isFinite(fats) || fats < 0
+      || !Number.isFinite(carbohydrates) || carbohydrates < 0) {
       alert('Пожалуйста, заполните все поля')
       return
     }
@@ -79,10 +98,16 @@ export function CaloriesView() {
         productName.trim(),
         parseFloat(weightGrams),
         parseFloat(caloriesPer100g),
+        proteins,
+        fats,
+        carbohydrates,
       )
       setProductName('')
       setWeightGrams('')
       setCaloriesPer100g('')
+      setProteinsPer100g('')
+      setFatsPer100g('')
+      setCarbohydratesPer100g('')
     } catch (err) {
       console.error('Error logging food:', err)
       alert('Ошибка при сохранении продукта')
@@ -105,6 +130,10 @@ export function CaloriesView() {
     if (!product) return
     setProductName(product.name)
     setCaloriesPer100g(String(product.calories_per_100g))
+    setProteinsPer100g(String(product.proteins_per_100g))
+    setFatsPer100g(String(product.fats_per_100g))
+    setCarbohydratesPer100g(String(product.carbohydrates_per_100g))
+    setSavedProductMenuOpen(false)
   }
 
   const groupedSavedProducts = savedProductGroup === 'favorites'
@@ -134,23 +163,27 @@ export function CaloriesView() {
         <>
           <div className="calories-header">
             <div className="calories-info">
-              <div className="info-item">
+              <div className="info-item calories-norm-card">
                 <label className="label" htmlFor="daily-calories-norm">Дневная норма калорий:</label>
                 <div className="daily-norm-editor">
-                  <input
-                    id="daily-calories-norm"
-                    ref={dailyNormInputRef}
-                    type="number"
-                    step="1"
-                    min="1"
-                    value={displayedDailyNorm}
-                    onChange={(e) => setDailyNormInput(e.target.value)}
-                    disabled={!editingNorm || savingNorm}
-                    placeholder="Не задана"
-                  />
+                  {editingNorm ? (
+                    <input
+                      id="daily-calories-norm"
+                      ref={dailyNormInputRef}
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={displayedDailyNorm}
+                      onChange={(e) => setDailyNormInput(e.target.value)}
+                      disabled={savingNorm}
+                      placeholder="Не задана"
+                    />
+                  ) : (
+                    <span className="daily-norm-value">{displayedDailyNorm || '—'}</span>
+                  )}
                   <button
                     type="button"
-                    className="primary compact"
+                    className="primary compact daily-norm-action"
                     onClick={editingNorm ? handleSaveDailyNorm : handleEditDailyNorm}
                     disabled={savingNorm}
                   >
@@ -159,11 +192,27 @@ export function CaloriesView() {
                 </div>
                 {normError && <span className="daily-norm-error">{normError}</span>}
               </div>
-              <div className="info-item">
-                <span className="label">Потреблено:</span>
-                <span className="value">{totalConsumed.toFixed(0)}</span>
+              <div className="info-item consumption-card">
+                <div className="consumption-summary" aria-label="Потреблённые калории и сумма БЖУ">
+                  <div className="consumption-summary-item calories">
+                    <span>Потреблено</span>
+                    <strong>{totalConsumed.toFixed(0)}</strong>
+                  </div>
+                  <div className="consumption-summary-item">
+                    <span>Б</span>
+                    <strong>{totalNutrition.proteins.toFixed(1)}</strong>
+                  </div>
+                  <div className="consumption-summary-item">
+                    <span>Ж</span>
+                    <strong>{totalNutrition.fats.toFixed(1)}</strong>
+                  </div>
+                  <div className="consumption-summary-item">
+                    <span>У</span>
+                    <strong>{totalNutrition.carbohydrates.toFixed(1)}</strong>
+                  </div>
+                </div>
               </div>
-              <div className="info-item">
+              <div className="info-item remaining-card">
                 <span className={`label remaining ${remaining >= 0 ? 'positive' : 'negative'}`}>
                   Осталось калорий:
                 </span>
@@ -187,36 +236,71 @@ export function CaloriesView() {
                   placeholder="Введите название продукта"
                   disabled={submitting}
                 />
-                <select
-                  aria-label="Выбрать категорию сохранённых продуктов"
-                  value={savedProductGroup}
-                  disabled={submitting || savedProducts.length === 0}
-                  onChange={(e) => setSavedProductGroup(e.target.value as ProductCategory | 'favorites' | '')}
-                >
-                  <option value="">{savedProducts.length ? 'Из продуктов' : 'Нет продуктов'}</option>
-                  <option value="favorites">Избранное</option>
-                  {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
-                </select>
-                {savedProductGroup && (
-                  <select
-                    aria-label="Выбрать сохранённый продукт"
-                    defaultValue=""
-                    disabled={submitting || groupedSavedProducts.length === 0}
-                    onChange={(e) => {
-                      selectSavedProduct(e.target.value)
-                      e.currentTarget.value = ''
-                    }}
+                <div className="saved-products-picker">
+                  <button
+                    type="button"
+                    className="saved-products-trigger"
+                    aria-haspopup="true"
+                    aria-expanded={savedProductMenuOpen}
+                    disabled={submitting || savedProducts.length === 0}
+                  onClick={() => setSavedProductMenuOpen((open) => !open)}
                   >
-                    <option value="">
-                      {groupedSavedProducts.length ? 'Выберите продукт' : 'В этой группе нет продуктов'}
-                    </option>
-                    {groupedSavedProducts.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} — {product.calories_per_100g} ккал
-                      </option>
-                    ))}
-                  </select>
-                )}
+                    {savedProducts.length ? 'Продукты' : 'Нет продуктов'}
+                  </button>
+                  {savedProductMenuOpen && (
+                    <div className="saved-products-menu" aria-label="Сохранённые продукты">
+                      {savedProductGroup ? (
+                        <>
+                          <button
+                            type="button"
+                            className="saved-products-back"
+                            onClick={() => setSavedProductGroup('')}
+                          >
+                            ← Все категории
+                          </button>
+                          <p className="saved-product-category-title">
+                            {savedProductGroup === 'favorites' ? 'Избранное' : savedProductGroup}
+                          </p>
+                          <div className="saved-product-options">
+                            {groupedSavedProducts.length ? groupedSavedProducts.map((product) => (
+                              <button
+                                key={product.id}
+                                type="button"
+                                className="saved-product-option"
+                                onClick={() => selectSavedProduct(product.id)}
+                              >
+                                <span>{product.name}</span>
+                                <span>{product.calories_per_100g} ккал · Б {product.proteins_per_100g} · Ж {product.fats_per_100g} · У {product.carbohydrates_per_100g}</span>
+                              </button>
+                            )) : (
+                              <p className="saved-products-empty">В этой категории нет продуктов</p>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="saved-product-category"
+                            onClick={() => setSavedProductGroup('favorites')}
+                          >
+                            Избранное
+                          </button>
+                          {PRODUCT_CATEGORIES.map((category) => (
+                            <button
+                              key={category}
+                              type="button"
+                              className="saved-product-category"
+                              onClick={() => setSavedProductGroup(category)}
+                            >
+                              {category}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="form-group">
@@ -245,6 +329,20 @@ export function CaloriesView() {
                 min="0"
               />
             </div>
+            <div className="nutrition-inputs">
+              <div className="form-group">
+                <label htmlFor="consumption-proteins">Белки на 100г</label>
+                <input id="consumption-proteins" type="number" value={proteinsPer100g} onChange={(e) => setProteinsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+              </div>
+              <div className="form-group">
+                <label htmlFor="consumption-fats">Жиры на 100г</label>
+                <input id="consumption-fats" type="number" value={fatsPer100g} onChange={(e) => setFatsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+              </div>
+              <div className="form-group">
+                <label htmlFor="consumption-carbohydrates">Углеводы на 100г</label>
+                <input id="consumption-carbohydrates" type="number" value={carbohydratesPer100g} onChange={(e) => setCarbohydratesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+              </div>
+            </div>
             <button onClick={handleAddFood} disabled={submitting} className="add-button">
               {submitting ? 'Сохранение...' : 'Добавить'}
             </button>
@@ -266,6 +364,12 @@ export function CaloriesView() {
                           <span>{food.weight_grams}г</span>
                           <span>•</span>
                           <span>{food.calories_per_100g} ккал/100г</span>
+                          <span>•</span>
+                          <span>Б {((food.weight_grams / 100) * food.proteins_per_100g).toFixed(1)} г</span>
+                          <span>•</span>
+                          <span>Ж {((food.weight_grams / 100) * food.fats_per_100g).toFixed(1)} г</span>
+                          <span>•</span>
+                          <span>У {((food.weight_grams / 100) * food.carbohydrates_per_100g).toFixed(1)} г</span>
                           <span>•</span>
                           <span className="consumed">{consumed.toFixed(0)} ккал</span>
                         </div>
