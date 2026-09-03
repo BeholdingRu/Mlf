@@ -1268,6 +1268,14 @@ nav {
   margin: 0;
 }
 
+@media (min-width: 769px) {
+  .diary-food-list > .primary.compact,
+  .diary-exercises-controls .primary.compact {
+    width: 210px;
+    text-align: center;
+  }
+}
+
 .diary-exercises ul {
   list-style: none;
   display: grid;
@@ -2216,6 +2224,11 @@ nav {
 
   .diary-view {
     grid-template-columns: 1fr;
+  }
+
+  .diary-list-head {
+    justify-content: center;
+    text-align: center;
   }
 
   .training-planner {
