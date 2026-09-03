@@ -54,7 +54,7 @@ export function CabinetPage() {
         : tab === 'calories'
           ? 'Учет калорий'
           : tab === 'training'
-            ? 'Тренеровки'
+            ? 'Тренировки'
             : 'Дневник'
 
   return (
