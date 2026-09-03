@@ -1251,6 +1251,10 @@ nav {
   background: var(--surface-disabled);
 }
 
+.product-name-row select:last-child:not(:only-child) {
+  grid-column: 1 / -1;
+}
+
 .add-button {
   background: var(--moss);
   color: var(--on-accent);
@@ -1284,6 +1288,89 @@ nav {
   padding: 0;
   display: grid;
   gap: 8px;
+}
+
+.product-categories {
+  display: grid;
+  gap: 8px;
+}
+
+.product-category {
+  display: grid;
+  gap: 8px;
+}
+
+.product-category-toggle {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-weight: 700;
+  text-align: left;
+}
+
+.product-category-toggle span:last-child {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.product-category-empty {
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.product-favorite-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.favorite-mark {
+  color: var(--moss);
+}
+
+.favorite-control {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.favorite-control input {
+  position: absolute;
+  opacity: 0;
+}
+
+.favorite-control span {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.favorite-control:has(input:checked) {
+  color: var(--moss);
+}
+
+.favorite-control:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.favorite-control:has(input:focus-visible) {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .food-item {
@@ -2486,8 +2573,8 @@ nav {
 }
 
 .save-button {
-  background: var(--accent);
-  color: white;
+  background: var(--moss);
+  color: var(--on-accent);
 }
 
 .cancel-button {

@@ -21,6 +21,7 @@ import type {
   TaskCompletion,
   WeightLog,
 } from '../lib/types'
+import { DEFAULT_PRODUCT_CATEGORY, type ProductCategory } from '../lib/product-categories'
 import type { FontScale, ThemeId } from '../lib/theme'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { useAuth } from './AuthContext'
@@ -51,8 +52,20 @@ type DataContextValue = {
   saveFontScale: (scale: FontScale) => Promise<void>
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
-  addSavedProduct: (name: string, caloriesPer100g: number) => Promise<void>
-  updateSavedProduct: (id: string, name: string, caloriesPer100g: number) => Promise<void>
+  addSavedProduct: (
+    name: string,
+    caloriesPer100g: number,
+    category: ProductCategory,
+    isFavorite: boolean,
+  ) => Promise<void>
+  updateSavedProduct: (
+    id: string,
+    name: string,
+    caloriesPer100g: number,
+    category: ProductCategory,
+    isFavorite: boolean,
+  ) => Promise<void>
+  setSavedProductFavorite: (id: string, isFavorite: boolean) => Promise<void>
   deleteSavedProduct: (id: string) => Promise<void>
   addSavedExercise: (
     name: string,
@@ -160,7 +173,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setWeightLogs((weightRes.data ?? []) as WeightLog[])
     setFoodLogs((foodRes.data ?? []) as FoodLog[])
     setFoodHistoryLogs((foodHistoryRes.data ?? []) as FoodLog[])
-    setSavedProducts((productsRes.data ?? []) as SavedProduct[])
+    setSavedProducts(
+      ((productsRes.data ?? []) as SavedProduct[]).map((product) => ({
+        ...product,
+        category: product.category ?? DEFAULT_PRODUCT_CATEGORY,
+        is_favorite: product.is_favorite ?? false,
+      })),
+    )
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
     setError(null)
@@ -459,7 +478,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setFoodLogs((prev) => prev.filter((f) => f.id !== id))
         setFoodHistoryLogs((prev) => prev.filter((f) => f.id !== id))
       },
-      async addSavedProduct(name, caloriesPer100g) {
+      async addSavedProduct(name, caloriesPer100g, category, isFavorite) {
         if (!user) return
         const { data, error: insError } = await requireSupabase()
           .from('saved_products')
@@ -467,6 +486,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             user_id: user.id,
             name,
             calories_per_100g: caloriesPer100g,
+            category,
+            is_favorite: isFavorite,
           })
           .select('*')
           .single()
@@ -475,12 +496,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
           [...prev, data as SavedProduct].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
         )
       },
-      async updateSavedProduct(id, name, caloriesPer100g) {
+      async updateSavedProduct(id, name, caloriesPer100g, category, isFavorite) {
         const { data, error: updError } = await requireSupabase()
           .from('saved_products')
           .update({
             name,
             calories_per_100g: caloriesPer100g,
+            category,
+            is_favorite: isFavorite,
           })
           .eq('id', id)
           .select('*')
@@ -489,6 +512,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSavedProducts((prev) =>
           prev.map((product) => (product.id === id ? (data as SavedProduct) : product))
             .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+        )
+      },
+      async setSavedProductFavorite(id, isFavorite) {
+        const { data, error: updError } = await requireSupabase()
+          .from('saved_products')
+          .update({ is_favorite: isFavorite })
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setSavedProducts((prev) =>
+          prev.map((product) => (product.id === id ? (data as SavedProduct) : product)),
         )
       },
       async deleteSavedProduct(id) {

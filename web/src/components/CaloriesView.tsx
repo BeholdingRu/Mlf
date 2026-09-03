@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { ProductsView } from './ProductsView'
+import { PRODUCT_CATEGORIES, type ProductCategory } from '../lib/product-categories'
 
 type CaloriesSubTab = 'consumption' | 'products'
 
@@ -18,6 +19,7 @@ export function CaloriesView() {
   const [productName, setProductName] = useState('')
   const [weightGrams, setWeightGrams] = useState('')
   const [caloriesPer100g, setCaloriesPer100g] = useState('')
+  const [savedProductGroup, setSavedProductGroup] = useState<ProductCategory | 'favorites' | ''>('')
   const [dailyNormInput, setDailyNormInput] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [savingNorm, setSavingNorm] = useState(false)
@@ -105,6 +107,10 @@ export function CaloriesView() {
     setCaloriesPer100g(String(product.calories_per_100g))
   }
 
+  const groupedSavedProducts = savedProductGroup === 'favorites'
+    ? savedProducts.filter((product) => product.is_favorite)
+    : savedProducts.filter((product) => product.category === savedProductGroup)
+
   return (
     <div className="calories-view">
       <nav className="calories-tabs">
@@ -182,21 +188,35 @@ export function CaloriesView() {
                   disabled={submitting}
                 />
                 <select
-                  aria-label="Выбрать сохранённый продукт"
-                  defaultValue=""
+                  aria-label="Выбрать категорию сохранённых продуктов"
+                  value={savedProductGroup}
                   disabled={submitting || savedProducts.length === 0}
-                  onChange={(e) => {
-                    selectSavedProduct(e.target.value)
-                    e.currentTarget.value = ''
-                  }}
+                  onChange={(e) => setSavedProductGroup(e.target.value as ProductCategory | 'favorites' | '')}
                 >
                   <option value="">{savedProducts.length ? 'Из продуктов' : 'Нет продуктов'}</option>
-                  {savedProducts.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} — {product.calories_per_100g} ккал
-                    </option>
-                  ))}
+                  <option value="favorites">Избранное</option>
+                  {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
+                {savedProductGroup && (
+                  <select
+                    aria-label="Выбрать сохранённый продукт"
+                    defaultValue=""
+                    disabled={submitting || groupedSavedProducts.length === 0}
+                    onChange={(e) => {
+                      selectSavedProduct(e.target.value)
+                      e.currentTarget.value = ''
+                    }}
+                  >
+                    <option value="">
+                      {groupedSavedProducts.length ? 'Выберите продукт' : 'В этой группе нет продуктов'}
+                    </option>
+                    {groupedSavedProducts.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} — {product.calories_per_100g} ккал
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
             <div className="form-group">

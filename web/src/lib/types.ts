@@ -45,11 +45,15 @@ export type FoodLog = {
   calories_per_100g: number
 }
 
+import type { ProductCategory } from './product-categories'
+
 export type SavedProduct = {
   id: string
   user_id: string
   name: string
   calories_per_100g: number
+  category: ProductCategory
+  is_favorite: boolean
 }
 
 export type ExerciseCategory = 'Спина' | 'Грудь' | 'Плечи' | 'Руки' | 'Ноги' | 'Кор'

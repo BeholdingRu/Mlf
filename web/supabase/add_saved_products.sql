@@ -4,6 +4,13 @@ create table if not exists public.saved_products (
   user_id uuid not null references public.profiles (id) on delete cascade,
   name text not null check (char_length(trim(name)) > 0),
   calories_per_100g numeric(6, 2) not null check (calories_per_100g > 0),
+  is_favorite boolean not null default false,
+  category text not null default 'Мясо и мясные продукты' check (category in (
+    'Мясо и мясные продукты', 'Рыба и морепродукты', 'Молочные продукты и яйца',
+    'Овощи, зелень, грибы', 'Фрукты и ягоды', 'Крупы, макаронные изделия и мука',
+    'Хлебобулочные изделия', 'Бобовые и орехи', 'Масла, жиры и соусы',
+    'Готовые блюда и фастфуд', 'Напитки'
+  )),
   created_at timestamptz not null default now(),
   unique (user_id, name)
 );
