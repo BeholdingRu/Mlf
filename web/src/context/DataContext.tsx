@@ -23,6 +23,7 @@ import type {
 } from '../lib/types'
 import { DEFAULT_PRODUCT_CATEGORY, type ProductCategory } from '../lib/product-categories'
 import type { FontScale, ThemeId } from '../lib/theme'
+import type { SunsetCity } from '../lib/sunset'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { useAuth } from './AuthContext'
 
@@ -50,6 +51,7 @@ type DataContextValue = {
   saveDesiredWeight: (desired: number | null) => Promise<void>
   saveTheme: (theme: ThemeId) => Promise<void>
   saveFontScale: (scale: FontScale) => Promise<void>
+  saveLocation: (timeZone: string, city: SunsetCity | null) => Promise<void>
   logFoodToday: (
     productName: string,
     weightGrams: number,
@@ -473,6 +475,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const { data, error: updError } = await requireSupabase()
           .from('profiles')
           .update({ font_scale: fontScale })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
+      async saveLocation(timeZone, city) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({
+            time_zone: timeZone,
+            city_name: city?.name ?? null,
+            city_latitude: city?.latitude ?? null,
+            city_longitude: city?.longitude ?? null,
+          })
           .eq('id', user.id)
           .select('*')
           .single()

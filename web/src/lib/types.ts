@@ -10,6 +10,10 @@ export type Profile = {
   daily_calories_norm: number | null
   theme: ThemeId
   font_scale: number
+  time_zone: string | null
+  city_name: string | null
+  city_latitude: number | null
+  city_longitude: number | null
 }
 
 export type Task = {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { localISODate, parseISODate } from '../lib/dates'
+import { getSunsetTime } from '../lib/sunset'
 
 const MONTHS = [
   'Январь',
@@ -20,7 +21,7 @@ const MONTHS = [
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 export function DiaryView() {
-  const { foodHistoryLogs, weightLogs, scheduledExercises } = useData()
+  const { foodHistoryLogs, weightLogs, scheduledExercises, profile } = useData()
   const datesWithRecords = useMemo(
     () => new Set([...foodHistoryLogs, ...weightLogs].map((record) => record.logged_on)),
     [foodHistoryLogs, weightLogs],
@@ -61,6 +62,17 @@ export function DiaryView() {
   const totalCalories = selectedLogs.reduce(
     (sum, food) => sum + (food.weight_grams / 100) * food.calories_per_100g,
     0,
+  )
+  const totalNutrition = selectedLogs.reduce(
+    (totals, food) => {
+      const multiplier = food.weight_grams / 100
+      return {
+        proteins: totals.proteins + multiplier * food.proteins_per_100g,
+        fats: totals.fats + multiplier * food.fats_per_100g,
+        carbohydrates: totals.carbohydrates + multiplier * food.carbohydrates_per_100g,
+      }
+    },
+    { proteins: 0, fats: 0, carbohydrates: 0 },
   )
   const firstWeekday = (activeMonth.getDay() + 6) % 7
   const daysInMonth = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate()
@@ -114,6 +126,10 @@ export function DiaryView() {
           ))}
           {monthDays.map((day) => {
             const iso = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day))
+            const isFriday = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day).getDay() === 5
+            const sunsetTime = isFriday && profile?.time_zone && profile.city_latitude !== null && profile.city_longitude !== null
+              ? getSunsetTime(iso, profile.city_latitude, profile.city_longitude, profile.time_zone)
+              : null
             const classes = [
               'calendar-day',
               datesWithRecords.has(iso) ? 'has-food' : '',
@@ -125,8 +141,9 @@ export function DiaryView() {
               .join(' ')
 
             return (
-              <button key={iso} type="button" className={classes} onClick={() => selectDay(day)}>
-                {day}
+              <button key={iso} type="button" className={classes} onClick={() => selectDay(day)} aria-label={sunsetTime ? `${day}, заход солнца ${sunsetTime}` : undefined}>
+                <span>{day}</span>
+                {sunsetTime && <small className="calendar-sunset">{sunsetTime}</small>}
               </button>
             )
           })}
@@ -181,25 +198,39 @@ export function DiaryView() {
             {!selectedLogs.length ? (
               <p className="empty">В этот день продукты не добавлялись.</p>
             ) : (
-              <ul>
-                {selectedLogs.map((food) => {
-                  const consumed = (food.weight_grams / 100) * food.calories_per_100g
-                  return (
-                    <li key={food.id} className="food-item">
-                      <div className="food-details">
-                        <div className="food-name">{food.product_name}</div>
-                        <div className="food-info">
-                          <span>{food.weight_grams}г</span>
-                          <span>•</span>
-                          <span>{food.calories_per_100g} ккал/100г</span>
-                          <span>•</span>
-                          <span className="consumed">{consumed.toFixed(0)} ккал</span>
+              <>
+                <p className="diary-nutrition-total">
+                  Итого за день: <strong>Б {totalNutrition.proteins.toFixed(1)} г</strong>
+                  <strong>Ж {totalNutrition.fats.toFixed(1)} г</strong>
+                  <strong>У {totalNutrition.carbohydrates.toFixed(1)} г</strong>
+                </p>
+                <ul>
+                  {selectedLogs.map((food) => {
+                    const consumed = (food.weight_grams / 100) * food.calories_per_100g
+                    const nutritionMultiplier = food.weight_grams / 100
+                    return (
+                      <li key={food.id} className="food-item">
+                        <div className="food-details">
+                          <div className="food-name">{food.product_name}</div>
+                          <div className="food-info">
+                            <span>{food.weight_grams}г</span>
+                            <span>•</span>
+                            <span>{food.calories_per_100g} ккал/100г</span>
+                            <span>•</span>
+                            <span className="consumed">{consumed.toFixed(0)} ккал</span>
+                            <span>•</span>
+                            <span>Б {(nutritionMultiplier * food.proteins_per_100g).toFixed(1)} г</span>
+                            <span>•</span>
+                            <span>Ж {(nutritionMultiplier * food.fats_per_100g).toFixed(1)} г</span>
+                            <span>•</span>
+                            <span>У {(nutritionMultiplier * food.carbohydrates_per_100g).toFixed(1)} г</span>
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
             )}
           </>
         )}

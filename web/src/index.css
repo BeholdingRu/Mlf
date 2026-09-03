@@ -1202,6 +1202,28 @@ nav {
   background: transparent;
   color: var(--ink);
   font-size: 14px;
+  display: grid;
+  place-content: center;
+  gap: 1px;
+  line-height: 1;
+}
+
+.calendar-sunset {
+  display: inline-block;
+  padding: 2px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--info-bg);
+  color: var(--moss-deep);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.calendar-day.selected .calendar-sunset {
+  border-color: currentColor;
+  background: color-mix(in srgb, var(--on-accent) 22%, transparent);
+  color: var(--on-accent);
 }
 
 .calendar-day:hover {
@@ -1254,6 +1276,20 @@ nav {
 
 .diary-food-list > .primary.compact {
   margin: 0 8px 12px 0;
+}
+
+.diary-nutrition-total {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.diary-nutrition-total strong {
+  color: var(--moss-deep);
 }
 
 .diary-exercises-controls {
@@ -1755,6 +1791,22 @@ nav {
   border-top: 1px solid var(--line);
 }
 
+.settings-block label {
+  display: grid;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.settings-block select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 8px 10px;
+  font: inherit;
+}
+
 @media (min-width: 768px) {
   .settings-action {
     justify-self: start;
@@ -2227,6 +2279,11 @@ nav {
   }
 
   .diary-list-head {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .diary-nutrition-total {
     justify-content: center;
     text-align: center;
   }

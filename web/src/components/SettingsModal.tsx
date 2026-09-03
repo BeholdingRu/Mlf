@@ -14,6 +14,7 @@ import {
   type FontScale,
   type ThemeId,
 } from '../lib/theme'
+import { SUNSET_CITIES, TIME_ZONES, type SunsetCity } from '../lib/sunset'
 
 type SettingsModalProps = {
   onClose: () => void
@@ -24,6 +25,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     profile,
     saveWeightVisibility: persistWeightVisibility,
     saveFontScale,
+    saveLocation,
     saveTheme,
   } = useData()
   const { user, signOut, changePassword } = useAuth()
@@ -44,6 +46,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [fontScale, setFontScale] = useState<FontScale>(() =>
     profile ? normalizeFontScale(profile.font_scale) : getSavedFontScale(),
   )
+  const [timeZone, setTimeZone] = useState(profile?.time_zone ?? 'Europe/Moscow')
+  const [cityName, setCityName] = useState(profile?.city_name ?? '')
 
   async function saveWeightVisibility() {
     setBusy(true)
@@ -88,6 +92,19 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       setFontScale(previousScale)
       applyFontScale(previousScale)
       setError(err instanceof Error ? err.message : 'Не удалось сохранить масштаб текста')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveSunsetLocation() {
+    const city = SUNSET_CITIES.find((option) => option.name === cityName) ?? null
+    setBusy(true)
+    setError(null)
+    try {
+      await saveLocation(timeZone, city)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить город и часовой пояс')
     } finally {
       setBusy(false)
     }
@@ -195,6 +212,41 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               </div>
             </div>
           )}
+        </section>
+
+        <section className="settings-block">
+          <h3>Календарь</h3>
+          <p className="hint">По пятницам в календаре будет показано время захода солнца для выбранного города.</p>
+          <label htmlFor="settings-time-zone">
+            Часовой пояс
+            <select
+              id="settings-time-zone"
+              value={timeZone}
+              onChange={(event) => setTimeZone(event.target.value)}
+              disabled={busy}
+            >
+              {TIME_ZONES.map((option) => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor="settings-city">
+            Город
+            <select
+              id="settings-city"
+              value={cityName}
+              onChange={(event) => setCityName(event.target.value)}
+              disabled={busy}
+            >
+              <option value="">Не показывать время заката</option>
+              {SUNSET_CITIES.map((city: SunsetCity) => (
+                <option key={city.name} value={city.name}>{city.name}</option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="primary compact settings-action" onClick={saveSunsetLocation} disabled={busy}>
+            Сохранить календарь
+          </button>
         </section>
 
         <section className="settings-block">

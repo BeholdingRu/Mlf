@@ -10,6 +10,10 @@ create table if not exists public.profiles (
   daily_calories_norm numeric(6, 1),
   theme text not null default 'green',
   font_scale numeric(3, 2) not null default 1 check (font_scale in (0.9, 1, 1.1, 1.2)),
+  time_zone text,
+  city_name text,
+  city_latitude numeric(7, 4),
+  city_longitude numeric(7, 4),
   created_at timestamptz not null default now()
 );
 
@@ -19,6 +23,12 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists font_scale numeric(3, 2) not null default 1
   check (font_scale in (0.9, 1, 1.1, 1.2));
+
+alter table public.profiles
+  add column if not exists time_zone text,
+  add column if not exists city_name text,
+  add column if not exists city_latitude numeric(7, 4),
+  add column if not exists city_longitude numeric(7, 4);
 
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
