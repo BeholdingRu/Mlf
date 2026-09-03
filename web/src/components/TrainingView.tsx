@@ -6,6 +6,7 @@ import type { ExerciseCategory, ExerciseType, SavedExercise, ScheduledExercise }
 type TrainingSubTab = 'workouts' | 'schedule' | 'exercises'
 
 const TRAINING_SUB_TAB_STORAGE_KEY = 'mlf:training-sub-tab'
+const EXERCISE_DRAFT_STORAGE_KEY = 'mlf:exercise-draft'
 const TRAINING_SUB_TABS: TrainingSubTab[] = ['workouts', 'schedule', 'exercises']
 
 function getSavedTrainingSubTab(): TrainingSubTab {
@@ -15,6 +16,42 @@ function getSavedTrainingSubTab(): TrainingSubTab {
 
 const EXERCISE_GROUPS: ExerciseCategory[] = ['Спина', 'Грудь', 'Плечи', 'Руки', 'Ноги', 'Кор']
 const EXERCISE_TYPES: ExerciseType[] = ['Свободные веса / в блоке', 'Собственный вес']
+
+type ExerciseDraft = {
+  category: ExerciseCategory
+  name: string
+  exerciseType: ExerciseType
+  restTimerEnabled: boolean
+}
+
+function getSavedExerciseDraft(): ExerciseDraft | null {
+  try {
+    const savedDraft = window.sessionStorage.getItem(EXERCISE_DRAFT_STORAGE_KEY)
+    if (!savedDraft) return null
+
+    const draft = JSON.parse(savedDraft) as Partial<ExerciseDraft>
+    if (
+      !EXERCISE_GROUPS.includes(draft.category as ExerciseCategory)
+      || typeof draft.name !== 'string'
+      || !EXERCISE_TYPES.includes(draft.exerciseType as ExerciseType)
+      || typeof draft.restTimerEnabled !== 'boolean'
+    ) {
+      window.sessionStorage.removeItem(EXERCISE_DRAFT_STORAGE_KEY)
+      return null
+    }
+
+    return {
+      category: draft.category as ExerciseCategory,
+      name: draft.name,
+      exerciseType: draft.exerciseType as ExerciseType,
+      restTimerEnabled: draft.restTimerEnabled,
+    }
+  } catch {
+    window.sessionStorage.removeItem(EXERCISE_DRAFT_STORAGE_KEY)
+    return null
+  }
+}
+
 const MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
@@ -33,11 +70,13 @@ export function TrainingView() {
     moveScheduledExercise,
     updateScheduledExercise,
   } = useData()
+  const [exerciseDraft] = useState<ExerciseDraft | null>(getSavedExerciseDraft)
   const [subTab, setSubTab] = useState<TrainingSubTab>(getSavedTrainingSubTab)
-  const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | null>(null)
-  const [name, setName] = useState('')
-  const [exerciseType, setExerciseType] = useState<ExerciseType>(EXERCISE_TYPES[0])
-  const [restTimerEnabled, setRestTimerEnabled] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | null>(exerciseDraft?.category ?? null)
+  const [name, setName] = useState(exerciseDraft?.name ?? '')
+  const [exerciseType, setExerciseType] = useState<ExerciseType>(exerciseDraft?.exerciseType ?? EXERCISE_TYPES[0])
+  const [restTimerEnabled, setRestTimerEnabled] = useState(exerciseDraft?.restTimerEnabled ?? true)
+  const [persistExerciseDraft, setPersistExerciseDraft] = useState(Boolean(exerciseDraft))
   const [editingExercise, setEditingExercise] = useState<SavedExercise | null>(null)
   const [editName, setEditName] = useState('')
   const [editExerciseType, setEditExerciseType] = useState<ExerciseType>(EXERCISE_TYPES[0])
@@ -75,11 +114,28 @@ export function TrainingView() {
     window.sessionStorage.setItem(TRAINING_SUB_TAB_STORAGE_KEY, subTab)
   }, [subTab])
 
+  useEffect(() => {
+    if (!persistExerciseDraft || !selectedCategory) {
+      window.sessionStorage.removeItem(EXERCISE_DRAFT_STORAGE_KEY)
+      return
+    }
+
+    const draft: ExerciseDraft = {
+      category: selectedCategory,
+      name,
+      exerciseType,
+      restTimerEnabled,
+    }
+    window.sessionStorage.setItem(EXERCISE_DRAFT_STORAGE_KEY, JSON.stringify(draft))
+  }, [exerciseType, name, persistExerciseDraft, restTimerEnabled, selectedCategory])
+
   const selectCategory = (category: ExerciseCategory) => {
+    window.sessionStorage.removeItem(EXERCISE_DRAFT_STORAGE_KEY)
     setSelectedCategory(category)
     setName('')
     setExerciseType(EXERCISE_TYPES[0])
     setRestTimerEnabled(true)
+    setPersistExerciseDraft(true)
   }
 
   const handleAddExercise = async () => {
@@ -94,6 +150,7 @@ export function TrainingView() {
       setName('')
       setExerciseType(EXERCISE_TYPES[0])
       setRestTimerEnabled(true)
+      setPersistExerciseDraft(false)
     } catch (err) {
       console.error('Error adding exercise:', err)
       alert('Не удалось сохранить упражнение. Возможно, оно уже есть в этой категории.')
@@ -635,19 +692,11 @@ function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave
     const updateCountdown = () => {
       const secondsLeft = Math.ceil((execution.restEndsAt! - Date.now()) / 1000)
       if (secondsLeft <= 0) {
-        const isLastSet = execution.remainingSets <= 1
-        if (isLastSet) {
-          playSound('/sounds/exercise-completed.mp3')
-        } else {
-          playSound('/sounds/rest-finished.mp3')
-        }
+        playSound('/sounds/rest-finished.mp3')
         setExecution((current) => ({
           ...current,
-          remainingSets: Math.max(current.remainingSets - 1, 0),
           restEndsAt: null,
-          completed: isLastSet,
         }))
-        if (isLastSet) void onSaveRef.current({ completed: true })
         return
       }
 
@@ -693,14 +742,21 @@ function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave
     setEditing(true)
   }
 
-  const completeSet = () => {
+  const completeSet = (restEndsAt: number | null) => {
     setExecution((current) => {
       const remainingSets = Math.max(current.remainingSets - 1, 0)
-      if (remainingSets === 0) {
+      const completed = remainingSets === 0
+      if (completed) {
         playSound('/sounds/exercise-completed.mp3')
         void onSave({ completed: true })
       }
-      return { ...current, remainingSets, completed: remainingSets === 0 }
+      return {
+        ...current,
+        setInProgress: false,
+        remainingSets,
+        restEndsAt: completed ? null : restEndsAt,
+        completed,
+      }
     })
   }
 
@@ -739,16 +795,11 @@ function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave
     if (exercise.rest_timer_enabled && totalRestSeconds > 0) {
       const restEndsAt = Date.now() + totalRestSeconds * 1000
       setCurrentTime(Date.now())
-      setExecution((current) => ({
-        ...current,
-        setInProgress: false,
-        restEndsAt,
-      }))
+      completeSet(restEndsAt)
       return
     }
 
-    setExecution((current) => ({ ...current, setInProgress: false }))
-    completeSet()
+    completeSet(null)
   }
 
   const handleSave = async () => {

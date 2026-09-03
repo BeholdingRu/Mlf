@@ -156,48 +156,31 @@ export function DiaryView() {
           <div>
             <h2>{selectedLabel}</h2>
             <p>
-              {selectedLogs.length ? (
-                <span className="diary-summary-value">Всего: {totalCalories.toFixed(0)} ккал</span>
-              ) : (
-                'Продукты не добавлялись'
-              )}
               {selectedWeight && (
-                <span className="diary-summary-value"> · Вес: {formatWeight(selectedWeight.value)} кг</span>
+                <span className="diary-summary-value">Вес: {formatWeight(selectedWeight.value)} кг</span>
               )}
             </p>
           </div>
         </div>
-        {selectedLogs.length > 0 && (
-          <button
-            type="button"
-            className="primary compact"
-            onClick={() => setShowProducts(!showProducts)}
-            aria-expanded={showProducts}
-            style={{ marginBottom: '12px' }}
-          >
-            {showProducts ? 'Скрыть продукты' : 'Потребленные продукты'}
-          </button>
-        )}
-        <div className="diary-exercises-controls">
-          <button
-            type="button"
-            className="primary compact"
-            onClick={() => setShowExercises(!showExercises)}
-            aria-expanded={showExercises}
-          >
-            {showExercises ? 'Скрыть упражнения' : 'Упражнения'}
-          </button>
-          {showExercises && (
-            <p className="worked-weight">
-              Всего поднято доп. веса: <strong>{formatWeight(totalWorkedWeight)} кг</strong>
-            </p>
-          )}
-        </div>
-        {showProducts && (
-          <>
-            {!selectedLogs.length ? (
-              <p className="empty">В этот день продукты не добавлялись.</p>
-            ) : (
+        <div className="diary-data-sections">
+          <section className="diary-data-section" aria-labelledby="diary-products-heading">
+            <div className="diary-section-head">
+              <div>
+                <h3 id="diary-products-heading">Питание</h3>
+                <p>{selectedLogs.length ? `Всего: ${totalCalories.toFixed(0)} ккал` : 'Продукты не добавлялись'}</p>
+              </div>
+              {selectedLogs.length > 0 && (
+                <button
+                  type="button"
+                  className="primary compact"
+                  onClick={() => setShowProducts(!showProducts)}
+                  aria-expanded={showProducts}
+                >
+                  {showProducts ? 'Скрыть продукты' : 'Потреблённые продукты'}
+                </button>
+              )}
+            </div>
+            {showProducts && (
               <>
                 <p className="diary-nutrition-total">
                   Итого за день: <strong>Б {totalNutrition.proteins.toFixed(1)} г</strong>
@@ -232,44 +215,64 @@ export function DiaryView() {
                 </ul>
               </>
             )}
-          </>
-        )}
-        {showExercises && (
-          <section className="diary-exercises">
-            {completedExercises.length === 0 ? (
-              <p className="empty">В этот день нет завершённых упражнений.</p>
-            ) : (
-              <ul>
-                {completedExercises.map((exercise) => (
-                  <li key={exercise.id} className="food-item">
-                    <div className="food-details">
-                      <div className="food-name">{exercise.exercise_name}</div>
-                      <div className="food-info">
-                        {exercise.weight_kg !== null && <span>Вес снаряда: {formatWeight(exercise.weight_kg)} кг</span>}
-                        {exercise.weight_kg !== null && <span>•</span>}
-                        <span>Повторения: {exercise.repetitions ?? '—'}</span>
-                        <span>•</span>
-                        <span>Подходы: {exercise.sets ?? '—'}</span>
-                        {getWorkedWeight(exercise) !== null && (
-                          <>
+          </section>
+
+          <section className="diary-data-section diary-exercises" aria-labelledby="diary-exercises-heading">
+            <div className="diary-section-head">
+              <div>
+                <h3 id="diary-exercises-heading">Тренировка</h3>
+                <p>{completedExercises.length ? `Выполнено упражнений: ${completedExercises.length}` : 'Завершённых упражнений нет'}</p>
+              </div>
+              <button
+                type="button"
+                className="primary compact"
+                onClick={() => setShowExercises(!showExercises)}
+                aria-expanded={showExercises}
+              >
+                {showExercises ? 'Скрыть упражнения' : 'Выполненные упражнения'}
+              </button>
+            </div>
+            {showExercises && (
+              <>
+                <p className="worked-weight">
+                  Всего поднято доп. веса: <strong>{formatWeight(totalWorkedWeight)} кг</strong>
+                </p>
+                {completedExercises.length === 0 ? (
+                  <p className="empty">В этот день нет завершённых упражнений.</p>
+                ) : (
+                  <ul>
+                    {completedExercises.map((exercise) => (
+                      <li key={exercise.id} className="food-item">
+                        <div className="food-details">
+                          <div className="food-name">{exercise.exercise_name}</div>
+                          <div className="food-info">
+                            {exercise.weight_kg !== null && <span>Вес снаряда: {formatWeight(exercise.weight_kg)} кг</span>}
+                            {exercise.weight_kg !== null && <span>•</span>}
+                            <span>Повторения: {exercise.repetitions ?? '—'}</span>
                             <span>•</span>
-                            <span>Отработанный вес: {formatWeight(getWorkedWeight(exercise)!)} кг</span>
-                          </>
-                        )}
-                        {exercise.rest_timer_enabled && (
-                          <>
-                            <span>•</span>
-                            <span>Время между подходами: {exercise.rest_duration ?? '00:00'}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                            <span>Подходы: {exercise.sets ?? '—'}</span>
+                            {getWorkedWeight(exercise) !== null && (
+                              <>
+                                <span>•</span>
+                                <span>Отработанный вес: {formatWeight(getWorkedWeight(exercise)!)} кг</span>
+                              </>
+                            )}
+                            {exercise.rest_timer_enabled && (
+                              <>
+                                <span>•</span>
+                                <span>Время между подходами: {exercise.rest_duration ?? '00:00'}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </section>
-        )}
+        </div>
       </div>
     </section>
   )

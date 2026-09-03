@@ -1274,8 +1274,44 @@ nav {
   font-weight: 700;
 }
 
-.diary-food-list > .primary.compact {
-  margin: 0 8px 12px 0;
+.diary-data-sections {
+  display: grid;
+  gap: 12px;
+}
+
+.diary-data-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.diary-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.diary-section-head h3,
+.diary-section-head p {
+  margin: 0;
+}
+
+.diary-section-head h3 {
+  font-size: 16px;
+}
+
+.diary-section-head p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.diary-section-head .primary.compact {
+  flex-shrink: 0;
 }
 
 .diary-nutrition-total {
@@ -1292,21 +1328,8 @@ nav {
   color: var(--moss-deep);
 }
 
-.diary-exercises-controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.diary-exercises-controls .primary.compact {
-  margin: 0;
-}
-
 @media (min-width: 769px) {
-  .diary-food-list > .primary.compact,
-  .diary-exercises-controls .primary.compact {
+  .diary-section-head .primary.compact {
     width: 210px;
     text-align: center;
   }
@@ -2420,12 +2443,12 @@ nav {
     width: 100%;
   }
 
-  .diary-exercises-controls {
+  .diary-section-head {
     align-items: stretch;
   }
 
-  .diary-exercises-controls .worked-weight {
-    flex: 1 1 100%;
+  .diary-section-head .primary.compact {
+    width: auto;
   }
 
   .exercise-execution > .worked-weight {
