@@ -1388,9 +1388,29 @@ nav {
   text-align: left;
 }
 
+.saved-products-trigger,
+.consumption-category-group select {
+  border-color: var(--moss);
+  background: var(--info-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--moss) 16%, transparent);
+}
+
+.saved-products-trigger[aria-expanded='true'] {
+  background: var(--moss);
+  color: var(--on-accent);
+}
+
+.saved-products-trigger:focus-visible,
+.consumption-category-group select:focus-visible {
+  outline: 2px solid var(--leaf);
+  outline-offset: 2px;
+}
+
 .saved-products-trigger:disabled {
+  border-color: var(--line);
   color: var(--muted);
   background: var(--surface-disabled);
+  box-shadow: none;
   cursor: default;
 }
 

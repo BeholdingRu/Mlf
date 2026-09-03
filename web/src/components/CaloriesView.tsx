@@ -337,7 +337,7 @@ export function CaloriesView() {
                 min="0"
               />
             </div>
-            <div className="form-group">
+            <div className="form-group consumption-category-group">
               <label htmlFor="consumption-category">Категория для «Моих продуктов»</label>
               <select
                 id="consumption-category"
