@@ -2329,6 +2329,14 @@ nav {
     font-size: 12px;
   }
 
+  .nutrition-inputs .form-group {
+    grid-template-rows: 30px auto;
+  }
+
+  .nutrition-inputs .form-group label {
+    line-height: 1.2;
+  }
+
   .form-group input {
     padding: 10px;
     font-size: 14px;
