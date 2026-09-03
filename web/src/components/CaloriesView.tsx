@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useData } from '../context/DataContext'
 import { ProductsView } from './ProductsView'
-import { PRODUCT_CATEGORIES, type ProductCategory } from '../lib/product-categories'
+import { DEFAULT_PRODUCT_CATEGORY, PRODUCT_CATEGORIES, type ProductCategory } from '../lib/product-categories'
 
 type CaloriesSubTab = 'consumption' | 'products'
 
@@ -14,7 +14,7 @@ function getSavedCaloriesSubTab(): CaloriesSubTab {
 }
 
 export function CaloriesView() {
-  const { profile, foodLogs, savedProducts, logFoodToday, deleteFoodLog, saveCaloriesNorm } = useData()
+  const { profile, foodLogs, savedProducts, addSavedProduct, logFoodToday, deleteFoodLog, saveCaloriesNorm } = useData()
   const [subTab, setSubTab] = useState<CaloriesSubTab>(getSavedCaloriesSubTab)
   const [productName, setProductName] = useState('')
   const [weightGrams, setWeightGrams] = useState('')
@@ -22,6 +22,7 @@ export function CaloriesView() {
   const [proteinsPer100g, setProteinsPer100g] = useState('')
   const [fatsPer100g, setFatsPer100g] = useState('')
   const [carbohydratesPer100g, setCarbohydratesPer100g] = useState('')
+  const [productCategory, setProductCategory] = useState<ProductCategory>(DEFAULT_PRODUCT_CATEGORY)
   const [savedProductGroup, setSavedProductGroup] = useState<ProductCategory | 'favorites' | ''>('')
   const [savedProductMenuOpen, setSavedProductMenuOpen] = useState(false)
   const [dailyNormInput, setDailyNormInput] = useState<string | null>(null)
@@ -94,10 +95,28 @@ export function CaloriesView() {
 
     setSubmitting(true)
     try {
+      const name = productName.trim()
+      const calories = parseFloat(caloriesPer100g)
+      const isAlreadySaved = savedProducts.some(
+        (product) => product.name.trim().toLocaleLowerCase('ru-RU') === name.toLocaleLowerCase('ru-RU'),
+      )
+
+      if (!isAlreadySaved) {
+        await addSavedProduct(
+          name,
+          calories,
+          proteins,
+          fats,
+          carbohydrates,
+          productCategory,
+          false,
+        )
+      }
+
       await logFoodToday(
-        productName.trim(),
+        name,
         parseFloat(weightGrams),
-        parseFloat(caloriesPer100g),
+        calories,
         proteins,
         fats,
         carbohydrates,
@@ -108,6 +127,7 @@ export function CaloriesView() {
       setProteinsPer100g('')
       setFatsPer100g('')
       setCarbohydratesPer100g('')
+      setProductCategory(DEFAULT_PRODUCT_CATEGORY)
     } catch (err) {
       console.error('Error logging food:', err)
       alert('Ошибка при сохранении продукта')
@@ -133,6 +153,7 @@ export function CaloriesView() {
     setProteinsPer100g(String(product.proteins_per_100g))
     setFatsPer100g(String(product.fats_per_100g))
     setCarbohydratesPer100g(String(product.carbohydrates_per_100g))
+    setProductCategory(product.category)
     setSavedProductMenuOpen(false)
   }
 
@@ -315,6 +336,19 @@ export function CaloriesView() {
                 step="0.1"
                 min="0"
               />
+            </div>
+            <div className="form-group">
+              <label htmlFor="consumption-category">Категория для «Моих продуктов»</label>
+              <select
+                id="consumption-category"
+                value={productCategory}
+                onChange={(e) => setProductCategory(e.target.value as ProductCategory)}
+                disabled={submitting}
+              >
+                {PRODUCT_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
               <label htmlFor="calories">Калорийность на 100г</label>
