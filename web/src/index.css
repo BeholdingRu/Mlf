@@ -1473,6 +1473,15 @@ nav {
   border-top: 1px solid var(--line);
 }
 
+@media (min-width: 768px) {
+  .settings-action {
+    justify-self: start;
+    width: 190px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}
+
 .toggle {
   display: flex;
   align-items: center;

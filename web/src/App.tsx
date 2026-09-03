@@ -3,6 +3,7 @@ import { DataProvider } from './context/DataContext'
 import { supabaseConfigured } from './lib/supabase'
 import { AuthPage } from './pages/AuthPage'
 import { CabinetPage } from './pages/CabinetPage'
+import { RecoveryPasswordPage } from './pages/RecoveryPasswordPage'
 
 export default function App() {
   if (!supabaseConfigured) {
@@ -28,7 +29,7 @@ export default function App() {
 }
 
 function Root() {
-  const { user, loading } = useAuth()
+  const { user, loading, recoveryRequired } = useAuth()
   if (loading) {
     return (
       <div className="auth-shell">
@@ -37,6 +38,7 @@ function Root() {
     )
   }
   if (!user) return <AuthPage />
+  if (recoveryRequired) return <RecoveryPasswordPage />
   return (
     <DataProvider>
       <CabinetPage />

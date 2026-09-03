@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { getAuthErrorMessage } from '../lib/auth-errors'
 
 type Mode = 'login' | 'register' | 'recovery'
-type RecoveryStep = 'email' | 'code' | 'password'
+type RecoveryStep = 'email' | 'code'
 const RECOVERY_CODE_LENGTH = 8
 
 export function AuthPage() {
-  const { signIn, signUp, requestRecovery, verifyRecovery, updatePassword } = useAuth()
+  const { signIn, signUp, requestRecovery, verifyRecovery } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -58,19 +59,10 @@ export function AuthPage() {
           throw new Error('Введите 8-значный код из письма')
         }
         await verifyRecovery(email.trim(), token)
-        setRecoveryStep('password')
-        setInfo('Код принят. Задайте новый пароль.')
         return
       }
-      if (password.length < 6) {
-        throw new Error('Пароль должен содержать минимум 6 символов')
-      }
-      if (password !== password2) {
-        throw new Error('Пароли не совпадают')
-      }
-      await updatePassword(password)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось выполнить запрос')
+      setError(getAuthErrorMessage(err, 'Не удалось выполнить запрос'))
     } finally {
       setBusy(false)
     }
@@ -160,22 +152,20 @@ export function AuthPage() {
             </div>
           )}
 
-          {(mode === 'login' ||
-            mode === 'register' ||
-            (mode === 'recovery' && recoveryStep === 'password')) && (
+          {(mode === 'login' || mode === 'register') && (
             <label>
-              {mode === 'recovery' ? 'Новый пароль' : 'Пароль'}
+              Пароль
               <input
                 type="password"
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                required={mode !== 'recovery' || recoveryStep === 'password'}
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </label>
           )}
 
-          {(mode === 'register' || (mode === 'recovery' && recoveryStep === 'password')) && (
+          {mode === 'register' && (
             <label>
               Повторите пароль
               <input
