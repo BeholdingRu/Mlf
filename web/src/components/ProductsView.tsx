@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useData } from '../context/DataContext'
 import {
   DEFAULT_PRODUCT_CATEGORY,
@@ -6,6 +6,32 @@ import {
   type ProductCategory,
 } from '../lib/product-categories'
 import type { SavedProduct } from '../lib/types'
+
+const PRODUCT_EDIT_DRAFT_STORAGE_KEY = 'mlf:product-edit-draft'
+
+type ProductEditDraft = {
+  product: SavedProduct
+  name: string
+  calories: string
+  proteins: string
+  fats: string
+  carbohydrates: string
+  category: ProductCategory
+}
+
+function getSavedProductEditDraft(): ProductEditDraft | null {
+  try {
+    const savedDraft = window.sessionStorage.getItem(PRODUCT_EDIT_DRAFT_STORAGE_KEY)
+    if (!savedDraft) return null
+
+    const draft = JSON.parse(savedDraft) as ProductEditDraft
+    if (!draft.product?.id || !PRODUCT_CATEGORIES.includes(draft.category)) return null
+    return draft
+  } catch {
+    window.sessionStorage.removeItem(PRODUCT_EDIT_DRAFT_STORAGE_KEY)
+    return null
+  }
+}
 
 function getProductCountLabel(count: number): string {
   const lastTwoDigits = count % 100
@@ -18,6 +44,7 @@ function getProductCountLabel(count: number): string {
 
 export function ProductsView() {
   const { savedProducts, addSavedProduct, updateSavedProduct, setSavedProductFavorite, deleteSavedProduct } = useData()
+  const [editDraft] = useState<ProductEditDraft | null>(getSavedProductEditDraft)
   const [name, setName] = useState('')
   const [caloriesPer100g, setCaloriesPer100g] = useState('')
   const [proteinsPer100g, setProteinsPer100g] = useState('')
@@ -27,14 +54,29 @@ export function ProductsView() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [openCategory, setOpenCategory] = useState<ProductCategory | null>(null)
-  const [editingProduct, setEditingProduct] = useState<SavedProduct | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editCalories, setEditCalories] = useState('')
-  const [editProteins, setEditProteins] = useState('')
-  const [editFats, setEditFats] = useState('')
-  const [editCarbohydrates, setEditCarbohydrates] = useState('')
-  const [editCategory, setEditCategory] = useState<ProductCategory>(DEFAULT_PRODUCT_CATEGORY)
+  const [editingProduct, setEditingProduct] = useState<SavedProduct | null>(editDraft?.product ?? null)
+  const [editName, setEditName] = useState(editDraft?.name ?? '')
+  const [editCalories, setEditCalories] = useState(editDraft?.calories ?? '')
+  const [editProteins, setEditProteins] = useState(editDraft?.proteins ?? '')
+  const [editFats, setEditFats] = useState(editDraft?.fats ?? '')
+  const [editCarbohydrates, setEditCarbohydrates] = useState(editDraft?.carbohydrates ?? '')
+  const [editCategory, setEditCategory] = useState<ProductCategory>(editDraft?.category ?? DEFAULT_PRODUCT_CATEGORY)
   const [favoriteProductId, setFavoriteProductId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!editingProduct) return
+
+    const draft: ProductEditDraft = {
+      product: editingProduct,
+      name: editName,
+      calories: editCalories,
+      proteins: editProteins,
+      fats: editFats,
+      carbohydrates: editCarbohydrates,
+      category: editCategory,
+    }
+    window.sessionStorage.setItem(PRODUCT_EDIT_DRAFT_STORAGE_KEY, JSON.stringify(draft))
+  }, [editCalories, editCarbohydrates, editCategory, editFats, editName, editProteins, editingProduct])
 
   const handleAddProduct = async () => {
     const calories = Number(caloriesPer100g)
@@ -90,6 +132,7 @@ export function ProductsView() {
   }
 
   const handleEditCancel = () => {
+    window.sessionStorage.removeItem(PRODUCT_EDIT_DRAFT_STORAGE_KEY)
     setEditingProduct(null)
     setEditName('')
     setEditCalories('')

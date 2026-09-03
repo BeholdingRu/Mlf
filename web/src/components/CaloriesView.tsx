@@ -159,7 +159,7 @@ export function CaloriesView() {
         </button>
       </nav>
 
-      {subTab === 'consumption' ? (
+      <div className="calories-panel" hidden={subTab !== 'consumption'}>
         <>
           <div className="calories-header">
             <div className="calories-info">
@@ -388,9 +388,10 @@ export function CaloriesView() {
             )}
           </div>
         </>
-      ) : (
+      </div>
+      <div className="calories-panel" hidden={subTab !== 'products'}>
         <ProductsView />
-      )}
+      </div>
     </div>
   )
 }

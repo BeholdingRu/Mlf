@@ -77,7 +77,11 @@ export function CabinetPage() {
         {error && <p className="banner error">{error}</p>}
         {!loading && tab === 'daily' && <DailyTasks />}
         {!loading && tab === 'all' && <StatsView />}
-        {!loading && tab === 'calories' && <CaloriesView />}
+        {!loading && (
+          <div hidden={tab !== 'calories'}>
+            <CaloriesView />
+          </div>
+        )}
         {!loading && tab === 'training' && <TrainingView />}
         {!loading && tab === 'diary' && <DiaryView />}
       </main>
