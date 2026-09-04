@@ -340,10 +340,16 @@ export function CaloriesView() {
                 type="number"
                 value={weightGrams}
                 onChange={(e) => setWeightGrams(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return
+                  event.preventDefault()
+                  void handleAddFood()
+                }}
                 placeholder="0"
                 disabled={submitting}
                 step="0.1"
                 min="0"
+                enterKeyHint="done"
               />
             </div>
             <div className="form-group consumption-category-group">
