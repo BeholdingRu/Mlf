@@ -333,25 +333,6 @@ export function CaloriesView() {
                 </div>
               </div>
             </div>
-            <div className="form-group">
-              <label htmlFor="weight">Вес (гр)</label>
-              <input
-                id="weight"
-                type="number"
-                value={weightGrams}
-                onChange={(e) => setWeightGrams(e.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return
-                  event.preventDefault()
-                  void handleAddFood()
-                }}
-                placeholder="0"
-                disabled={submitting}
-                step="0.1"
-                min="0"
-                enterKeyHint="done"
-              />
-            </div>
             <div className="form-group consumption-category-group">
               <label htmlFor="consumption-category">Категория для «Моих продуктов»</label>
               <select
@@ -391,6 +372,26 @@ export function CaloriesView() {
                 <label htmlFor="consumption-carbohydrates">Углеводы на 100г</label>
                 <input id="consumption-carbohydrates" type="number" value={carbohydratesPer100g} onChange={(e) => setCarbohydratesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
               </div>
+            </div>
+            <div className="form-group">
+              <label htmlFor="weight">Вес (гр)</label>
+              <input
+                id="weight"
+                type="number"
+                value={weightGrams}
+                onChange={(e) => setWeightGrams(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return
+                  event.preventDefault()
+                  void handleAddFood()
+                }}
+                placeholder="0"
+                disabled={submitting}
+                step="0.1"
+                min="0"
+                inputMode="decimal"
+                enterKeyHint="done"
+              />
             </div>
             <button type="submit" disabled={submitting} className="add-button">
               {submitting ? 'Сохранение...' : 'Добавить'}
