@@ -75,15 +75,31 @@ export function CabinetPage() {
         </header>
         {loading && <p className="muted">Загрузка кабинета…</p>}
         {error && <p className="banner error">{error}</p>}
-        {!loading && tab === 'daily' && <DailyTasks />}
-        {!loading && tab === 'all' && <StatsView />}
+        {!loading && (
+          <div hidden={tab !== 'daily'}>
+            <DailyTasks />
+          </div>
+        )}
+        {!loading && (
+          <div hidden={tab !== 'all'}>
+            <StatsView />
+          </div>
+        )}
         {!loading && (
           <div hidden={tab !== 'calories'}>
             <CaloriesView />
           </div>
         )}
-        {!loading && tab === 'training' && <TrainingView />}
-        {!loading && tab === 'diary' && <DiaryView />}
+        {!loading && (
+          <div hidden={tab !== 'training'}>
+            <TrainingView />
+          </div>
+        )}
+        {!loading && (
+          <div hidden={tab !== 'diary'}>
+            <DiaryView />
+          </div>
+        )}
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>

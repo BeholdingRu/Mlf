@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { WeightChart } from './WeightChart'
 import { useData } from '../context/DataContext'
@@ -6,9 +6,17 @@ import { percent } from '../lib/dates'
 
 type StatsSubTab = 'overview' | 'manage-weight'
 
+const STATS_SUB_TAB_STORAGE_KEY = 'mlf:stats-sub-tab'
+
+function getSavedStatsSubTab(): StatsSubTab {
+  return window.sessionStorage.getItem(STATS_SUB_TAB_STORAGE_KEY) === 'manage-weight'
+    ? 'manage-weight'
+    : 'overview'
+}
+
 export function StatsView() {
   const { tasks, completions, weightLogs, profile, saveWeightSettings, saveDesiredWeight } = useData()
-  const [subTab, setSubTab] = useState<StatsSubTab>('overview')
+  const [subTab, setSubTab] = useState<StatsSubTab>(getSavedStatsSubTab)
   const [target, setTarget] = useState(
     profile?.target_weight != null ? String(profile.target_weight) : '',
   )
@@ -17,6 +25,10 @@ export function StatsView() {
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.sessionStorage.setItem(STATS_SUB_TAB_STORAGE_KEY, subTab)
+  }, [subTab])
 
   async function saveWeight() {
     setBusy(true)

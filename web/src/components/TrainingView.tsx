@@ -618,8 +618,19 @@ type ExerciseExecutionState = {
   completed: boolean
 }
 
+type ExerciseParametersDraft = {
+  weight: string
+  repetitions: string
+  sets: string
+  restDuration: string
+}
+
 function getExerciseExecutionStorageKey(exerciseId: string) {
   return `mlf:exercise-execution:${exerciseId}`
+}
+
+function getExerciseParametersDraftStorageKey(exerciseId: string) {
+  return `mlf:exercise-parameters-draft:${exerciseId}`
 }
 
 function getSavedExerciseExecution(exerciseId: string): ExerciseExecutionState {
@@ -658,12 +669,41 @@ function getSavedExerciseExecution(exerciseId: string): ExerciseExecutionState {
   }
 }
 
+function getSavedExerciseParametersDraft(exerciseId: string): ExerciseParametersDraft | null {
+  try {
+    const rawDraft = window.sessionStorage.getItem(getExerciseParametersDraftStorageKey(exerciseId))
+    if (!rawDraft) return null
+
+    const draft = JSON.parse(rawDraft) as Partial<ExerciseParametersDraft>
+    if (
+      typeof draft.weight !== 'string'
+      || typeof draft.repetitions !== 'string'
+      || typeof draft.sets !== 'string'
+      || typeof draft.restDuration !== 'string'
+    ) {
+      window.sessionStorage.removeItem(getExerciseParametersDraftStorageKey(exerciseId))
+      return null
+    }
+
+    return {
+      weight: draft.weight,
+      repetitions: draft.repetitions,
+      sets: draft.sets,
+      restDuration: draft.restDuration,
+    }
+  } catch {
+    window.sessionStorage.removeItem(getExerciseParametersDraftStorageKey(exerciseId))
+    return null
+  }
+}
+
 function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave }: WorkoutExerciseFieldsProps) {
-  const [editing, setEditing] = useState(false)
-  const [weight, setWeight] = useState(exercise.weight_kg?.toString() ?? '')
-  const [repetitions, setRepetitions] = useState(exercise.repetitions?.toString() ?? '')
-  const [sets, setSets] = useState(exercise.sets?.toString() ?? '')
-  const [restDuration, setRestDuration] = useState(formatRestDuration(exercise.rest_duration))
+  const [parametersDraft] = useState<ExerciseParametersDraft | null>(() => getSavedExerciseParametersDraft(exercise.id))
+  const [editing, setEditing] = useState(Boolean(parametersDraft))
+  const [weight, setWeight] = useState(parametersDraft?.weight ?? exercise.weight_kg?.toString() ?? '')
+  const [repetitions, setRepetitions] = useState(parametersDraft?.repetitions ?? exercise.repetitions?.toString() ?? '')
+  const [sets, setSets] = useState(parametersDraft?.sets ?? exercise.sets?.toString() ?? '')
+  const [restDuration, setRestDuration] = useState(parametersDraft?.restDuration ?? formatRestDuration(exercise.rest_duration))
   const [saving, setSaving] = useState(false)
   const [execution, setExecution] = useState(() => {
     const savedExecution = getSavedExerciseExecution(exercise.id)
@@ -681,6 +721,16 @@ function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave
     if (!showExecutionControls) return
     window.sessionStorage.setItem(getExerciseExecutionStorageKey(exercise.id), JSON.stringify(execution))
   }, [exercise.id, execution, showExecutionControls])
+
+  useEffect(() => {
+    const storageKey = getExerciseParametersDraftStorageKey(exercise.id)
+    if (!editing || exercise.parameters_locked) {
+      window.sessionStorage.removeItem(storageKey)
+      return
+    }
+
+    window.sessionStorage.setItem(storageKey, JSON.stringify({ weight, repetitions, sets, restDuration }))
+  }, [editing, exercise.id, exercise.parameters_locked, repetitions, restDuration, sets, weight])
 
   useEffect(() => {
     onSaveRef.current = onSave

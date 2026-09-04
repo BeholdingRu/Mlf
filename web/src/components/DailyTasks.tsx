@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { useData } from '../context/DataContext'
 import { localISODate, percent } from '../lib/dates'
@@ -6,16 +6,80 @@ import { isNutritionTask } from '../lib/nutrition-task'
 
 type DailyTasksSubTab = 'list' | 'manage'
 
+const DAILY_TASKS_SUB_TAB_STORAGE_KEY = 'mlf:daily-tasks-sub-tab'
+const TASK_SETTINGS_DRAFT_STORAGE_KEY = 'mlf:task-settings-draft'
+
+type TaskEditDraft = {
+  title: string
+  habit_days: string
+}
+
+type TaskSettingsDraft = {
+  newTitle: string
+  newDays: string
+  edits: Record<string, TaskEditDraft>
+}
+
+function getSavedDailyTasksSubTab(): DailyTasksSubTab {
+  return window.sessionStorage.getItem(DAILY_TASKS_SUB_TAB_STORAGE_KEY) === 'manage'
+    ? 'manage'
+    : 'list'
+}
+
+function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
+  try {
+    const savedDraft = window.sessionStorage.getItem(TASK_SETTINGS_DRAFT_STORAGE_KEY)
+    if (!savedDraft) return null
+
+    const draft = JSON.parse(savedDraft) as Partial<TaskSettingsDraft>
+    if (
+      typeof draft.newTitle !== 'string'
+      || typeof draft.newDays !== 'string'
+      || !draft.edits
+      || typeof draft.edits !== 'object'
+      || Object.values(draft.edits).some(
+        (edit) => !edit || typeof edit.title !== 'string' || typeof edit.habit_days !== 'string',
+      )
+    ) {
+      window.sessionStorage.removeItem(TASK_SETTINGS_DRAFT_STORAGE_KEY)
+      return null
+    }
+
+    return {
+      newTitle: draft.newTitle,
+      newDays: draft.newDays,
+      edits: draft.edits,
+    }
+  } catch {
+    window.sessionStorage.removeItem(TASK_SETTINGS_DRAFT_STORAGE_KEY)
+    return null
+  }
+}
+
 export function DailyTasks() {
   const { tasks, completions, completeToday, profile, addTask, updateTask, deleteTask } = useData()
-  const [subTab, setSubTab] = useState<DailyTasksSubTab>('list')
+  const [taskSettingsDraft] = useState<TaskSettingsDraft | null>(getSavedTaskSettingsDraft)
+  const [subTab, setSubTab] = useState<DailyTasksSubTab>(getSavedDailyTasksSubTab)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [newTitle, setNewTitle] = useState('')
-  const [newDays, setNewDays] = useState('21')
-  const [edits, setEdits] = useState<Record<string, { title: string; habit_days: string }>>({})
+  const [newTitle, setNewTitle] = useState(taskSettingsDraft?.newTitle ?? '')
+  const [newDays, setNewDays] = useState(taskSettingsDraft?.newDays ?? '21')
+  const [edits, setEdits] = useState<Record<string, TaskEditDraft>>(taskSettingsDraft?.edits ?? {})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const today = localISODate()
+
+  useEffect(() => {
+    window.sessionStorage.setItem(DAILY_TASKS_SUB_TAB_STORAGE_KEY, subTab)
+  }, [subTab])
+
+  useEffect(() => {
+    if (!newTitle && newDays === '21' && Object.keys(edits).length === 0) {
+      window.sessionStorage.removeItem(TASK_SETTINGS_DRAFT_STORAGE_KEY)
+      return
+    }
+
+    window.sessionStorage.setItem(TASK_SETTINGS_DRAFT_STORAGE_KEY, JSON.stringify({ newTitle, newDays, edits }))
+  }, [edits, newDays, newTitle])
 
   async function onAdd() {
     const title = newTitle.trim()
@@ -216,6 +280,10 @@ export function DailyTasks() {
                       setError(null)
                       try {
                         await deleteTask(task.id)
+                        setEdits((prev) => {
+                          const { [task.id]: _, ...next } = prev
+                          return next
+                        })
                       } catch (err) {
                         setError(err instanceof Error ? err.message : 'Ошибка удаления')
                       } finally {

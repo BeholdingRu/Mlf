@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { daysInclusive, localISODate, parseISODate } from '../lib/dates'
+import { localISODate } from '../lib/dates'
 import { useData } from '../context/DataContext'
 import type { WeightLog } from '../lib/types'
 
@@ -18,10 +18,6 @@ export function WeightWidget() {
     (latest, log) => (!latest || log.logged_on > latest.logged_on ? log : latest),
     null,
   )?.value ?? null
-  const dayCount = profile.weight_started_on
-    ? daysInclusive(parseISODate(profile.weight_started_on), new Date())
-    : 0
-
   async function submit() {
     const parsed = Number(value.replace(',', '.'))
     if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -55,7 +51,6 @@ export function WeightWidget() {
         <span className="weight-label">Текущий вес</span>
         <span className="weight-values">{current != null ? `${formatNum(current)} кг` : '—'}</span>
       </button>
-      {dayCount > 0 && <p className="day-counter">День {dayCount}</p>}
 
       {open && (
         <div className="popover">

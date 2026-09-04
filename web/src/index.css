@@ -575,11 +575,15 @@ nav {
 }
 
 .task-editor-add {
-  grid-template-columns: minmax(0, 1fr) 88px auto;
+  grid-template-columns: minmax(0, 1fr) 88px 100px 88px;
 }
 
 .task-editor-row {
-  grid-template-columns: minmax(0, 1fr) 88px auto auto;
+  grid-template-columns: minmax(0, 1fr) 88px 100px 88px;
+}
+
+.task-editor-add button {
+  grid-column: 3 / -1;
 }
 
 .task-settings-list {
