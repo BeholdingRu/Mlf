@@ -1081,13 +1081,12 @@ nav {
 .daily-norm-editor {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: flex-start;
 }
 
 .daily-norm-editor input,
 .daily-norm-value {
-  width: min(100%, 150px);
   color: var(--ink);
   font: inherit;
   font-family: var(--serif);
@@ -1098,11 +1097,13 @@ nav {
 
 .daily-norm-value {
   display: flex;
+  width: fit-content;
   align-items: center;
   min-height: 28px;
 }
 
 .daily-norm-editor input {
+  width: min(100%, 150px);
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2401,7 +2402,7 @@ nav {
   }
 
   .daily-norm-editor {
-    gap: 4px;
+    gap: 6px;
   }
 
   .calories-tabs {
