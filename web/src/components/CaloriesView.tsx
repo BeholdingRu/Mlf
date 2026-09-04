@@ -136,7 +136,10 @@ export function CaloriesView() {
     }
   }
 
-  const handleDeleteFood = async (id: string) => {
+  const handleDeleteFood = async (id: string, productName: string) => {
+    const confirmed = window.confirm(`Удалить «${productName}» из продуктов за сегодня?`)
+    if (!confirmed) return
+
     try {
       await deleteFoodLog(id)
     } catch (err) {
@@ -244,7 +247,13 @@ export function CaloriesView() {
             </div>
           </div>
 
-          <div className="food-form">
+          <form
+            className="food-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void handleAddFood()
+            }}
+          >
             <h3>Добавить продукт</h3>
             <div className="form-group">
               <label htmlFor="product-name">Название продукта</label>
@@ -377,10 +386,10 @@ export function CaloriesView() {
                 <input id="consumption-carbohydrates" type="number" value={carbohydratesPer100g} onChange={(e) => setCarbohydratesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
               </div>
             </div>
-            <button onClick={handleAddFood} disabled={submitting} className="add-button">
+            <button type="submit" disabled={submitting} className="add-button">
               {submitting ? 'Сохранение...' : 'Добавить'}
             </button>
-          </div>
+          </form>
 
           <div className="food-list">
             <h3>Продукты за сегодня</h3>
@@ -409,8 +418,9 @@ export function CaloriesView() {
                         </div>
                       </div>
                       <button
+                        type="button"
                         className="delete-button"
-                        onClick={() => handleDeleteFood(food.id)}
+                        onClick={() => handleDeleteFood(food.id, food.product_name)}
                         title="Удалить"
                       >
                         ×

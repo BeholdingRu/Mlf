@@ -7,7 +7,18 @@ import {
 } from '../lib/product-categories'
 import type { SavedProduct } from '../lib/types'
 
+const PRODUCT_ADD_DRAFT_STORAGE_KEY = 'mlf:product-add-draft'
 const PRODUCT_EDIT_DRAFT_STORAGE_KEY = 'mlf:product-edit-draft'
+
+type ProductAddDraft = {
+  name: string
+  calories: string
+  proteins: string
+  fats: string
+  carbohydrates: string
+  category: ProductCategory
+  isFavorite: boolean
+}
 
 type ProductEditDraft = {
   product: SavedProduct
@@ -17,6 +28,40 @@ type ProductEditDraft = {
   fats: string
   carbohydrates: string
   category: ProductCategory
+}
+
+function getSavedProductAddDraft(): ProductAddDraft | null {
+  try {
+    const savedDraft = window.sessionStorage.getItem(PRODUCT_ADD_DRAFT_STORAGE_KEY)
+    if (!savedDraft) return null
+
+    const draft = JSON.parse(savedDraft) as Partial<ProductAddDraft>
+    if (
+      typeof draft.name !== 'string'
+      || typeof draft.calories !== 'string'
+      || typeof draft.proteins !== 'string'
+      || typeof draft.fats !== 'string'
+      || typeof draft.carbohydrates !== 'string'
+      || !PRODUCT_CATEGORIES.includes(draft.category as ProductCategory)
+      || typeof draft.isFavorite !== 'boolean'
+    ) {
+      window.sessionStorage.removeItem(PRODUCT_ADD_DRAFT_STORAGE_KEY)
+      return null
+    }
+
+    return {
+      name: draft.name,
+      calories: draft.calories,
+      proteins: draft.proteins,
+      fats: draft.fats,
+      carbohydrates: draft.carbohydrates,
+      category: draft.category as ProductCategory,
+      isFavorite: draft.isFavorite,
+    }
+  } catch {
+    window.sessionStorage.removeItem(PRODUCT_ADD_DRAFT_STORAGE_KEY)
+    return null
+  }
 }
 
 function getSavedProductEditDraft(): ProductEditDraft | null {
@@ -44,14 +89,15 @@ function getProductCountLabel(count: number): string {
 
 export function ProductsView() {
   const { savedProducts, addSavedProduct, updateSavedProduct, setSavedProductFavorite, deleteSavedProduct } = useData()
+  const [addDraft] = useState<ProductAddDraft | null>(getSavedProductAddDraft)
   const [editDraft] = useState<ProductEditDraft | null>(getSavedProductEditDraft)
-  const [name, setName] = useState('')
-  const [caloriesPer100g, setCaloriesPer100g] = useState('')
-  const [proteinsPer100g, setProteinsPer100g] = useState('')
-  const [fatsPer100g, setFatsPer100g] = useState('')
-  const [carbohydratesPer100g, setCarbohydratesPer100g] = useState('')
-  const [category, setCategory] = useState<ProductCategory>(DEFAULT_PRODUCT_CATEGORY)
-  const [isFavorite, setIsFavorite] = useState(false)
+  const [name, setName] = useState(addDraft?.name ?? '')
+  const [caloriesPer100g, setCaloriesPer100g] = useState(addDraft?.calories ?? '')
+  const [proteinsPer100g, setProteinsPer100g] = useState(addDraft?.proteins ?? '')
+  const [fatsPer100g, setFatsPer100g] = useState(addDraft?.fats ?? '')
+  const [carbohydratesPer100g, setCarbohydratesPer100g] = useState(addDraft?.carbohydrates ?? '')
+  const [category, setCategory] = useState<ProductCategory>(addDraft?.category ?? DEFAULT_PRODUCT_CATEGORY)
+  const [isFavorite, setIsFavorite] = useState(addDraft?.isFavorite ?? false)
   const [submitting, setSubmitting] = useState(false)
   const [openCategory, setOpenCategory] = useState<ProductCategory | null>(null)
   const [editingProduct, setEditingProduct] = useState<SavedProduct | null>(editDraft?.product ?? null)
@@ -62,6 +108,26 @@ export function ProductsView() {
   const [editCarbohydrates, setEditCarbohydrates] = useState(editDraft?.carbohydrates ?? '')
   const [editCategory, setEditCategory] = useState<ProductCategory>(editDraft?.category ?? DEFAULT_PRODUCT_CATEGORY)
   const [favoriteProductId, setFavoriteProductId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const isEmpty = !name && !caloriesPer100g && !proteinsPer100g && !fatsPer100g
+      && !carbohydratesPer100g && category === DEFAULT_PRODUCT_CATEGORY && !isFavorite
+    if (isEmpty) {
+      window.sessionStorage.removeItem(PRODUCT_ADD_DRAFT_STORAGE_KEY)
+      return
+    }
+
+    const draft: ProductAddDraft = {
+      name,
+      calories: caloriesPer100g,
+      proteins: proteinsPer100g,
+      fats: fatsPer100g,
+      carbohydrates: carbohydratesPer100g,
+      category,
+      isFavorite,
+    }
+    window.sessionStorage.setItem(PRODUCT_ADD_DRAFT_STORAGE_KEY, JSON.stringify(draft))
+  }, [caloriesPer100g, carbohydratesPer100g, category, fatsPer100g, isFavorite, name, proteinsPer100g])
 
   useEffect(() => {
     if (!editingProduct) return
@@ -94,6 +160,7 @@ export function ProductsView() {
     setSubmitting(true)
     try {
       await addSavedProduct(name.trim(), calories, proteins, fats, carbohydrates, category, isFavorite)
+      window.sessionStorage.removeItem(PRODUCT_ADD_DRAFT_STORAGE_KEY)
       setName('')
       setCaloriesPer100g('')
       setProteinsPer100g('')
