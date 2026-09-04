@@ -274,11 +274,13 @@ export function CaloriesView() {
                   )}
                   <button
                     type="button"
-                    className="primary compact daily-norm-action"
+                    className={editingNorm ? 'primary compact daily-norm-action' : 'edit-button daily-norm-action'}
                     onClick={editingNorm ? handleSaveDailyNorm : handleEditDailyNorm}
                     disabled={savingNorm}
+                    aria-label={editingNorm ? undefined : 'Редактировать дневную норму калорий'}
+                    title={editingNorm ? undefined : 'Редактировать дневную норму калорий'}
                   >
-                    {savingNorm ? 'Сохранение…' : editingNorm ? 'Сохранить' : 'Редактировать'}
+                    {savingNorm ? 'Сохранение…' : editingNorm ? 'Сохранить' : '✎'}
                   </button>
                 </div>
                 {normError && <span className="daily-norm-error">{normError}</span>}
