@@ -58,10 +58,7 @@ export function Sidebar({ tab, onTab, onOpenSettings }: SidebarProps) {
               key={item.id}
               type="button"
               className={tab === item.id ? 'nav-item active' : 'nav-item'}
-              onClick={() => {
-                onTab(item.id)
-                setMobileMenuOpen(false)
-              }}
+              onClick={() => onTab(item.id)}
             >
               {item.label}
             </button>

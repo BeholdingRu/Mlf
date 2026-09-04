@@ -2118,9 +2118,9 @@ nav {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     width: 100%;
-    min-height: 48px;
-    gap: 10px;
-    padding: 10px 12px;
+    min-height: 24px;
+    gap: 6px;
+    padding: 4px 8px;
     border: 0;
     background: var(--sidebar);
     color: var(--ink);
