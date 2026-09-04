@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { localISODate } from '../lib/dates'
-import { useData } from '../context/DataContext'
+import { useData } from '../hooks/useData'
 import type { WeightLog } from '../lib/types'
 
 export function WeightWidget() {

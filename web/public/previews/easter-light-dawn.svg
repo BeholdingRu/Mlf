@@ -1,0 +1,15 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="800" y1="0" x2="800" y2="1000" gradientUnits="userSpaceOnUse"><stop stop-color="#223C58"/><stop offset=".52" stop-color="#6F8EA0"/><stop offset="1" stop-color="#F6DC9D"/></linearGradient>
+    <radialGradient id="dawn" cx="0" cy="0" r="1" gradientTransform="translate(800 754) rotate(90) scale(420 650)" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF4CB"/><stop offset=".28" stop-color="#E9BC57" stop-opacity=".75"/><stop offset="1" stop-color="#E9BC57" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x1="630" y1="300" x2="970" y2="660" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF1AC"/><stop offset=".5" stop-color="#DCA83E"/><stop offset="1" stop-color="#FFF0B0"/></linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/><rect width="1600" height="1000" fill="url(#dawn)"/>
+  <g opacity=".26" fill="#FFF4C3"><path d="M800 720L390 0H570L800 720Z"/><path d="M800 720L719 0H881L800 720Z"/><path d="M800 720L1030 0H1210L800 720Z"/></g>
+  <path d="M0 774C249 690 358 781 577 729C731 693 796 744 938 723C1180 688 1290 625 1600 749V1000H0V774Z" fill="#2C493B" fill-opacity=".58"/>
+  <path d="M0 838C259 790 390 850 597 812C805 774 1005 836 1212 784C1385 741 1492 786 1600 829V1000H0V838Z" fill="#18342C" fill-opacity=".67"/>
+  <g stroke="url(#gold)" stroke-linecap="round"><path d="M800 319V612" stroke-width="17"/><path d="M695 430H905" stroke-width="17"/><circle cx="800" cy="466" r="193" stroke-width="2" stroke-opacity=".42"/><circle cx="800" cy="466" r="238" stroke-width="2" stroke-opacity=".2"/></g>
+  <g fill="#FFF0B4" opacity=".85"><circle cx="464" cy="230" r="3"/><circle cx="1146" cy="204" r="4"/><circle cx="1246" cy="432" r="3"/><circle cx="341" cy="517" r="4"/><circle cx="1315" cy="684" r="3"/></g>
+  <text x="800" y="790" fill="#FFF2C0" font-family="Georgia, serif" font-size="66" text-anchor="middle">Свет Воскресения</text>
+  <text x="800" y="844" fill="#E9C66E" font-family="Arial, sans-serif" font-size="24" letter-spacing="5" text-anchor="middle">РАССВЕТ • СВЕТ • НАДЕЖДА</text>
+</svg>

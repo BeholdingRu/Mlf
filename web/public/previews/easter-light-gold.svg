@@ -1,0 +1,19 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="1000" gradientUnits="userSpaceOnUse"><stop stop-color="#F8F0D8"/><stop offset=".5" stop-color="#FFFDF7"/><stop offset="1" stop-color="#E9D09A"/></linearGradient>
+    <linearGradient id="gold" x1="222" y1="122" x2="1380" y2="847" gradientUnits="userSpaceOnUse"><stop stop-color="#8B6419"/><stop offset=".24" stop-color="#F1D379"/><stop offset=".5" stop-color="#B57D1E"/><stop offset=".74" stop-color="#F7E19A"/><stop offset="1" stop-color="#886018"/></linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="20"/></filter>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <g fill="#DEB955" opacity=".28" filter="url(#glow)"><circle cx="205" cy="152" r="58"/><circle cx="1375" cy="810" r="96"/><circle cx="1280" cy="198" r="38"/><circle cx="391" cy="849" r="46"/></g>
+  <rect x="69" y="69" width="1462" height="862" rx="44" stroke="url(#gold)" stroke-width="5"/>
+  <rect x="91" y="91" width="1418" height="818" rx="32" stroke="#C89B38" stroke-opacity=".52" stroke-width="2"/>
+  <g stroke="url(#gold)" stroke-width="6" fill="none" opacity=".85">
+    <path d="M118 236C192 236 193 118 267 118C341 118 342 236 416 236C342 236 341 354 267 354C193 354 192 236 118 236Z"/>
+    <path d="M1182 764C1256 764 1257 646 1331 646C1405 646 1406 764 1480 764C1406 764 1405 882 1331 882C1257 882 1256 764 1182 764Z"/>
+  </g>
+  <g transform="translate(800 430)"><circle r="221" stroke="#D3A541" stroke-opacity=".2" stroke-width="2"/><circle r="179" stroke="#D3A541" stroke-opacity=".38" stroke-width="2"/><path d="M0-145V65M-82-65H82" stroke="url(#gold)" stroke-width="17" stroke-linecap="round"/><path d="M-120 132C-64 99 64 99 120 132" stroke="url(#gold)" stroke-width="5"/></g>
+  <text x="800" y="705" fill="#70501A" font-family="Georgia, serif" font-size="67" text-anchor="middle">Свет Воскресения</text>
+  <text x="800" y="760" fill="#A67B24" font-family="Arial, sans-serif" font-size="25" letter-spacing="5" text-anchor="middle">ЗОЛОТО • СВЕТ • НАДЕЖДА</text>
+  <g fill="#BC8B29"><circle cx="706" cy="807" r="5"/><circle cx="800" cy="807" r="5"/><circle cx="894" cy="807" r="5"/></g>
+</svg>

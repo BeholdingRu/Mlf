@@ -1,0 +1,16 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="background" x1="800" y1="0" x2="800" y2="1000" gradientUnits="userSpaceOnUse"><stop stop-color="#FBF4E4"/><stop offset="1" stop-color="#E9D8B4"/></linearGradient>
+    <radialGradient id="light" cx="0" cy="0" r="1" gradientTransform="translate(800 250) rotate(90) scale(380 600)" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF9EA" stop-opacity=".9"/><stop offset="1" stop-color="#FFF9EA" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8C6726"/><stop offset=".5" stop-color="#C8A257"/><stop offset="1" stop-color="#76531D"/></linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#background)"/>
+  <rect width="1600" height="680" fill="url(#light)"/>
+  <g opacity=".26" stroke="#9B7A3B" stroke-width="2"><path d="M190 130H1410"/><path d="M250 165H1350"/><path d="M170 830H1430"/><path d="M230 865H1370"/></g>
+  <g stroke="url(#gold)" stroke-width="4" stroke-linecap="round" opacity=".8"><path d="M115 880C191 784 246 672 274 526"/><path d="M1485 880C1409 784 1354 672 1326 526"/><path d="M166 790C104 761 72 705 68 648"/><path d="M218 685C291 669 338 624 358 568"/><path d="M1434 790C1496 761 1528 705 1532 648"/><path d="M1382 685C1309 669 1262 624 1242 568"/></g>
+  <g fill="#77804A" opacity=".78"><ellipse cx="70" cy="650" rx="13" ry="31" transform="rotate(-40 70 650)"/><ellipse cx="358" cy="568" rx="13" ry="31" transform="rotate(48 358 568)"/><ellipse cx="1530" cy="650" rx="13" ry="31" transform="rotate(40 1530 650)"/><ellipse cx="1242" cy="568" rx="13" ry="31" transform="rotate(-48 1242 568)"/></g>
+  <rect x="265" y="260" width="1070" height="470" rx="18" fill="#FFF9EC" fill-opacity=".72" stroke="#B58B42" stroke-opacity=".72" stroke-width="2"/>
+  <path d="M800 345V467M746 406H854" stroke="url(#gold)" stroke-width="9" stroke-linecap="round"/>
+  <g stroke="#92733A" stroke-width="2" stroke-linecap="round" opacity=".5"><path d="M495 528C627 515 733 533 863 522C1002 510 1085 529 1110 521"/><path d="M525 570C660 558 836 579 1068 566"/><path d="M570 612C723 602 862 617 1030 609"/></g>
+  <text x="800" y="670" fill="#5D4828" font-family="Georgia, serif" font-size="53" text-anchor="middle">Монастырский пергамент</text>
+</svg>

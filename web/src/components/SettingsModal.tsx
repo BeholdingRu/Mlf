@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { useData } from '../context/DataContext'
-import { useAuth } from '../context/AuthContext'
+import { useData } from '../hooks/useData'
+import { useAuth } from '../hooks/useAuth'
 import { getAuthErrorMessage } from '../lib/auth-errors'
 import {
   applyFontScale,
@@ -9,12 +9,16 @@ import {
   getSavedFontScale,
   getSavedTheme,
   normalizeFontScale,
+  normalizeShabbatTheme,
   normalizeTheme,
+  shabbatThemes,
   themes,
   type FontScale,
+  type ShabbatThemeId,
   type ThemeId,
 } from '../lib/theme'
 import { SUNSET_CITIES, TIME_ZONES, type SunsetCity } from '../lib/sunset'
+import { isShabbatActive } from '../lib/shabbat'
 
 type SettingsModalProps = {
   onClose: () => void
@@ -26,6 +30,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     saveWeightVisibility: persistWeightVisibility,
     saveFontScale,
     saveLocation,
+    saveShabbatEnabled,
+    saveShabbatTheme,
     saveTheme,
   } = useData()
   const { user, signOut, changePassword } = useAuth()
@@ -48,13 +54,19 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   )
   const [timeZone, setTimeZone] = useState(profile?.time_zone ?? 'Europe/Moscow')
   const [cityName, setCityName] = useState(profile?.city_name ?? '')
+  const [shabbatEnabled, setShabbatEnabled] = useState(profile?.shabbat_enabled ?? false)
+  const [shabbatTheme, setShabbatTheme] = useState<ShabbatThemeId>(() => normalizeShabbatTheme(profile?.shabbat_theme))
+  const shabbatActive = isShabbatActive(profile)
 
-  async function saveWeightVisibility() {
+  async function changeWeightVisibility(nextEnabled: boolean) {
+    const previousEnabled = enabled
+    setEnabled(nextEnabled)
     setBusy(true)
     setError(null)
     try {
-      await persistWeightVisibility(enabled)
+      await persistWeightVisibility(nextEnabled)
     } catch (err) {
+      setEnabled(previousEnabled)
       setError(err instanceof Error ? err.message : 'Не удалось сохранить настройку отображения')
     } finally {
       setBusy(false)
@@ -74,6 +86,24 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       setTheme(previousTheme)
       applyTheme(previousTheme)
       setError(err instanceof Error ? err.message : 'Не удалось сохранить тему')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function selectShabbatTheme(nextTheme: ShabbatThemeId) {
+    if (nextTheme === shabbatTheme || busy) return
+    const previousTheme = shabbatTheme
+    setShabbatTheme(nextTheme)
+    applyTheme(nextTheme)
+    setBusy(true)
+    setError(null)
+    try {
+      await saveShabbatTheme(nextTheme)
+    } catch (err) {
+      setShabbatTheme(previousTheme)
+      applyTheme(previousTheme)
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить праздничное оформление')
     } finally {
       setBusy(false)
     }
@@ -105,6 +135,21 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       await saveLocation(timeZone, city)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить город и часовой пояс')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function changeShabbatEnabled(nextEnabled: boolean) {
+    const previousEnabled = shabbatEnabled
+    setShabbatEnabled(nextEnabled)
+    setBusy(true)
+    setError(null)
+    try {
+      await saveShabbatEnabled(nextEnabled)
+    } catch (err) {
+      setShabbatEnabled(previousEnabled)
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить настройку Шаббата')
     } finally {
       setBusy(false)
     }
@@ -169,9 +214,30 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           </button>
           {appearanceOpen && (
             <div id="appearance-settings" className="appearance-settings">
-              <p className="hint">Тема сохраняется в профиле и будет доступна на всех устройствах.</p>
+              <p className="hint">
+                {shabbatActive
+                  ? 'Во время Шаббата доступно праздничное христианское оформление.'
+                  : 'Тема сохраняется в профиле и будет доступна на всех устройствах.'}
+              </p>
               <div className="theme-options" role="radiogroup" aria-label="Выбор темы">
-                {themes.map((option) => (
+                {shabbatActive ? shabbatThemes.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`theme-option${shabbatTheme === option.id ? ' active' : ''}`}
+                    role="radio"
+                    aria-checked={shabbatTheme === option.id}
+                    disabled={busy}
+                    onClick={() => selectShabbatTheme(option.id)}
+                  >
+                    <span className="theme-swatches" aria-hidden="true">
+                      {option.colors.map((color) => (
+                        <span key={color} style={{ backgroundColor: color }} />
+                      ))}
+                    </span>
+                    <span>{option.name}</span>
+                  </button>
+                )) : themes.map((option) => (
                   <button
                     key={option.id}
                     type="button"
@@ -216,7 +282,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
         <section className="settings-block">
           <h3>Календарь</h3>
-          <p className="hint">По пятницам в календаре будет показано время захода солнца для выбранного города.</p>
+          <p className="hint">Укажите город и часовой пояс для расчёта времени захода солнца.</p>
           <label htmlFor="settings-time-zone">
             Часовой пояс
             <select
@@ -247,45 +313,53 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           <button type="button" className="primary compact settings-action" onClick={saveSunsetLocation} disabled={busy}>
             Сохранить календарь
           </button>
-        </section>
-
-        <section className="settings-block">
-          <div className="weight-visibility-setting">
+          <div className="settings-choice-block">
             <label className="toggle">
               <input
                 type="checkbox"
-                checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
+                checked={shabbatEnabled}
+                onChange={(event) => changeShabbatEnabled(event.target.checked)}
+                disabled={busy}
               />
-              Показывать данные о весе в кабинете и статистике
+              Шаббат
             </label>
-            <button
-              type="button"
-              className="info-button"
-              aria-label="Дополнительные сведения об автоматической задаче питания"
-              aria-expanded={nutritionInfoOpen}
-              aria-controls="nutrition-task-info"
-              onClick={() => setNutritionInfoOpen((open) => !open)}
-            >
-              i
-            </button>
-            {nutritionInfoOpen && (
-              <div id="nutrition-task-info" className="nutrition-task-info" role="status">
-                Если вы включили отображение данных о весе, то можете создать новую задачу, которая
-                называется «Телостроительство:Питание», строго так, без кавычек. Эта задача будет
-                помечаться каждый новый день как выполненная автоматически, если вы не превысили
-                дневную норму калорий.
-              </div>
-            )}
+            <p className="hint">С пятничного до субботнего захода солнца включается праздничное оформление, а в календаре отображается время пятничного захода солнца.</p>
+            {shabbatEnabled && !cityName && <p className="hint">Для включения оформления выберите город и сохраните календарь.</p>}
           </div>
-          <button
-            type="button"
-            className="primary compact settings-action"
-            onClick={saveWeightVisibility}
-            disabled={busy}
-          >
-            Сохранить отображение
-          </button>
+        </section>
+
+        <section className="settings-block">
+          <div className="settings-choice-block">
+            <div className="weight-visibility-setting">
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={(event) => changeWeightVisibility(event.target.checked)}
+                  disabled={busy}
+                />
+                Показывать данные о весе в кабинете и статистике
+              </label>
+              <button
+                type="button"
+                className="info-button"
+                aria-label="Дополнительные сведения об автоматической задаче питания"
+                aria-expanded={nutritionInfoOpen}
+                aria-controls="nutrition-task-info"
+                onClick={() => setNutritionInfoOpen((open) => !open)}
+              >
+                i
+              </button>
+              {nutritionInfoOpen && (
+                <div id="nutrition-task-info" className="nutrition-task-info" role="status">
+                  Если вы включили отображение данных о весе, то можете создать новую задачу, которая
+                  называется «Телостроительство:Питание», строго так, без кавычек. Эта задача будет
+                  помечаться каждый новый день как выполненная автоматически, если вы не превысили
+                  дневную норму калорий.
+                </div>
+              )}
+            </div>
+          </div>
         </section>
 
         <section className="settings-block">

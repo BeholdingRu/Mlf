@@ -6,6 +6,17 @@ export const themes = [
 ] as const
 
 export type ThemeId = (typeof themes)[number]['id']
+export const shabbatThemes = [
+  { id: 'shabbat-soft', name: 'Светлая', colors: ['#fffdf7', '#d5aa49', '#f5eacd'] },
+  { id: 'shabbat-gold', name: 'Золотая', colors: ['#f8f0d8', '#b57d1e', '#e9d09a'] },
+  { id: 'shabbat-dawn', name: 'Рассвет', colors: ['#223c58', '#dca83e', '#f6dc9d'] },
+  { id: 'shabbat-parchment', name: 'Пергамент', colors: ['#fbf4e4', '#b58b42', '#77804a'] },
+  { id: 'shabbat-parchment-olive', name: 'Оливковый пергамент', colors: ['#f3ead3', '#8c7943', '#697644'] },
+  { id: 'shabbat-parchment-evening', name: 'Тихий пергамент', colors: ['#efe0bf', '#9d7138', '#817847'] },
+] as const
+
+export type ShabbatThemeId = (typeof shabbatThemes)[number]['id']
+export type AppliedThemeId = ThemeId | ShabbatThemeId
 
 const storageKey = 'mlf-theme'
 const fontScaleStorageKey = 'mlf-font-scale'
@@ -21,6 +32,10 @@ export function normalizeTheme(value: string | null | undefined): ThemeId {
   return isThemeId(value) ? value : 'green'
 }
 
+export function normalizeShabbatTheme(value: string | null | undefined): ShabbatThemeId {
+  return shabbatThemes.some((theme) => theme.id === value) ? value as ShabbatThemeId : 'shabbat-dawn'
+}
+
 export function getSavedTheme(): ThemeId {
   if (typeof window === 'undefined') return 'green'
 
@@ -28,7 +43,7 @@ export function getSavedTheme(): ThemeId {
   return normalizeTheme(savedTheme)
 }
 
-export function applyTheme(theme: ThemeId) {
+export function applyTheme(theme: AppliedThemeId) {
   document.documentElement.dataset.theme = theme
   window.localStorage.setItem(storageKey, theme)
 }

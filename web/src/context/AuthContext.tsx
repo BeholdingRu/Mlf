@@ -1,41 +1,23 @@
 import {
-  createContext,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
+import type { Session } from '@supabase/supabase-js'
 import { requireSupabase, supabaseConfigured } from '../lib/supabase'
-
-type AuthContextValue = {
-  user: User | null
-  session: Session | null
-  loading: boolean
-  recoveryRequired: boolean
-  signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string) => Promise<'session' | 'confirm'>
-  signOut: () => Promise<void>
-  requestRecovery: (email: string) => Promise<void>
-  verifyRecovery: (email: string, token: string) => Promise<void>
-  updatePassword: (password: string) => Promise<void>
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
+import { AuthContext, type AuthContextValue } from './auth-context'
 const RECOVERY_REQUIRED_STORAGE_KEY = 'mlf:recovery-password-required'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(supabaseConfigured)
   const [recoveryRequired, setRecoveryRequired] = useState(
     () => window.sessionStorage.getItem(RECOVERY_REQUIRED_STORAGE_KEY) === 'true',
   )
 
   useEffect(() => {
     if (!supabaseConfigured) {
-      setLoading(false)
       return
     }
     const client = requireSupabase()
@@ -126,10 +108,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
-  return ctx
 }

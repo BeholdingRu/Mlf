@@ -1,4 +1,4 @@
-import type { ThemeId } from './theme'
+import type { ShabbatThemeId, ThemeId } from './theme'
 
 export type Profile = {
   id: string
@@ -14,6 +14,8 @@ export type Profile = {
   city_name: string | null
   city_latitude: number | null
   city_longitude: number | null
+  shabbat_enabled: boolean
+  shabbat_theme: ShabbatThemeId
 }
 
 export type Task = {

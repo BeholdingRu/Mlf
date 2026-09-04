@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -10,8 +8,6 @@ import {
 import { requireSupabase } from '../lib/supabase'
 import { localISODate } from '../lib/dates'
 import type {
-  ExerciseCategory,
-  ExerciseType,
   FoodLog,
   Profile,
   ScheduledExercise,
@@ -21,97 +17,10 @@ import type {
   TaskCompletion,
   WeightLog,
 } from '../lib/types'
-import { DEFAULT_PRODUCT_CATEGORY, type ProductCategory } from '../lib/product-categories'
-import type { FontScale, ThemeId } from '../lib/theme'
-import type { SunsetCity } from '../lib/sunset'
+import { DEFAULT_PRODUCT_CATEGORY } from '../lib/product-categories'
 import { isNutritionTask } from '../lib/nutrition-task'
-import { useAuth } from './AuthContext'
-
-type DataContextValue = {
-  profile: Profile | null
-  tasks: Task[]
-  completions: TaskCompletion[]
-  weightLogs: WeightLog[]
-  foodLogs: FoodLog[]
-  foodHistoryLogs: FoodLog[]
-  savedProducts: SavedProduct[]
-  savedExercises: SavedExercise[]
-  scheduledExercises: ScheduledExercise[]
-  loading: boolean
-  error: string | null
-  refresh: () => Promise<void>
-  completeToday: (taskId: string) => Promise<void>
-  addTask: (title: string, habitDays: number) => Promise<void>
-  updateTask: (id: string, patch: { title?: string; habit_days?: number }) => Promise<void>
-  deleteTask: (id: string) => Promise<void>
-  saveWeightSettings: (target: number | null) => Promise<void>
-  saveWeightVisibility: (enabled: boolean) => Promise<void>
-  logTodayWeight: (value: number) => Promise<void>
-  saveCaloriesNorm: (norm: number | null) => Promise<void>
-  saveDesiredWeight: (desired: number | null) => Promise<void>
-  saveTheme: (theme: ThemeId) => Promise<void>
-  saveFontScale: (scale: FontScale) => Promise<void>
-  saveLocation: (timeZone: string, city: SunsetCity | null) => Promise<void>
-  logFoodToday: (
-    productName: string,
-    weightGrams: number,
-    caloriesPer100g: number,
-    proteinsPer100g: number,
-    fatsPer100g: number,
-    carbohydratesPer100g: number,
-  ) => Promise<void>
-  deleteFoodLog: (id: string) => Promise<void>
-  addSavedProduct: (
-    name: string,
-    caloriesPer100g: number,
-    proteinsPer100g: number,
-    fatsPer100g: number,
-    carbohydratesPer100g: number,
-    category: ProductCategory,
-    isFavorite: boolean,
-  ) => Promise<void>
-  updateSavedProduct: (
-    id: string,
-    name: string,
-    caloriesPer100g: number,
-    proteinsPer100g: number,
-    fatsPer100g: number,
-    carbohydratesPer100g: number,
-    category: ProductCategory,
-    isFavorite: boolean,
-  ) => Promise<void>
-  setSavedProductFavorite: (id: string, isFavorite: boolean) => Promise<void>
-  deleteSavedProduct: (id: string) => Promise<void>
-  addSavedExercise: (
-    name: string,
-    category: ExerciseCategory,
-    exerciseType: ExerciseType,
-    restTimerEnabled: boolean,
-  ) => Promise<void>
-  updateSavedExercise: (
-    id: string,
-    name: string,
-    exerciseType: ExerciseType,
-    restTimerEnabled: boolean,
-  ) => Promise<void>
-  deleteSavedExercise: (id: string) => Promise<void>
-  scheduleExercise: (plannedOn: string, exercise: SavedExercise) => Promise<void>
-  deleteScheduledExercise: (id: string) => Promise<void>
-  moveScheduledExercise: (id: string, direction: 'up' | 'down') => Promise<void>
-  updateScheduledExercise: (
-    id: string,
-    patch: {
-      weight_kg?: number | null
-      repetitions?: number | null
-      sets?: number | null
-      rest_duration?: string | null
-      parameters_locked?: boolean
-      completed?: boolean
-    },
-  ) => Promise<void>
-}
-
-const DataContext = createContext<DataContextValue | null>(null)
+import { useAuth } from '../hooks/useAuth'
+import { DataContext, type DataContextValue } from './data-context'
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -129,6 +38,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     if (!user) return
+    setLoading(true)
     const client = requireSupabase()
     const today = localISODate()
     const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes] = await Promise.all([
@@ -162,6 +72,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       scheduledExercisesRes.error?.message
     if (firstError) {
       setError(firstError)
+      setLoading(false)
       return
     }
 
@@ -177,6 +88,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .single()
       if (inserted.error) {
         setError(inserted.error.message)
+        setLoading(false)
         return
       }
       nextProfile = inserted.data as Profile
@@ -213,24 +125,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
     setError(null)
+    setLoading(false)
   }, [user])
 
   useEffect(() => {
-    if (!user) {
-      setProfile(null)
-      setTasks([])
-      setCompletions([])
-      setWeightLogs([])
-      setFoodLogs([])
-      setFoodHistoryLogs([])
-      setSavedProducts([])
-      setSavedExercises([])
-      setScheduledExercises([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    refresh().finally(() => setLoading(false))
+    const timer = window.setTimeout(() => void refresh(), 0)
+    return () => window.clearTimeout(timer)
   }, [user, refresh])
 
   useEffect(() => {
@@ -497,6 +397,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (updError) throw updError
         setProfile(data as Profile)
       },
+      async saveShabbatEnabled(enabled) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({ shabbat_enabled: enabled })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
+      async saveShabbatTheme(theme) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({ shabbat_theme: theme })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
       async logFoodToday(productName, weightGrams, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
         if (!user) return
         const today = localISODate()
@@ -716,10 +638,4 @@ export function DataProvider({ children }: { children: ReactNode }) {
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
-}
-
-export function useData() {
-  const ctx = useContext(DataContext)
-  if (!ctx) throw new Error('useData must be used within DataProvider')
-  return ctx
 }

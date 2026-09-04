@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
-import { useData } from '../context/DataContext'
+import { useData } from '../hooks/useData'
 import { localISODate, percent } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 

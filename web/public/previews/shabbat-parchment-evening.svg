@@ -1,0 +1,15 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="background" x1="800" y1="0" x2="800" y2="1000" gradientUnits="userSpaceOnUse"><stop stop-color="#EFE0BF"/><stop offset="1" stop-color="#CDB489"/></linearGradient>
+    <radialGradient id="light" cx="0" cy="0" r="1" gradientTransform="translate(800 245) rotate(90) scale(350 620)" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF1CC" stop-opacity=".7"/><stop offset="1" stop-color="#FFF1CC" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#76552A"/><stop offset=".52" stop-color="#BE9650"/><stop offset="1" stop-color="#62431E"/></linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#background)"/><rect width="1600" height="650" fill="url(#light)"/>
+  <g stroke="#8D6638" stroke-width="2" opacity=".23"><path d="M0 112H1600"/><path d="M0 151H1600"/><path d="M0 850H1600"/><path d="M0 889H1600"/></g>
+  <g stroke="url(#gold)" stroke-width="4" stroke-linecap="round" opacity=".78"><path d="M130 875C198 783 244 669 267 532"/><path d="M1470 875C1402 783 1356 669 1333 532"/><path d="M172 794C111 769 79 721 68 667"/><path d="M220 700C294 684 338 635 353 579"/><path d="M1428 794C1489 769 1521 721 1532 667"/><path d="M1380 700C1306 684 1262 635 1247 579"/></g>
+  <g fill="#817847" opacity=".72"><ellipse cx="68" cy="667" rx="12" ry="30" transform="rotate(-42 68 667)"/><ellipse cx="353" cy="579" rx="12" ry="30" transform="rotate(48 353 579)"/><ellipse cx="1532" cy="667" rx="12" ry="30" transform="rotate(42 1532 667)"/><ellipse cx="1247" cy="579" rx="12" ry="30" transform="rotate(-48 1247 579)"/></g>
+  <rect x="270" y="265" width="1060" height="465" rx="18" fill="#F9ECCE" fill-opacity=".67" stroke="#9D7138" stroke-opacity=".74" stroke-width="2"/>
+  <path d="M800 363C831 346 859 362 870 389C845 402 819 400 800 382C781 400 755 402 730 389C741 362 769 346 800 363Z" fill="url(#gold)"/><path d="M798 383C779 361 761 347 739 339M802 383C821 361 839 347 861 339" stroke="#6D4E25" stroke-width="4" stroke-linecap="round"/>
+  <g stroke="#85613A" stroke-width="2" stroke-linecap="round" opacity=".5"><path d="M477 512C603 498 737 524 880 512C987 503 1082 520 1125 509"/><path d="M525 556C679 545 845 565 1076 553"/><path d="M570 602C712 592 885 611 1030 601"/></g>
+  <text x="800" y="674" fill="#594027" font-family="Georgia, serif" font-size="53" text-anchor="middle">Тихий пергамент</text>
+</svg>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { WeightChart } from './WeightChart'
-import { useData } from '../context/DataContext'
+import { useData } from '../hooks/useData'
 import { percent } from '../lib/dates'
 
 type StatsSubTab = 'overview' | 'manage-weight'

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useRef, useState, type FormEvent } from 'react'
+import { useAuth } from '../hooks/useAuth'
 import { getAuthErrorMessage } from '../lib/auth-errors'
 
 type Mode = 'login' | 'register' | 'recovery'
@@ -19,10 +19,11 @@ export function AuthPage() {
   const [code, setCode] = useState<string[]>(Array(RECOVERY_CODE_LENGTH).fill(''))
   const codeRefs = useRef<Array<HTMLInputElement | null>>([])
 
-  useEffect(() => {
+  function selectMode(nextMode: Mode) {
+    setMode(nextMode)
     setError(null)
     setInfo(null)
-  }, [mode])
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -198,12 +199,12 @@ export function AuthPage() {
 
         <div className="auth-links">
           {mode !== 'login' && (
-            <button type="button" className="link" onClick={() => setMode('login')}>
+            <button type="button" className="link" onClick={() => selectMode('login')}>
               Уже есть аккаунт? Войти
             </button>
           )}
           {mode !== 'register' && (
-            <button type="button" className="link" onClick={() => setMode('register')}>
+            <button type="button" className="link" onClick={() => selectMode('register')}>
               Нет аккаунта? Регистрация
             </button>
           )}
@@ -212,7 +213,7 @@ export function AuthPage() {
               type="button"
               className="link"
               onClick={() => {
-                setMode('recovery')
+                selectMode('recovery')
                 setRecoveryStep('email')
               }}
             >

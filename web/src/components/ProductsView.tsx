@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useData } from '../context/DataContext'
+import { useData } from '../hooks/useData'
 import {
   DEFAULT_PRODUCT_CATEGORY,
   PRODUCT_CATEGORIES,

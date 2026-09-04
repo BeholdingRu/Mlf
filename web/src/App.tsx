@@ -1,5 +1,6 @@
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { AuthProvider } from './context/AuthContext'
 import { DataProvider } from './context/DataContext'
+import { useAuth } from './hooks/useAuth'
 import { supabaseConfigured } from './lib/supabase'
 import { AuthPage } from './pages/AuthPage'
 import { CabinetPage } from './pages/CabinetPage'
@@ -40,7 +41,7 @@ function Root() {
   if (!user) return <AuthPage />
   if (recoveryRequired) return <RecoveryPasswordPage />
   return (
-    <DataProvider>
+    <DataProvider key={user.id}>
       <CabinetPage />
     </DataProvider>
   )

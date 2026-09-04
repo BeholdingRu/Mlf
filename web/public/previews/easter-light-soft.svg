@@ -1,0 +1,39 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="background" x1="800" y1="0" x2="800" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF7"/>
+      <stop offset="1" stop-color="#F5EACD"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0" cy="0" r="1" gradientTransform="translate(800 205) rotate(90) scale(390 590)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6D98C" stop-opacity=".78"/>
+      <stop offset="1" stop-color="#F6D98C" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#A77217"/><stop offset=".48" stop-color="#E7BD55"/><stop offset="1" stop-color="#89600F"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="25" flood-color="#8F6A27" flood-opacity=".14"/>
+    </filter>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#background)"/>
+  <rect width="1600" height="640" fill="url(#sun)"/>
+  <path d="M0 124C190 84 279 184 460 139C650 92 682 19 847 76C1020 136 1113 165 1283 98C1401 51 1508 66 1600 111V0H0V124Z" fill="#FFF" fill-opacity=".6"/>
+  <g stroke="url(#gold)" stroke-width="4" stroke-linecap="round" opacity=".72">
+    <path d="M130 850C202 774 251 677 275 557"/><path d="M170 787C115 758 84 704 77 652"/><path d="M204 723C271 701 309 651 320 600"/>
+    <path d="M1480 850C1404 774 1353 677 1326 557"/><path d="M1431 787C1487 758 1518 704 1525 652"/><path d="M1398 723C1331 701 1292 651 1281 600"/>
+  </g>
+  <g fill="#C79935" opacity=".78">
+    <ellipse cx="78" cy="650" rx="12" ry="27" transform="rotate(-42 78 650)"/><ellipse cx="319" cy="600" rx="12" ry="27" transform="rotate(46 319 600)"/>
+    <ellipse cx="1524" cy="650" rx="12" ry="27" transform="rotate(42 1524 650)"/><ellipse cx="1281" cy="600" rx="12" ry="27" transform="rotate(-46 1281 600)"/>
+  </g>
+  <g filter="url(#shadow)">
+    <rect x="255" y="270" width="1090" height="450" rx="32" fill="#FFFDF8" fill-opacity=".9"/>
+    <rect x="255.5" y="270.5" width="1089" height="449" rx="31.5" stroke="#D5AA49" stroke-opacity=".7"/>
+  </g>
+  <g stroke="url(#gold)" stroke-width="11" stroke-linecap="round"><path d="M800 355V499"/><path d="M744 408H856"/></g>
+  <circle cx="800" cy="428" r="106" stroke="#D7AE54" stroke-opacity=".25" stroke-width="2"/>
+  <text x="800" y="570" fill="#6B531E" font-family="Georgia, serif" font-size="55" text-anchor="middle">Свет Воскресения</text>
+  <text x="800" y="624" fill="#9A7B39" font-family="Arial, sans-serif" font-size="24" letter-spacing="4" text-anchor="middle">СВЕТЛОЕ ПРАЗДНИЧНОЕ ОФОРМЛЕНИЕ</text>
+  <path d="M570 658H1030" stroke="#D5AA49" stroke-width="2"/>
+  <g fill="#C99A36"><circle cx="720" cy="658" r="5"/><circle cx="800" cy="658" r="5"/><circle cx="880" cy="658" r="5"/></g>
+</svg>

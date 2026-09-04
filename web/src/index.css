@@ -124,6 +124,36 @@
   --overlay: rgba(0, 0, 0, 0.7);
 }
 
+:root[data-theme='shabbat-dawn'] {
+  --ink: #fff3c6;
+  --muted: #e4c777;
+  --paper: #223c58;
+  --panel: rgba(27, 54, 76, 0.92);
+  --line: #cda34a;
+  --moss: #e1b24d;
+  --moss-deep: #fff0b1;
+  --leaf: #c89232;
+  --done: #365d54;
+  --done-ink: #fff2be;
+  --warn: #ffd1a1;
+  --warn-bg: #674135;
+  --info-bg: #385d76;
+  --training-marker: #d4a640;
+  --shadow: 0 12px 40px rgba(6, 20, 31, 0.48);
+  --body-glow: #dca83e;
+  --body-top: #223c58;
+  --sidebar: rgba(24, 52, 73, 0.96);
+  --surface: #2b506a;
+  --surface-muted: #365e75;
+  --surface-disabled: #3a5f72;
+  --track: #456b7d;
+  --progress-track: #456b7d;
+  --done-line: #60937d;
+  --on-accent: #233e58;
+  --overlay: rgba(9, 24, 37, 0.7);
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -141,6 +171,195 @@ body {
   background:
     radial-gradient(circle at top left, var(--body-glow) 0, transparent 42%),
     linear-gradient(180deg, var(--body-top) 0%, var(--paper) 40%);
+}
+
+:root[data-theme='shabbat-dawn'] body {
+  background-image:
+    linear-gradient(rgba(34, 60, 88, 0.62), rgba(34, 60, 88, 0.62)),
+    url('/previews/easter-light-dawn.svg');
+  background-position: center, center top;
+  background-size: cover, cover;
+  background-attachment: fixed;
+}
+
+:root[data-theme='shabbat-soft'] {
+  --ink: #5d461b;
+  --muted: #8d7138;
+  --paper: #f5eacd;
+  --panel: rgba(255, 253, 248, 0.94);
+  --line: #d5aa49;
+  --moss: #a77217;
+  --moss-deep: #765315;
+  --leaf: #c79935;
+  --done: #e5f0df;
+  --done-ink: #355d3b;
+  --warn: #8a3b2a;
+  --warn-bg: #f8e4dd;
+  --info-bg: #f4e6bd;
+  --training-marker: #c69232;
+  --shadow: 0 12px 40px rgba(114, 82, 22, 0.14);
+  --body-glow: #f6d98c;
+  --body-top: #fffdf7;
+  --sidebar: rgba(255, 253, 248, 0.94);
+  --surface: #fffdf8;
+  --surface-muted: #fbf5e8;
+  --surface-disabled: #f0e7d7;
+  --track: #eadcb9;
+  --progress-track: #eadcb9;
+  --done-line: #b7d7b2;
+  --on-accent: #fffdf7;
+  --overlay: rgba(64, 46, 16, 0.35);
+}
+
+:root[data-theme='shabbat-soft'] body {
+  background-image: linear-gradient(rgba(255, 253, 247, 0.72), rgba(245, 234, 205, 0.78)), url('/previews/easter-light-soft.svg');
+  background-position: center, center top;
+  background-size: cover, cover;
+  background-attachment: fixed;
+}
+
+:root[data-theme='shabbat-gold'] {
+  --ink: #604719;
+  --muted: #80652c;
+  --paper: #f8f0d8;
+  --panel: rgba(255, 253, 247, 0.93);
+  --line: #b57d1e;
+  --moss: #a7741d;
+  --moss-deep: #6d4c14;
+  --leaf: #d2a23d;
+  --done: #e9f0df;
+  --done-ink: #355d3b;
+  --warn: #8a3b2a;
+  --warn-bg: #f8e4dd;
+  --info-bg: #f2e1ad;
+  --training-marker: #b57d1e;
+  --shadow: 0 12px 40px rgba(105, 73, 17, 0.16);
+  --body-glow: #e9c66e;
+  --body-top: #f8f0d8;
+  --sidebar: rgba(255, 250, 236, 0.94);
+  --surface: #fffaf0;
+  --surface-muted: #f7edcf;
+  --surface-disabled: #ede0ba;
+  --track: #ead8a4;
+  --progress-track: #ead8a4;
+  --done-line: #b7d7b2;
+  --on-accent: #fffaf0;
+  --overlay: rgba(75, 52, 12, 0.38);
+}
+
+:root[data-theme='shabbat-gold'] body {
+  background-image: linear-gradient(rgba(248, 240, 216, 0.7), rgba(233, 208, 154, 0.76)), url('/previews/easter-light-gold.svg');
+  background-position: center, center top;
+  background-size: cover, cover;
+  background-attachment: fixed;
+}
+
+:root[data-theme='shabbat-parchment'] {
+  --ink: #5d4828;
+  --muted: #80633a;
+  --paper: #e9d8b4;
+  --panel: rgba(255, 249, 236, 0.92);
+  --line: #b58b42;
+  --moss: #77804a;
+  --moss-deep: #596035;
+  --leaf: #9d7936;
+  --done: #e5ebd7;
+  --done-ink: #3f5639;
+  --warn: #873e2c;
+  --warn-bg: #f4dfd3;
+  --info-bg: #f0dfbd;
+  --training-marker: #9d7936;
+  --shadow: 0 12px 40px rgba(91, 67, 29, 0.16);
+  --body-glow: #f8e5b5;
+  --body-top: #fbf4e4;
+  --sidebar: rgba(255, 249, 236, 0.93);
+  --surface: #fff9ec;
+  --surface-muted: #f7eedb;
+  --surface-disabled: #eadcc1;
+  --track: #dfccaa;
+  --progress-track: #dfccaa;
+  --done-line: #adc08e;
+  --on-accent: #fff9ec;
+  --overlay: rgba(75, 53, 23, 0.38);
+}
+
+:root[data-theme='shabbat-parchment'] body {
+  background-image: linear-gradient(rgba(251, 244, 228, 0.72), rgba(233, 216, 180, 0.78)), url('/previews/shabbat-parchment.svg');
+  background-position: center, center top;
+  background-size: cover, cover;
+  background-attachment: fixed;
+}
+
+:root[data-theme='shabbat-parchment-olive'] {
+  --ink: #4e4d2d;
+  --muted: #6f6a42;
+  --paper: #d8c79b;
+  --panel: rgba(252, 246, 232, 0.92);
+  --line: #8c7943;
+  --moss: #697644;
+  --moss-deep: #4f5a33;
+  --leaf: #7b7743;
+  --done: #e0e8d4;
+  --done-ink: #38533b;
+  --warn: #803c2c;
+  --warn-bg: #f2ded1;
+  --info-bg: #e8ddb8;
+  --training-marker: #7b7743;
+  --shadow: 0 12px 40px rgba(70, 64, 30, 0.17);
+  --body-glow: #ede1be;
+  --body-top: #f3ead3;
+  --sidebar: rgba(252, 246, 232, 0.93);
+  --surface: #fcf6e8;
+  --surface-muted: #f1e8d1;
+  --surface-disabled: #e4d7b7;
+  --track: #d6c8a6;
+  --progress-track: #d6c8a6;
+  --done-line: #a7b88b;
+  --on-accent: #fcf6e8;
+  --overlay: rgba(55, 58, 28, 0.4);
+}
+
+:root[data-theme='shabbat-parchment-olive'] body {
+  background-image: linear-gradient(rgba(243, 234, 211, 0.72), rgba(216, 199, 155, 0.8)), url('/previews/shabbat-parchment-olive.svg');
+  background-position: center, center top;
+  background-size: cover, cover;
+  background-attachment: fixed;
+}
+
+:root[data-theme='shabbat-parchment-evening'] {
+  --ink: #594027;
+  --muted: #795d3b;
+  --paper: #cdb489;
+  --panel: rgba(249, 236, 206, 0.92);
+  --line: #9d7138;
+  --moss: #817847;
+  --moss-deep: #625b35;
+  --leaf: #9b7138;
+  --done: #e0e5cf;
+  --done-ink: #40533a;
+  --warn: #813b2d;
+  --warn-bg: #f1dcd0;
+  --info-bg: #ead9af;
+  --training-marker: #9b7138;
+  --shadow: 0 12px 40px rgba(80, 54, 29, 0.18);
+  --body-glow: #f0d59d;
+  --body-top: #efe0bf;
+  --sidebar: rgba(249, 236, 206, 0.93);
+  --surface: #f9ecce;
+  --surface-muted: #f0dfbd;
+  --surface-disabled: #e2cfaa;
+  --track: #d5bf96;
+  --progress-track: #d5bf96;
+  --done-line: #aab58a;
+  --on-accent: #f9ecce;
+  --overlay: rgba(71, 45, 24, 0.42);
+}
+
+:root[data-theme='shabbat-parchment-evening'] body {
+  background-image: linear-gradient(rgba(239, 224, 191, 0.72), rgba(205, 180, 137, 0.8)), url('/previews/shabbat-parchment-evening.svg');
+  background-position: center, center top;
+  background-size: cover, cover;
+  background-attachment: fixed;
 }
 
 @supports (zoom: 1) {
@@ -1900,11 +2119,29 @@ nav {
   }
 }
 
-.toggle {
+.settings-block .toggle {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
   font-weight: 500;
+}
+
+.settings-block .toggle input[type='checkbox'] {
+  flex: 0 0 auto;
+}
+
+.settings-choice-block {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.settings-choice-block .hint {
+  margin: 0;
 }
 
 .weight-visibility-setting {

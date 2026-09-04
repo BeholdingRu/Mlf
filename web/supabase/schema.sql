@@ -14,6 +14,8 @@ create table if not exists public.profiles (
   city_name text,
   city_latitude numeric(7, 4),
   city_longitude numeric(7, 4),
+  shabbat_enabled boolean not null default false,
+  shabbat_theme text not null default 'shabbat-dawn',
   created_at timestamptz not null default now()
 );
 
@@ -28,7 +30,9 @@ alter table public.profiles
   add column if not exists time_zone text,
   add column if not exists city_name text,
   add column if not exists city_latitude numeric(7, 4),
-  add column if not exists city_longitude numeric(7, 4);
+  add column if not exists city_longitude numeric(7, 4),
+  add column if not exists shabbat_enabled boolean not null default false,
+  add column if not exists shabbat_theme text not null default 'shabbat-dawn';
 
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),

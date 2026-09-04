@@ -6,10 +6,11 @@ import { StatsView } from '../components/StatsView'
 import { CaloriesView } from '../components/CaloriesView'
 import { TrainingView } from '../components/TrainingView'
 import { DiaryView } from '../components/DiaryView'
-import { useData } from '../context/DataContext'
+import { useData } from '../hooks/useData'
 import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
-import { applyFontScale, applyTheme, normalizeFontScale, normalizeTheme } from '../lib/theme'
+import { applyFontScale, applyTheme, normalizeFontScale, normalizeShabbatTheme, normalizeTheme } from '../lib/theme'
+import { isShabbatActive } from '../lib/shabbat'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
 const CABINET_TABS: CabinetTab[] = ['daily', 'all', 'calories', 'training', 'diary']
@@ -24,6 +25,7 @@ export function CabinetPage() {
   const viewport = useViewport()
   const [tab, setTab] = useState<CabinetTab>(getSavedCabinetTab)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [currentTime, setCurrentTime] = useState(() => new Date())
 
   // Принудительно пересчитываем layout при смене вкладок на мобилке
   useEffect(() => {
@@ -38,9 +40,14 @@ export function CabinetPage() {
 
   useEffect(() => {
     if (!profile) return
-    applyTheme(normalizeTheme(profile.theme))
+    applyTheme(isShabbatActive(profile, currentTime) ? normalizeShabbatTheme(profile.shabbat_theme) : normalizeTheme(profile.theme))
     applyFontScale(normalizeFontScale(profile.font_scale))
-  }, [profile])
+  }, [profile, currentTime])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     window.sessionStorage.setItem(CABINET_TAB_STORAGE_KEY, tab)

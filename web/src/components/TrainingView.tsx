@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useData } from '../context/DataContext'
+import { useData } from '../hooks/useData'
 import { localISODate, parseISODate } from '../lib/dates'
 import type { ExerciseCategory, ExerciseType, SavedExercise, ScheduledExercise } from '../lib/types'
 
