@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { localISODate } from '../lib/dates'
 import { useData } from '../hooks/useData'
+import { isShabbatActive } from '../lib/shabbat'
 import type { WeightLog } from '../lib/types'
 
 export function WeightWidget() {
@@ -9,6 +10,12 @@ export function WeightWidget() {
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [currentTime, setCurrentTime] = useState(() => new Date())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   if (!profile?.weight_enabled) return null
 
@@ -18,6 +25,8 @@ export function WeightWidget() {
     (latest, log) => (!latest || log.logged_on > latest.logged_on ? log : latest),
     null,
   )?.value ?? null
+  const shabbatActive = isShabbatActive(profile, currentTime)
+
   async function submit() {
     const parsed = Number(value.replace(',', '.'))
     if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -48,8 +57,14 @@ export function WeightWidget() {
           setOpen(true)
         }}
       >
-        <span className="weight-label">Текущий вес</span>
-        <span className="weight-values">{current != null ? `${formatNum(current)} кг` : '—'}</span>
+        {shabbatActive ? (
+          <span className="weight-values shabbat-message">не дремлет и не спит хранящий Израиля</span>
+        ) : (
+          <>
+            <span className="weight-label">Текущий вес</span>
+            <span className="weight-values">{current != null ? `${formatNum(current)} кг` : '—'}</span>
+          </>
+        )}
       </button>
 
       {open && (
