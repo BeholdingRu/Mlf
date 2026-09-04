@@ -50,11 +50,12 @@ export function DiaryView() {
   const selectedWeight = activeSelectedDate
     ? weightLogs.find((weight) => weight.logged_on === activeSelectedDate) ?? null
     : null
-  const completedExercises = activeSelectedDate
+  const plannedExercises = activeSelectedDate
     ? scheduledExercises
-      .filter((exercise) => exercise.planned_on === activeSelectedDate && exercise.completed)
+      .filter((exercise) => exercise.planned_on === activeSelectedDate)
       .sort((a, b) => a.sort_order - b.sort_order)
     : []
+  const completedExercises = plannedExercises.filter((exercise) => exercise.completed)
   const totalWorkedWeight = completedExercises.reduce(
     (total, exercise) => total + (getWorkedWeight(exercise) ?? 0),
     0,
@@ -221,7 +222,13 @@ export function DiaryView() {
             <div className="diary-section-head">
               <div>
                 <h3 id="diary-exercises-heading">Тренировка</h3>
-                <p>{completedExercises.length ? `Выполнено упражнений: ${completedExercises.length}` : 'Завершённых упражнений нет'}</p>
+                <p>
+                  {completedExercises.length
+                    ? `Выполнено упражнений: ${completedExercises.length}`
+                    : plannedExercises.length
+                      ? 'Завершённых упражнений нет'
+                      : 'Не запланировано'}
+                </p>
               </div>
               <button
                 type="button"
