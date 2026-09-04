@@ -2391,6 +2391,10 @@ nav {
     gap: 2px;
   }
 
+  .consumption-summary {
+    min-height: 0;
+  }
+
   .daily-norm-editor {
     gap: 4px;
   }
