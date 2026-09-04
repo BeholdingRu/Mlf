@@ -2374,7 +2374,25 @@ nav {
 
   .calories-info {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 4px;
+  }
+
+  .info-item {
+    min-height: 0;
+    gap: 2px;
+  }
+
+  .info-item > .label,
+  .consumption-summary-item > span {
+    min-height: 0;
+  }
+
+  .consumption-summary-item {
+    gap: 2px;
+  }
+
+  .daily-norm-editor {
+    gap: 4px;
   }
 
   .calories-tabs {
@@ -2607,7 +2625,7 @@ nav {
   }
 
   .calories-info {
-    gap: 10px;
+    gap: 4px;
   }
 
   .info-item .value,
