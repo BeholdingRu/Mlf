@@ -266,8 +266,8 @@ export function ProductsView() {
     <section className="products-view">
       <div className="food-form">
         <h3>Добавьте продукт</h3>
-        <div className="form-group">
-          <label htmlFor="saved-product-name">Название продукта</label>
+        <fieldset className="nutrition-block">
+          <legend>Название продукта</legend>
           <input
             id="saved-product-name"
             type="text"
@@ -276,35 +276,29 @@ export function ProductsView() {
             placeholder="Например, гречка"
             disabled={submitting}
           />
-        </div>
-        <div className="form-group">
-          <label htmlFor="saved-product-calories">Калорийность на 100г</label>
-          <input
-            id="saved-product-calories"
-            type="number"
-            value={caloriesPer100g}
-            onChange={(e) => setCaloriesPer100g(e.target.value)}
-            placeholder="0"
-            disabled={submitting}
-            step="0.1"
-            min="0"
-          />
-        </div>
-        <div className="nutrition-inputs">
-          <div className="form-group">
-            <label htmlFor="saved-product-proteins">Белки, г</label>
-            <input id="saved-product-proteins" type="number" value={proteinsPer100g} onChange={(e) => setProteinsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+        </fieldset>
+        <fieldset className="nutrition-block">
+          <legend>КБЖУ на 100 г</legend>
+          <div className="nutrition-inputs nutrition-inputs-four">
+            <div className="form-group">
+              <label htmlFor="saved-product-calories">Ккал</label>
+              <input id="saved-product-calories" type="number" value={caloriesPer100g} onChange={(e) => setCaloriesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="saved-product-proteins">Белки</label>
+              <input id="saved-product-proteins" type="number" value={proteinsPer100g} onChange={(e) => setProteinsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="saved-product-fats">Жиры</label>
+              <input id="saved-product-fats" type="number" value={fatsPer100g} onChange={(e) => setFatsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="saved-product-carbohydrates">Углеводы</label>
+              <input id="saved-product-carbohydrates" type="number" value={carbohydratesPer100g} onChange={(e) => setCarbohydratesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+            </div>
           </div>
-          <div className="form-group">
-            <label htmlFor="saved-product-fats">Жиры, г</label>
-            <input id="saved-product-fats" type="number" value={fatsPer100g} onChange={(e) => setFatsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
-          </div>
-          <div className="form-group">
-            <label htmlFor="saved-product-carbohydrates">Углеводы, г</label>
-            <input id="saved-product-carbohydrates" type="number" value={carbohydratesPer100g} onChange={(e) => setCarbohydratesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
-          </div>
-        </div>
-        <div className="form-group">
+        </fieldset>
+        <div className="form-group product-category-group">
           <label htmlFor="saved-product-category">Категория</label>
           <select
             id="saved-product-category"
@@ -438,32 +432,27 @@ export function ProductsView() {
                 ))}
               </select>
             </div>
-            <div className="form-group">
-              <label htmlFor="edit-product-calories">Калорийность на 100г</label>
-              <input
-                id="edit-product-calories"
-                type="number"
-                value={editCalories}
-                onChange={(e) => setEditCalories(e.target.value)}
-                disabled={submitting}
-                step="0.1"
-                min="0"
-              />
-            </div>
-            <div className="nutrition-inputs">
-              <div className="form-group">
-                <label htmlFor="edit-product-proteins">Белки, г</label>
-                <input id="edit-product-proteins" type="number" value={editProteins} onChange={(e) => setEditProteins(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+            <fieldset className="nutrition-block">
+              <legend>КБЖУ на 100 г</legend>
+              <div className="nutrition-inputs nutrition-inputs-four">
+                <div className="form-group">
+                  <label htmlFor="edit-product-calories">Ккал</label>
+                  <input id="edit-product-calories" type="number" value={editCalories} onChange={(e) => setEditCalories(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-product-proteins">Белки</label>
+                  <input id="edit-product-proteins" type="number" value={editProteins} onChange={(e) => setEditProteins(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-product-fats">Жиры</label>
+                  <input id="edit-product-fats" type="number" value={editFats} onChange={(e) => setEditFats(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="edit-product-carbohydrates">Углеводы</label>
+                  <input id="edit-product-carbohydrates" type="number" value={editCarbohydrates} onChange={(e) => setEditCarbohydrates(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+                </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="edit-product-fats">Жиры, г</label>
-                <input id="edit-product-fats" type="number" value={editFats} onChange={(e) => setEditFats(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="edit-product-carbohydrates">Углеводы, г</label>
-                <input id="edit-product-carbohydrates" type="number" value={editCarbohydrates} onChange={(e) => setEditCarbohydrates(e.target.value)} disabled={submitting} step="0.1" min="0" inputMode="decimal" />
-              </div>
-            </div>
+            </fieldset>
             <div className="modal-actions">
               <button
                 type="button"

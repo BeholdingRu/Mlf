@@ -6,6 +6,17 @@ import { DEFAULT_PRODUCT_CATEGORY, PRODUCT_CATEGORIES, type ProductCategory } fr
 type CaloriesSubTab = 'consumption' | 'products'
 
 const CALORIES_SUB_TAB_STORAGE_KEY = 'mlf:calories-sub-tab'
+const FOOD_ADD_DRAFT_STORAGE_KEY = 'mlf:food-add-draft'
+
+type FoodAddDraft = {
+  name: string
+  weightGrams: string
+  calories: string
+  proteins: string
+  fats: string
+  carbohydrates: string
+  category: ProductCategory
+}
 
 function getSavedCaloriesSubTab(): CaloriesSubTab {
   return window.sessionStorage.getItem(CALORIES_SUB_TAB_STORAGE_KEY) === 'products'
@@ -13,16 +24,51 @@ function getSavedCaloriesSubTab(): CaloriesSubTab {
     : 'consumption'
 }
 
+function getSavedFoodAddDraft(): FoodAddDraft | null {
+  try {
+    const savedDraft = window.sessionStorage.getItem(FOOD_ADD_DRAFT_STORAGE_KEY)
+    if (!savedDraft) return null
+
+    const draft = JSON.parse(savedDraft) as Partial<FoodAddDraft>
+    if (
+      typeof draft.name !== 'string'
+      || typeof draft.weightGrams !== 'string'
+      || typeof draft.calories !== 'string'
+      || typeof draft.proteins !== 'string'
+      || typeof draft.fats !== 'string'
+      || typeof draft.carbohydrates !== 'string'
+      || !PRODUCT_CATEGORIES.includes(draft.category as ProductCategory)
+    ) {
+      window.sessionStorage.removeItem(FOOD_ADD_DRAFT_STORAGE_KEY)
+      return null
+    }
+
+    return {
+      name: draft.name,
+      weightGrams: draft.weightGrams,
+      calories: draft.calories,
+      proteins: draft.proteins,
+      fats: draft.fats,
+      carbohydrates: draft.carbohydrates,
+      category: draft.category as ProductCategory,
+    }
+  } catch {
+    window.sessionStorage.removeItem(FOOD_ADD_DRAFT_STORAGE_KEY)
+    return null
+  }
+}
+
 export function CaloriesView() {
   const { profile, foodLogs, savedProducts, addSavedProduct, logFoodToday, deleteFoodLog, saveCaloriesNorm } = useData()
+  const [foodAddDraft] = useState<FoodAddDraft | null>(getSavedFoodAddDraft)
   const [subTab, setSubTab] = useState<CaloriesSubTab>(getSavedCaloriesSubTab)
-  const [productName, setProductName] = useState('')
-  const [weightGrams, setWeightGrams] = useState('')
-  const [caloriesPer100g, setCaloriesPer100g] = useState('')
-  const [proteinsPer100g, setProteinsPer100g] = useState('')
-  const [fatsPer100g, setFatsPer100g] = useState('')
-  const [carbohydratesPer100g, setCarbohydratesPer100g] = useState('')
-  const [productCategory, setProductCategory] = useState<ProductCategory>(DEFAULT_PRODUCT_CATEGORY)
+  const [productName, setProductName] = useState(foodAddDraft?.name ?? '')
+  const [weightGrams, setWeightGrams] = useState(foodAddDraft?.weightGrams ?? '')
+  const [caloriesPer100g, setCaloriesPer100g] = useState(foodAddDraft?.calories ?? '')
+  const [proteinsPer100g, setProteinsPer100g] = useState(foodAddDraft?.proteins ?? '')
+  const [fatsPer100g, setFatsPer100g] = useState(foodAddDraft?.fats ?? '')
+  const [carbohydratesPer100g, setCarbohydratesPer100g] = useState(foodAddDraft?.carbohydrates ?? '')
+  const [productCategory, setProductCategory] = useState<ProductCategory>(foodAddDraft?.category ?? DEFAULT_PRODUCT_CATEGORY)
   const [savedProductGroup, setSavedProductGroup] = useState<ProductCategory | 'favorites' | ''>('')
   const [savedProductMenuOpen, setSavedProductMenuOpen] = useState(false)
   const [dailyNormInput, setDailyNormInput] = useState<string | null>(null)
@@ -54,6 +100,26 @@ export function CaloriesView() {
   useEffect(() => {
     window.sessionStorage.setItem(CALORIES_SUB_TAB_STORAGE_KEY, subTab)
   }, [subTab])
+
+  useEffect(() => {
+    const isEmpty = !productName && !weightGrams && !caloriesPer100g && !proteinsPer100g
+      && !fatsPer100g && !carbohydratesPer100g && productCategory === DEFAULT_PRODUCT_CATEGORY
+    if (isEmpty) {
+      window.sessionStorage.removeItem(FOOD_ADD_DRAFT_STORAGE_KEY)
+      return
+    }
+
+    const draft: FoodAddDraft = {
+      name: productName,
+      weightGrams,
+      calories: caloriesPer100g,
+      proteins: proteinsPer100g,
+      fats: fatsPer100g,
+      carbohydrates: carbohydratesPer100g,
+      category: productCategory,
+    }
+    window.sessionStorage.setItem(FOOD_ADD_DRAFT_STORAGE_KEY, JSON.stringify(draft))
+  }, [caloriesPer100g, carbohydratesPer100g, fatsPer100g, productCategory, productName, proteinsPer100g, weightGrams])
 
   const handleSaveDailyNorm = async () => {
     const parsed = displayedDailyNorm.trim() === '' ? null : Number(displayedDailyNorm.replace(',', '.'))
@@ -121,6 +187,7 @@ export function CaloriesView() {
         fats,
         carbohydrates,
       )
+      window.sessionStorage.removeItem(FOOD_ADD_DRAFT_STORAGE_KEY)
       setProductName('')
       setWeightGrams('')
       setCaloriesPer100g('')
@@ -255,8 +322,8 @@ export function CaloriesView() {
             }}
           >
             <h3>Добавить продукт</h3>
-            <div className="form-group">
-              <label htmlFor="product-name">Название продукта</label>
+            <fieldset className="nutrition-block">
+              <legend>Название продукта</legend>
               <div className="product-name-row">
                 <input
                   id="product-name"
@@ -332,8 +399,8 @@ export function CaloriesView() {
                   )}
                 </div>
               </div>
-            </div>
-            <div className="form-group consumption-category-group">
+            </fieldset>
+            <div className="form-group product-category-group">
               <label htmlFor="consumption-category">Категория для «Моих продуктов»</label>
               <select
                 id="consumption-category"
@@ -346,53 +413,50 @@ export function CaloriesView() {
                 ))}
               </select>
             </div>
-            <div className="form-group">
-              <label htmlFor="calories">Калорийность на 100г</label>
-              <input
-                id="calories"
-                type="number"
-                value={caloriesPer100g}
-                onChange={(e) => setCaloriesPer100g(e.target.value)}
-                placeholder="0"
-                disabled={submitting}
-                step="0.1"
-                min="0"
-              />
-            </div>
-            <div className="nutrition-inputs">
-              <div className="form-group">
-                <label htmlFor="consumption-proteins">Белки на 100г</label>
-                <input id="consumption-proteins" type="number" value={proteinsPer100g} onChange={(e) => setProteinsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+            <fieldset className="nutrition-block">
+              <legend>КБЖУ на 100 г</legend>
+              <div className="nutrition-inputs nutrition-inputs-four">
+                <div className="form-group">
+                  <label htmlFor="calories">Ккал</label>
+                  <input id="calories" type="number" value={caloriesPer100g} onChange={(e) => setCaloriesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="consumption-proteins">Белки</label>
+                  <input id="consumption-proteins" type="number" value={proteinsPer100g} onChange={(e) => setProteinsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="consumption-fats">Жиры</label>
+                  <input id="consumption-fats" type="number" value={fatsPer100g} onChange={(e) => setFatsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="consumption-carbohydrates">Углеводы</label>
+                  <input id="consumption-carbohydrates" type="number" value={carbohydratesPer100g} onChange={(e) => setCarbohydratesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+                </div>
               </div>
+            </fieldset>
+            <fieldset className="nutrition-block">
+              <legend>Вес продукта</legend>
               <div className="form-group">
-                <label htmlFor="consumption-fats">Жиры на 100г</label>
-                <input id="consumption-fats" type="number" value={fatsPer100g} onChange={(e) => setFatsPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
+                <label htmlFor="weight">Граммы</label>
+                <input
+                  id="weight"
+                  type="number"
+                  value={weightGrams}
+                  onChange={(e) => setWeightGrams(e.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return
+                    event.preventDefault()
+                    void handleAddFood()
+                  }}
+                  placeholder="0"
+                  disabled={submitting}
+                  step="0.1"
+                  min="0"
+                  inputMode="decimal"
+                  enterKeyHint="done"
+                />
               </div>
-              <div className="form-group">
-                <label htmlFor="consumption-carbohydrates">Углеводы на 100г</label>
-                <input id="consumption-carbohydrates" type="number" value={carbohydratesPer100g} onChange={(e) => setCarbohydratesPer100g(e.target.value)} placeholder="0" disabled={submitting} step="0.1" min="0" inputMode="decimal" />
-              </div>
-            </div>
-            <div className="form-group">
-              <label htmlFor="weight">Вес (гр)</label>
-              <input
-                id="weight"
-                type="number"
-                value={weightGrams}
-                onChange={(e) => setWeightGrams(e.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return
-                  event.preventDefault()
-                  void handleAddFood()
-                }}
-                placeholder="0"
-                disabled={submitting}
-                step="0.1"
-                min="0"
-                inputMode="decimal"
-                enterKeyHint="done"
-              />
-            </div>
+            </fieldset>
             <button type="submit" disabled={submitting} className="add-button">
               {submitting ? 'Сохранение...' : 'Добавить'}
             </button>
