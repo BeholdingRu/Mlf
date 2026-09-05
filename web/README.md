@@ -33,6 +33,15 @@
 Чтобы добавить в настройки город и часовой пояс для отображения времени заката по пятницам
 в календаре, выполните `supabase/add_profile_location.sql` в **SQL Editor**.
 
+Чтобы сохранять подтверждения дней в разделе «Путь → С.Ш.», выполните
+`supabase/add_path_day_confirmations.sql` в **SQL Editor**.
+
+Чтобы сохранять завершённые уроки в разделе «Путь → Школа Шалом», выполните
+`supabase/add_course_lesson_completions.sql` в **SQL Editor**.
+
+Чтобы сохранять личные заметки в разделе «Путь → Практикум осознанности», выполните
+`supabase/add_mindfulness_notes.sql` в **SQL Editor**.
+
 ## 2. Ключи приложения
 
 В каталоге `web` скопируйте `.env.example` в `.env`:

@@ -6,6 +6,7 @@ import { StatsView } from '../components/StatsView'
 import { CaloriesView } from '../components/CaloriesView'
 import { TrainingView } from '../components/TrainingView'
 import { DiaryView } from '../components/DiaryView'
+import { PathView } from '../components/PathView'
 import { useData } from '../hooks/useData'
 import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
@@ -13,7 +14,7 @@ import { applyFontScale, applyTheme, normalizeFontScale, normalizeShabbatTheme, 
 import { isShabbatActive } from '../lib/shabbat'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
-const CABINET_TABS: CabinetTab[] = ['daily', 'all', 'calories', 'training', 'diary']
+const CABINET_TABS: CabinetTab[] = ['daily', 'all', 'calories', 'training', 'diary', 'path']
 
 function getSavedCabinetTab(): CabinetTab {
   const savedTab = window.sessionStorage.getItem(CABINET_TAB_STORAGE_KEY)
@@ -50,6 +51,10 @@ export function CabinetPage() {
   }, [])
 
   useEffect(() => {
+    if (!profile?.shabbat_enabled && tab === 'path') setTab('daily')
+  }, [profile?.shabbat_enabled, tab])
+
+  useEffect(() => {
     window.sessionStorage.setItem(CABINET_TAB_STORAGE_KEY, tab)
   }, [tab])
 
@@ -62,11 +67,18 @@ export function CabinetPage() {
           ? 'Учет калорий'
           : tab === 'training'
             ? 'Тренировки'
-            : 'Дневник'
+            : tab === 'diary'
+              ? 'Дневник'
+              : 'Путь'
 
   return (
     <div className="cabinet">
-      <Sidebar tab={tab} onTab={setTab} onOpenSettings={() => setSettingsOpen(true)} />
+      <Sidebar
+        tab={tab}
+        onTab={setTab}
+        onOpenSettings={() => setSettingsOpen(true)}
+        shabbatEnabled={profile?.shabbat_enabled ?? false}
+      />
       <main className="main">
         <header className="topbar">
           <h1>{heading}</h1>
@@ -105,6 +117,11 @@ export function CabinetPage() {
         {!loading && (
           <div hidden={tab !== 'diary'}>
             <DiaryView />
+          </div>
+        )}
+        {!loading && profile?.shabbat_enabled && (
+          <div hidden={tab !== 'path'}>
+            <PathView />
           </div>
         )}
       </main>

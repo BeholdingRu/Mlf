@@ -59,6 +59,33 @@ create table if not exists public.weight_logs (
   unique (user_id, logged_on)
 );
 
+create table if not exists public.path_day_confirmations (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  cycle_started_on date not null,
+  day text not null check (day in ('saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday')),
+  created_at timestamptz not null default now(),
+  unique (user_id, cycle_started_on, day)
+);
+
+create table if not exists public.course_lesson_completions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  course_id text not null,
+  lesson_number integer not null check (lesson_number > 0),
+  created_at timestamptz not null default now(),
+  unique (user_id, course_id, lesson_number)
+);
+
+create table if not exists public.mindfulness_notes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  title text not null check (char_length(trim(title)) between 1 and 160),
+  content text not null check (char_length(trim(content)) between 1 and 7000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.daily_food_logs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -125,6 +152,9 @@ create index if not exists tasks_user_id_idx on public.tasks (user_id, sort_orde
 create index if not exists completions_user_on_idx on public.task_completions (user_id, completed_on);
 create index if not exists completions_task_on_idx on public.task_completions (task_id, completed_on);
 create index if not exists weight_logs_user_on_idx on public.weight_logs (user_id, logged_on desc);
+create index if not exists path_day_confirmations_user_cycle_idx on public.path_day_confirmations (user_id, cycle_started_on);
+create index if not exists course_lesson_completions_user_course_idx on public.course_lesson_completions (user_id, course_id);
+create index if not exists mindfulness_notes_user_updated_idx on public.mindfulness_notes (user_id, updated_at desc);
 create index if not exists food_logs_user_on_idx on public.daily_food_logs (user_id, logged_on desc);
 create index if not exists saved_products_user_name_idx on public.saved_products (user_id, name);
 create index if not exists saved_exercises_user_category_name_idx on public.saved_exercises (user_id, category, name);
@@ -153,6 +183,9 @@ alter table public.profiles enable row level security;
 alter table public.tasks enable row level security;
 alter table public.task_completions enable row level security;
 alter table public.weight_logs enable row level security;
+alter table public.path_day_confirmations enable row level security;
+alter table public.course_lesson_completions enable row level security;
+alter table public.mindfulness_notes enable row level security;
 alter table public.daily_food_logs enable row level security;
 alter table public.saved_products enable row level security;
 alter table public.saved_exercises enable row level security;
@@ -180,6 +213,18 @@ create policy "completions_all_own" on public.task_completions
 
 drop policy if exists "weight_logs_all_own" on public.weight_logs;
 create policy "weight_logs_all_own" on public.weight_logs
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "path_day_confirmations_all_own" on public.path_day_confirmations;
+create policy "path_day_confirmations_all_own" on public.path_day_confirmations
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "course_lesson_completions_all_own" on public.course_lesson_completions;
+create policy "course_lesson_completions_all_own" on public.course_lesson_completions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "mindfulness_notes_all_own" on public.mindfulness_notes;
+create policy "mindfulness_notes_all_own" on public.mindfulness_notes
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "food_logs_all_own" on public.daily_food_logs;

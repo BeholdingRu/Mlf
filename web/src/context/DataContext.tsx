@@ -9,6 +9,9 @@ import { requireSupabase } from '../lib/supabase'
 import { localISODate } from '../lib/dates'
 import type {
   FoodLog,
+  CourseLessonCompletion,
+  MindfulnessNote,
+  PathDayConfirmation,
   Profile,
   ScheduledExercise,
   SavedExercise,
@@ -30,6 +33,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
   const [foodHistoryLogs, setFoodHistoryLogs] = useState<FoodLog[]>([])
+  const [pathDayConfirmations, setPathDayConfirmations] = useState<PathDayConfirmation[]>([])
+  const [courseLessonCompletions, setCourseLessonCompletions] = useState<CourseLessonCompletion[]>([])
+  const [mindfulnessNotes, setMindfulnessNotes] = useState<MindfulnessNote[]>([])
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([])
   const [savedExercises, setSavedExercises] = useState<SavedExercise[]>([])
   const [scheduledExercises, setScheduledExercises] = useState<ScheduledExercise[]>([])
@@ -41,7 +47,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     const client = requireSupabase()
     const today = localISODate()
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes] = await Promise.all([
+    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessNotesRes] = await Promise.all([
       client.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       client.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
       client.from('task_completions').select('*').eq('user_id', user.id),
@@ -58,6 +64,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       client.from('saved_products').select('*').eq('user_id', user.id).order('name'),
       client.from('saved_exercises').select('*').eq('user_id', user.id).order('name'),
       client.from('scheduled_exercises').select('*').eq('user_id', user.id).order('planned_on').order('sort_order'),
+      client.from('path_day_confirmations').select('*').eq('user_id', user.id),
+      client.from('course_lesson_completions').select('*').eq('user_id', user.id),
+      client.from('mindfulness_notes').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
     ])
 
     const firstError =
@@ -69,7 +78,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodHistoryRes.error?.message ||
       productsRes.error?.message ||
       exercisesRes.error?.message ||
-      scheduledExercisesRes.error?.message
+      scheduledExercisesRes.error?.message ||
+      pathConfirmationsRes.error?.message ||
+      courseLessonsRes.error?.message ||
+      mindfulnessNotesRes.error?.message
     if (firstError) {
       setError(firstError)
       setLoading(false)
@@ -121,6 +133,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })
     setFoodLogs(normalizeFoodLogs(foodRes.data ?? []))
     setFoodHistoryLogs(normalizeFoodLogs(foodHistoryRes.data ?? []))
+    setPathDayConfirmations((pathConfirmationsRes.data ?? []) as PathDayConfirmation[])
+    setCourseLessonCompletions((courseLessonsRes.data ?? []) as CourseLessonCompletion[])
+    setMindfulnessNotes((mindfulnessNotesRes.data ?? []) as MindfulnessNote[])
     setSavedProducts(normalizedSavedProducts)
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
@@ -224,6 +239,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightLogs,
       foodLogs,
       foodHistoryLogs,
+      pathDayConfirmations,
+      courseLessonCompletions,
+      mindfulnessNotes,
       savedProducts,
       savedExercises,
       scheduledExercises,
@@ -418,6 +436,77 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (updError) throw updError
         setProfile(data as Profile)
+      },
+      async confirmPathDay(day, cycleStartedOn) {
+        if (!user) return
+        const { data, error: upsertError } = await requireSupabase()
+          .from('path_day_confirmations')
+          .upsert(
+            {
+              user_id: user.id,
+              cycle_started_on: cycleStartedOn,
+              day,
+            },
+            { onConflict: 'user_id,cycle_started_on,day' },
+          )
+          .select('*')
+          .single()
+        if (upsertError) throw upsertError
+        setPathDayConfirmations((previous) => [
+          ...previous.filter((confirmation) => confirmation.id !== (data as PathDayConfirmation).id),
+          data as PathDayConfirmation,
+        ])
+      },
+      async completeCourseLesson(courseId, lessonNumber) {
+        if (!user) return
+        const { data, error: upsertError } = await requireSupabase()
+          .from('course_lesson_completions')
+          .upsert(
+            {
+              user_id: user.id,
+              course_id: courseId,
+              lesson_number: lessonNumber,
+            },
+            { onConflict: 'user_id,course_id,lesson_number' },
+          )
+          .select('*')
+          .single()
+        if (upsertError) throw upsertError
+        setCourseLessonCompletions((previous) => [
+          ...previous.filter((completion) => completion.id !== (data as CourseLessonCompletion).id),
+          data as CourseLessonCompletion,
+        ])
+      },
+      async addMindfulnessNote(title, content) {
+        if (!user) return
+        const { data, error: insError } = await requireSupabase()
+          .from('mindfulness_notes')
+          .insert({ user_id: user.id, title, content })
+          .select('*')
+          .single()
+        if (insError) throw insError
+        setMindfulnessNotes((previous) => [data as MindfulnessNote, ...previous])
+      },
+      async updateMindfulnessNote(id, title, content) {
+        const { data, error: updError } = await requireSupabase()
+          .from('mindfulness_notes')
+          .update({ title, content, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setMindfulnessNotes((previous) => [
+          data as MindfulnessNote,
+          ...previous.filter((note) => note.id !== id),
+        ])
+      },
+      async deleteMindfulnessNote(id) {
+        const { error: delError } = await requireSupabase()
+          .from('mindfulness_notes')
+          .delete()
+          .eq('id', id)
+        if (delError) throw delError
+        setMindfulnessNotes((previous) => previous.filter((note) => note.id !== id))
       },
       async logFoodToday(productName, weightGrams, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
         if (!user) return
@@ -627,6 +716,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightLogs,
       foodLogs,
       foodHistoryLogs,
+      pathDayConfirmations,
+      courseLessonCompletions,
+      mindfulnessNotes,
       savedProducts,
       savedExercises,
       scheduledExercises,

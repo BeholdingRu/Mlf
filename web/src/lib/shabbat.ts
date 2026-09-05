@@ -37,3 +37,19 @@ export function isShabbatActive(profile: Profile | null, now = new Date()) {
 
   return (weekday === 5 && currentMinutes >= sunset) || (weekday === 6 && currentMinutes < sunset)
 }
+
+export function getShabbatWeekStart(profile: Profile | null, now = new Date()) {
+  if (!profile?.time_zone || profile.city_latitude === null || profile.city_longitude === null) return null
+
+  const localNow = getDateTimeParts(now, profile.time_zone)
+  const weekday = new Date(Date.UTC(localNow.year, localNow.month - 1, localNow.day)).getUTCDay()
+  const currentMinutes = localNow.hour * 60 + localNow.minute
+  const today = isoDate(localNow)
+  const sunset = minutes(getSunsetTime(today, profile.city_latitude, profile.city_longitude, profile.time_zone))
+  if (sunset === null) return null
+
+  const daysSinceFriday = weekday === 5 && currentMinutes < sunset ? 7 : (weekday + 2) % 7
+  const cycleStart = new Date(Date.UTC(localNow.year, localNow.month - 1, localNow.day))
+  cycleStart.setUTCDate(cycleStart.getUTCDate() - daysSinceFriday)
+  return cycleStart.toISOString().slice(0, 10)
+}

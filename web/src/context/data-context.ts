@@ -2,7 +2,11 @@ import { createContext } from 'react'
 import type {
   ExerciseCategory,
   ExerciseType,
+  CourseLessonCompletion,
   FoodLog,
+  MindfulnessNote,
+  PathDay,
+  PathDayConfirmation,
   Profile,
   ScheduledExercise,
   SavedExercise,
@@ -22,6 +26,9 @@ export type DataContextValue = {
   weightLogs: WeightLog[]
   foodLogs: FoodLog[]
   foodHistoryLogs: FoodLog[]
+  pathDayConfirmations: PathDayConfirmation[]
+  courseLessonCompletions: CourseLessonCompletion[]
+  mindfulnessNotes: MindfulnessNote[]
   savedProducts: SavedProduct[]
   savedExercises: SavedExercise[]
   scheduledExercises: ScheduledExercise[]
@@ -42,6 +49,11 @@ export type DataContextValue = {
   saveLocation: (timeZone: string, city: SunsetCity | null) => Promise<void>
   saveShabbatEnabled: (enabled: boolean) => Promise<void>
   saveShabbatTheme: (theme: ShabbatThemeId) => Promise<void>
+  confirmPathDay: (day: PathDay, cycleStartedOn: string) => Promise<void>
+  completeCourseLesson: (courseId: string, lessonNumber: number) => Promise<void>
+  addMindfulnessNote: (title: string, content: string) => Promise<void>
+  updateMindfulnessNote: (id: string, title: string, content: string) => Promise<void>
+  deleteMindfulnessNote: (id: string) => Promise<void>
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
   addSavedProduct: (name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<void>

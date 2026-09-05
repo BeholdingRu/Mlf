@@ -6,6 +6,7 @@ type SidebarProps = {
   tab: CabinetTab
   onTab: (tab: CabinetTab) => void
   onOpenSettings: () => void
+  shabbatEnabled: boolean
 }
 
 const NAV: { id: CabinetTab; label: string }[] = [
@@ -18,11 +19,14 @@ const NAV: { id: CabinetTab; label: string }[] = [
 
 const MOBILE_SIDEBAR_OPEN_STORAGE_KEY = 'mlf:mobile-sidebar-open'
 
-export function Sidebar({ tab, onTab, onOpenSettings }: SidebarProps) {
+export function Sidebar({ tab, onTab, onOpenSettings, shabbatEnabled }: SidebarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(
     () => window.sessionStorage.getItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY) === 'true',
   )
-  const currentTab = NAV.find((item) => item.id === tab) ?? NAV[0]
+  const navigation = shabbatEnabled
+    ? [...NAV.slice(0, -1), { id: 'path' as const, label: 'Путь' }, NAV[NAV.length - 1]]
+    : NAV
+  const currentTab = navigation.find((item) => item.id === tab) ?? NAV[0]
 
   useEffect(() => {
     window.sessionStorage.setItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY, String(mobileMenuOpen))
@@ -53,7 +57,7 @@ export function Sidebar({ tab, onTab, onOpenSettings }: SidebarProps) {
           <span aria-hidden="true">⚙</span>
         </button>
         <nav>
-          {NAV.map((item) => (
+          {navigation.map((item) => (
             <button
               key={item.id}
               type="button"

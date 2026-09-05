@@ -40,7 +40,32 @@ export type WeightLog = {
   logged_on: string
 }
 
-export type CabinetTab = 'daily' | 'all' | 'calories' | 'training' | 'diary'
+export type PathDayConfirmation = {
+  id: string
+  user_id: string
+  cycle_started_on: string
+  day: PathDay
+}
+
+export type PathDay = 'saturday' | 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday'
+
+export type CourseLessonCompletion = {
+  id: string
+  user_id: string
+  course_id: string
+  lesson_number: number
+}
+
+export type MindfulnessNote = {
+  id: string
+  user_id: string
+  title: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+export type CabinetTab = 'daily' | 'all' | 'calories' | 'training' | 'diary' | 'path'
 
 export type FoodLog = {
   id: string
