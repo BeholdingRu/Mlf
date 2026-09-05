@@ -16,6 +16,16 @@ export type Profile = {
   city_longitude: number | null
   shabbat_enabled: boolean
   shabbat_theme: ShabbatThemeId
+  annual_cycle_enabled: boolean
+}
+
+export type BibleVerse = {
+  book_code: string
+  book_name: string
+  book_order: number
+  chapter: number
+  verse: number
+  text: string
 }
 
 export type Task = {

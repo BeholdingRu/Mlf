@@ -31,6 +31,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     saveFontScale,
     saveLocation,
     saveShabbatEnabled,
+    saveAnnualCycleEnabled,
     saveShabbatTheme,
     saveTheme,
   } = useData()
@@ -55,6 +56,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [timeZone, setTimeZone] = useState(profile?.time_zone ?? 'Europe/Moscow')
   const [cityName, setCityName] = useState(profile?.city_name ?? '')
   const [shabbatEnabled, setShabbatEnabled] = useState(profile?.shabbat_enabled ?? false)
+  const [annualCycleEnabled, setAnnualCycleEnabled] = useState(profile?.annual_cycle_enabled ?? false)
   const [shabbatTheme, setShabbatTheme] = useState<ShabbatThemeId>(() => normalizeShabbatTheme(profile?.shabbat_theme))
   const shabbatActive = isShabbatActive(profile)
 
@@ -150,6 +152,21 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     } catch (err) {
       setShabbatEnabled(previousEnabled)
       setError(err instanceof Error ? err.message : 'Не удалось сохранить настройку Шаббата')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function changeAnnualCycleEnabled(nextEnabled: boolean) {
+    const previousEnabled = annualCycleEnabled
+    setAnnualCycleEnabled(nextEnabled)
+    setBusy(true)
+    setError(null)
+    try {
+      await saveAnnualCycleEnabled(nextEnabled)
+    } catch (err) {
+      setAnnualCycleEnabled(previousEnabled)
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить настройку ежегодного цикла')
     } finally {
       setBusy(false)
     }
@@ -325,6 +342,17 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             </label>
             <p className="hint">С пятничного до субботнего захода солнца включается праздничное оформление, а в календаре отображается время пятничного захода солнца.</p>
             {shabbatEnabled && !cityName && <p className="hint">Для включения оформления выберите город и сохраните календарь.</p>}
+            {shabbatEnabled && (
+              <label className="toggle settings-nested-toggle">
+                <input
+                  type="checkbox"
+                  checked={annualCycleEnabled}
+                  onChange={(event) => changeAnnualCycleEnabled(event.target.checked)}
+                  disabled={busy}
+                />
+                Ежегодный цикл
+              </label>
+            )}
           </div>
         </section>
 

@@ -230,14 +230,16 @@ export function DiaryView() {
                       : 'Не запланировано'}
                 </p>
               </div>
-              <button
-                type="button"
-                className="primary compact"
-                onClick={() => setShowExercises(!showExercises)}
-                aria-expanded={showExercises}
-              >
-                {showExercises ? 'Скрыть упражнения' : 'Выполненные упражнения'}
-              </button>
+              {plannedExercises.length > 0 && (
+                <button
+                  type="button"
+                  className="primary compact"
+                  onClick={() => setShowExercises(!showExercises)}
+                  aria-expanded={showExercises}
+                >
+                  {showExercises ? 'Скрыть упражнения' : 'Выполненные упражнения'}
+                </button>
+              )}
             </div>
             {showExercises && (
               <>

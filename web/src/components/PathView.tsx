@@ -2,8 +2,9 @@ import { useEffect, useState, type FormEvent, type MouseEvent } from 'react'
 import { useData } from '../hooks/useData'
 import { getShabbatWeekStart } from '../lib/shabbat'
 import type { MindfulnessNote, PathDay } from '../lib/types'
+import { BibleView } from './BibleView'
 
-type PathSubTab = 'sh' | 'shalom-school' | 'mindfulness-practicum'
+type PathSubTab = 'bible' | 'sh' | 'shalom-school' | 'mindfulness-practicum'
 
 const PATH_SUB_TAB_STORAGE_KEY = 'mlf:path-sub-tab'
 const MINDFULNESS_NOTE_DRAFT_STORAGE_KEY = 'mlf:mindfulness-note-draft'
@@ -17,6 +18,7 @@ type MindfulnessNoteDraft = {
 }
 
 const SUB_TABS: { id: PathSubTab; label: string }[] = [
+  { id: 'bible', label: 'Библия' },
   { id: 'sh', label: 'С.Ш.' },
   { id: 'shalom-school', label: 'Школа Шалом' },
   { id: 'mindfulness-practicum', label: 'Практикум осознанности' },
@@ -42,7 +44,7 @@ const SHALOM_COURSES = [
 
 function getSavedPathSubTab(): PathSubTab {
   const savedTab = window.sessionStorage.getItem(PATH_SUB_TAB_STORAGE_KEY)
-  return SUB_TABS.some((tab) => tab.id === savedTab) ? savedTab as PathSubTab : 'sh'
+  return SUB_TABS.some((tab) => tab.id === savedTab) ? savedTab as PathSubTab : 'bible'
 }
 
 function getSavedMindfulnessNoteDraft(): MindfulnessNoteDraft | null {
@@ -232,7 +234,7 @@ export function PathView() {
           </button>
         ))}
       </nav>
-      {subTab === 'sh' ? (
+      {subTab === 'bible' ? <BibleView /> : subTab === 'sh' ? (
         <div className="path-sh-card">
           <GrapevineOrnament />
           <div className="path-sh-content">

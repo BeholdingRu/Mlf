@@ -9,6 +9,7 @@ import { requireSupabase } from '../lib/supabase'
 import { localISODate } from '../lib/dates'
 import type {
   FoodLog,
+  BibleVerse,
   CourseLessonCompletion,
   MindfulnessNote,
   PathDayConfirmation,
@@ -426,6 +427,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (updError) throw updError
         setProfile(data as Profile)
       },
+      async saveAnnualCycleEnabled(enabled) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({ annual_cycle_enabled: enabled })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
       async saveShabbatTheme(theme) {
         if (!user || !profile) return
         const { data, error: updError } = await requireSupabase()
@@ -436,6 +448,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (updError) throw updError
         setProfile(data as Profile)
+      },
+      async getBibleChapter(bookOrder, chapter) {
+        const { data, error: selectError } = await requireSupabase()
+          .from('bible_verses')
+          .select('book_code, book_name, book_order, chapter, verse, text')
+          .eq('book_order', bookOrder)
+          .eq('chapter', chapter)
+          .order('verse')
+        if (selectError) throw selectError
+        return (data ?? []) as BibleVerse[]
       },
       async confirmPathDay(day, cycleStartedOn) {
         if (!user) return

@@ -3,6 +3,7 @@ import type {
   ExerciseCategory,
   ExerciseType,
   CourseLessonCompletion,
+  BibleVerse,
   FoodLog,
   MindfulnessNote,
   PathDay,
@@ -48,7 +49,9 @@ export type DataContextValue = {
   saveFontScale: (scale: FontScale) => Promise<void>
   saveLocation: (timeZone: string, city: SunsetCity | null) => Promise<void>
   saveShabbatEnabled: (enabled: boolean) => Promise<void>
+  saveAnnualCycleEnabled: (enabled: boolean) => Promise<void>
   saveShabbatTheme: (theme: ShabbatThemeId) => Promise<void>
+  getBibleChapter: (bookOrder: number, chapter: number) => Promise<BibleVerse[]>
   confirmPathDay: (day: PathDay, cycleStartedOn: string) => Promise<void>
   completeCourseLesson: (courseId: string, lessonNumber: number) => Promise<void>
   addMindfulnessNote: (title: string, content: string) => Promise<void>
