@@ -233,7 +233,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             <div id="appearance-settings" className="appearance-settings">
               <p className="hint">
                 {shabbatActive
-                  ? 'Во время Шаббата доступно праздничное христианское оформление.'
+                  ? 'Во время Шаббата доступно праздничное оформление.'
                   : 'Тема сохраняется в профиле и будет доступна на всех устройствах.'}
               </p>
               <div className="theme-options" role="radiogroup" aria-label="Выбор темы">
