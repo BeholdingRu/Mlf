@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useData } from '../hooks/useData'
 import type { BibleVerse } from '../lib/types'
 
@@ -30,6 +30,12 @@ const NEW_TESTAMENT: BibleBook[] = [
 
 const BIBLE_NAVIGATION_STORAGE_KEY = 'mlf:bible-navigation'
 const BIBLE_BOOKS = [...OLD_TESTAMENT, ...NEW_TESTAMENT]
+const chapterCache = new Map<string, BibleVerse[]>()
+const pendingChapters = new Map<string, Promise<BibleVerse[]>>()
+
+function getChapterKey(bookOrder: number, chapterNumber: number) {
+  return `${bookOrder}:${chapterNumber}`
+}
 
 function getSavedBibleNavigation(): { book: BibleBook | null; chapter: number | null } {
   try {
@@ -58,11 +64,29 @@ export function BibleView() {
   const [verses, setVerses] = useState<BibleVerse[]>([])
   const [error, setError] = useState<string | null>(null)
 
+  const loadChapter = useCallback((bookOrder: number, chapterNumber: number) => {
+    const key = getChapterKey(bookOrder, chapterNumber)
+    const cached = chapterCache.get(key)
+    if (cached) return Promise.resolve(cached)
+
+    const pending = pendingChapters.get(key)
+    if (pending) return pending
+
+    const request = getBibleChapter(bookOrder, chapterNumber)
+      .then((result) => {
+        chapterCache.set(key, result)
+        return result
+      })
+      .finally(() => pendingChapters.delete(key))
+    pendingChapters.set(key, request)
+    return request
+  }, [getBibleChapter])
+
   useEffect(() => {
     if (!book || !chapter) return
 
     let cancelled = false
-    getBibleChapter(book.order, chapter)
+    loadChapter(book.order, chapter)
       .then((result) => {
         if (!cancelled) {
           setVerses(result)
@@ -74,7 +98,17 @@ export function BibleView() {
       })
 
     return () => { cancelled = true }
-  }, [book, chapter, getBibleChapter])
+  }, [book, chapter, loadChapter])
+
+  useEffect(() => {
+    if (!book || !chapter) return
+
+    const adjacentChapters = [chapter - 1, chapter + 1]
+      .filter((chapterNumber) => chapterNumber >= 1 && chapterNumber <= book.chapters)
+    for (const chapterNumber of adjacentChapters) {
+      void loadChapter(book.order, chapterNumber).catch(() => undefined)
+    }
+  }, [book, chapter, loadChapter])
 
   useEffect(() => {
     if (!book) return
@@ -98,7 +132,8 @@ export function BibleView() {
 
   function selectChapter(nextChapter: number) {
     setChapter(nextChapter)
-    setVerses([])
+    const cached = chapterCache.get(getChapterKey(book!.order, nextChapter))
+    setVerses(cached ?? [])
     setError(null)
   }
 
