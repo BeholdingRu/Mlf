@@ -81,7 +81,15 @@ export function CabinetPage() {
       />
       <main className="main">
         <header className="topbar">
-          <h1>{heading}</h1>
+          {tab === 'path' ? (
+            <div className="path-heading">
+              <p className="path-heading-quote">
+                Вникай в себя и в учение; занимайся сим постоянно: ибо, так поступая, и себя спасёшь, и слушающих тебя. 1Тим.4:16
+              </p>
+            </div>
+          ) : (
+            <h1>{heading}</h1>
+          )}
           <button
             type="button"
             className="primary settings-button topbar-settings-button"

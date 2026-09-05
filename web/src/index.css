@@ -700,6 +700,27 @@ nav {
   margin-bottom: 24px;
 }
 
+.path-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.path-heading h1 {
+  flex: 0 0 auto;
+}
+
+.path-heading-quote {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 18px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
 .page-head {
   margin-bottom: 16px;
 }
@@ -2873,6 +2894,23 @@ nav {
     width: 100%;
   }
 
+  .path-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .path-heading h1 {
+    width: auto;
+  }
+
+  .path-heading-quote {
+    max-width: none;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
   .topbar button {
     width: 100%;
     padding: 10px 14px;
@@ -3267,6 +3305,10 @@ nav {
 
   .topbar h1 {
     font-size: 18px;
+  }
+
+  .path-heading-quote {
+    font-size: 12px;
   }
 
   .task-row {
