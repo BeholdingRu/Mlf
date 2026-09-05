@@ -51,7 +51,7 @@ export function CabinetPage() {
   }, [])
 
   useEffect(() => {
-    if (!profile?.shabbat_enabled && tab === 'path') setTab('daily')
+    if (profile && !profile.shabbat_enabled && tab === 'path') setTab('daily')
   }, [profile?.shabbat_enabled, tab])
 
   useEffect(() => {

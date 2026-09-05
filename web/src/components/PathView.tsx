@@ -6,8 +6,15 @@ import type { MindfulnessNote, PathDay } from '../lib/types'
 type PathSubTab = 'sh' | 'shalom-school' | 'mindfulness-practicum'
 
 const PATH_SUB_TAB_STORAGE_KEY = 'mlf:path-sub-tab'
+const MINDFULNESS_NOTE_DRAFT_STORAGE_KEY = 'mlf:mindfulness-note-draft'
 const MINDFULNESS_NOTE_TITLE_MAX_LENGTH = 160
 const MINDFULNESS_NOTE_CONTENT_MAX_LENGTH = 7000
+
+type MindfulnessNoteDraft = {
+  title: string
+  content: string
+  editingNoteId: string | null
+}
 
 const SUB_TABS: { id: PathSubTab; label: string }[] = [
   { id: 'sh', label: 'С.Ш.' },
@@ -38,6 +45,32 @@ function getSavedPathSubTab(): PathSubTab {
   return SUB_TABS.some((tab) => tab.id === savedTab) ? savedTab as PathSubTab : 'sh'
 }
 
+function getSavedMindfulnessNoteDraft(): MindfulnessNoteDraft | null {
+  try {
+    const savedDraft = window.sessionStorage.getItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
+    if (!savedDraft) return null
+
+    const draft = JSON.parse(savedDraft) as Partial<MindfulnessNoteDraft>
+    if (
+      typeof draft.title !== 'string'
+      || typeof draft.content !== 'string'
+      || (draft.editingNoteId !== null && typeof draft.editingNoteId !== 'string')
+    ) {
+      window.sessionStorage.removeItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
+      return null
+    }
+
+    return {
+      title: draft.title.slice(0, MINDFULNESS_NOTE_TITLE_MAX_LENGTH),
+      content: draft.content.slice(0, MINDFULNESS_NOTE_CONTENT_MAX_LENGTH),
+      editingNoteId: draft.editingNoteId,
+    }
+  } catch {
+    window.sessionStorage.removeItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
+    return null
+  }
+}
+
 export function PathView() {
   const {
     profile,
@@ -50,21 +83,34 @@ export function PathView() {
     updateMindfulnessNote,
     deleteMindfulnessNote,
   } = useData()
+  const [savedNoteDraft] = useState<MindfulnessNoteDraft | null>(getSavedMindfulnessNoteDraft)
   const [subTab, setSubTab] = useState<PathSubTab>(getSavedPathSubTab)
   const [currentTime, setCurrentTime] = useState(() => new Date())
   const [busyDay, setBusyDay] = useState<PathDay | null>(null)
   const [openCourseId, setOpenCourseId] = useState<string | null>(null)
   const [busyLesson, setBusyLesson] = useState<string | null>(null)
   const [shalomInfoOpen, setShalomInfoOpen] = useState(false)
-  const [noteTitle, setNoteTitle] = useState('')
-  const [noteContent, setNoteContent] = useState('')
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [noteTitle, setNoteTitle] = useState(savedNoteDraft?.title ?? '')
+  const [noteContent, setNoteContent] = useState(savedNoteDraft?.content ?? '')
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(savedNoteDraft?.editingNoteId ?? null)
   const [busyNoteId, setBusyNoteId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     window.sessionStorage.setItem(PATH_SUB_TAB_STORAGE_KEY, subTab)
   }, [subTab])
+
+  useEffect(() => {
+    if (!noteTitle && !noteContent && !editingNoteId) {
+      window.sessionStorage.removeItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
+      return
+    }
+
+    window.sessionStorage.setItem(
+      MINDFULNESS_NOTE_DRAFT_STORAGE_KEY,
+      JSON.stringify({ title: noteTitle, content: noteContent, editingNoteId }),
+    )
+  }, [editingNoteId, noteContent, noteTitle])
 
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000)
@@ -121,6 +167,7 @@ export function PathView() {
   }
 
   function resetNoteForm() {
+    window.sessionStorage.removeItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
     setNoteTitle('')
     setNoteContent('')
     setEditingNoteId(null)
@@ -318,12 +365,12 @@ export function PathView() {
               <span>{noteContent.length} / {MINDFULNESS_NOTE_CONTENT_MAX_LENGTH}</span>
               <div className="mindfulness-form-actions">
                 {editingNoteId && (
-                  <button type="button" className="secondary-button" onClick={resetNoteForm} disabled={busyNoteId !== null}>
+                  <button type="button" className="add-button" onClick={resetNoteForm} disabled={busyNoteId !== null}>
                     Отмена
                   </button>
                 )}
                 <button type="submit" className="add-button" disabled={busyNoteId !== null}>
-                  {busyNoteId ? 'Сохранение…' : editingNoteId ? 'Сохранить изменения' : 'Добавить тему'}
+                  {busyNoteId ? 'Сохранение…' : editingNoteId ? 'Сохранить изменения' : 'Сохранить'}
                 </button>
               </div>
             </div>
