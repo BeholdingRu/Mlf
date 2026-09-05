@@ -3481,6 +3481,10 @@ nav {
     width: 100%;
   }
 
+  .bible-chapters.chapter-selected .bible-chapter:not(.active) {
+    display: none;
+  }
+
   .code-cell {
     width: 44px;
     height: 48px;

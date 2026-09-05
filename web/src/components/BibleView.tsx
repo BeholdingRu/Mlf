@@ -152,7 +152,7 @@ export function BibleView() {
             <h2>{book.name}</h2>
             <button type="button" className="bible-return-button" onClick={returnToLibrary}>Все книги</button>
           </div>
-          <div className="bible-chapters" aria-label={`Главы книги «${book.name}»`}>
+          <div className={chapter ? 'bible-chapters chapter-selected' : 'bible-chapters'} aria-label={`Главы книги «${book.name}»`}>
             {Array.from({ length: book.chapters }, (_, index) => index + 1).map((number) => (
               <button key={number} type="button" className={chapter === number ? 'bible-chapter active' : 'bible-chapter'} onClick={() => selectChapter(number)}>
                 {number}
