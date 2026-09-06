@@ -75,6 +75,7 @@ export function DailyTasks() {
   const [newDays, setNewDays] = useState(taskSettingsDraft?.newDays ?? '21')
   const [newWithdrawalSyndrome, setNewWithdrawalSyndrome] = useState(taskSettingsDraft?.newWithdrawalSyndrome ?? false)
   const [withdrawalSyndromeInfoOpen, setWithdrawalSyndromeInfoOpen] = useState(false)
+  const [taskEditorOpen, setTaskEditorOpen] = useState(false)
   const [edits, setEdits] = useState<Record<string, TaskEditDraft>>(taskSettingsDraft?.edits ?? {})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -203,7 +204,10 @@ export function DailyTasks() {
                         }
                       }}
                     >
-                      ↻
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M20 11a8 8 0 1 1-2.34-5.66L20 8" />
+                        <path d="M20 3v5h-5" />
+                      </svg>
                     </button>
                   ) : !habitFormed && (
                     <button
@@ -315,94 +319,108 @@ export function DailyTasks() {
             </button>
           </div>
 
-          <ul className="task-settings-list">
-            {tasks.map((task) => {
-              const edit = edits[task.id] ?? {
-                title: task.title,
-                habit_days: String(task.habit_days),
-              }
-              return (
-                <li key={task.id} className="task-editor-row">
-                  <input
-                    value={edit.title}
-                    onChange={(e) =>
-                      setEdits((prev) => ({
-                        ...prev,
-                        [task.id]: { ...edit, title: e.target.value },
-                      }))
-                    }
-                    aria-label="Название"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    className="days"
-                    value={edit.habit_days}
-                    onChange={(e) =>
-                      setEdits((prev) => ({
-                        ...prev,
-                        [task.id]: { ...edit, habit_days: e.target.value },
-                      }))
-                    }
-                    aria-label="Дней до заполнения шкалы"
-                  />
-                  <button
-                    type="button"
-                    className="ghost compact"
-                    disabled={busy}
-                    onClick={async () => {
-                      const days = Number(edit.habit_days)
-                      if (!edit.title.trim() || !Number.isInteger(days) || days < 1) {
-                        setError('Проверьте название и число дней')
-                        return
+          <button
+            type="button"
+            className="ghost compact task-editor-toggle"
+            aria-expanded={taskEditorOpen}
+            aria-controls="task-settings-list"
+            onClick={() => setTaskEditorOpen((open) => !open)}
+          >
+            {taskEditorOpen ? 'Скрыть редактирование' : 'Редактировать задачи/привычки'}
+          </button>
+
+          {taskEditorOpen && (
+            <ul id="task-settings-list" className="task-settings-list">
+              {tasks.map((task) => {
+                const edit = edits[task.id] ?? {
+                  title: task.title,
+                  habit_days: String(task.habit_days),
+                }
+                return (
+                  <li key={task.id} className={`task-editor-row${task.withdrawal_syndrome ? ' withdrawal-task-editor-row' : ''}`}>
+                    <input
+                      value={edit.title}
+                      onChange={(e) =>
+                        setEdits((prev) => ({
+                          ...prev,
+                          [task.id]: { ...edit, title: e.target.value },
+                        }))
                       }
-                      setBusy(true)
-                      setError(null)
-                      try {
-                        await updateTask(task.id, {
-                          title: edit.title.trim(),
-                          habit_days: days,
-                        })
-                        setEdits((prev) => {
-                          const { [task.id]: _, ...next } = prev
-                          return next
-                        })
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : 'Ошибка сохранения')
-                      } finally {
-                        setBusy(false)
-                      }
-                    }}
-                  >
-                    Сохранить
-                  </button>
-                  <button
-                    type="button"
-                    className="danger compact"
-                    disabled={busy}
-                    onClick={async () => {
-                      if (!confirm(`Удалить задачу «${task.title}»?`)) return
-                      setBusy(true)
-                      setError(null)
-                      try {
-                        await deleteTask(task.id)
-                        setEdits((prev) => {
-                          const { [task.id]: _, ...next } = prev
-                          return next
-                        })
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : 'Ошибка удаления')
-                      } finally {
-                        setBusy(false)
-                      }
-                    }}
-                  >
-                    Удалить
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
+                      aria-label="Название"
+                    />
+                    {!task.withdrawal_syndrome && (
+                      <input
+                        type="number"
+                        min={1}
+                        className="days"
+                        value={edit.habit_days}
+                        onChange={(e) =>
+                          setEdits((prev) => ({
+                            ...prev,
+                            [task.id]: { ...edit, habit_days: e.target.value },
+                          }))
+                        }
+                        aria-label="Дней до заполнения шкалы"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="ghost compact"
+                      disabled={busy}
+                      onClick={async () => {
+                        const days = Number(edit.habit_days)
+                        if (!edit.title.trim() || (!task.withdrawal_syndrome && (!Number.isInteger(days) || days < 1))) {
+                          setError('Проверьте название и число дней')
+                          return
+                        }
+                        setBusy(true)
+                        setError(null)
+                        try {
+                          await updateTask(task.id, task.withdrawal_syndrome
+                            ? { title: edit.title.trim() }
+                            : { title: edit.title.trim(), habit_days: days },
+                          )
+                          setEdits((prev) => {
+                            const { [task.id]: _, ...next } = prev
+                            return next
+                          })
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : 'Ошибка сохранения')
+                        } finally {
+                          setBusy(false)
+                        }
+                      }}
+                    >
+                      Сохранить
+                    </button>
+                    <button
+                      type="button"
+                      className="danger compact"
+                      disabled={busy}
+                      onClick={async () => {
+                        if (!confirm(`Удалить задачу «${task.title}»?`)) return
+                        setBusy(true)
+                        setError(null)
+                        try {
+                          await deleteTask(task.id)
+                          setEdits((prev) => {
+                            const { [task.id]: _, ...next } = prev
+                            return next
+                          })
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : 'Ошибка удаления')
+                        } finally {
+                          setBusy(false)
+                        }
+                      }}
+                    >
+                      Удалить
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
           {error && <p className="banner error">{error}</p>}
         </div>
       )}

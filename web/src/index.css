@@ -928,6 +928,10 @@ nav {
   grid-template-columns: minmax(0, 1fr) 88px 100px 88px;
 }
 
+.task-editor-row.withdrawal-task-editor-row {
+  grid-template-columns: minmax(0, 1fr) 100px 88px;
+}
+
 .task-editor-add button {
   grid-column: auto;
 }
@@ -1017,12 +1021,37 @@ nav {
 }
 
 .withdrawal-restart-button {
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
+  display: flex;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  border-color: transparent;
   padding: 0;
-  font-size: 22px;
-  line-height: 1;
+  line-height: 0;
+  overflow: hidden;
+}
+
+.withdrawal-restart-button svg {
+  display: block;
+  flex: 0 0 27px;
+  width: 27px;
+  height: 27px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.2;
+}
+
+.task-row.withdrawal-acute .withdrawal-restart-button svg {
+  stroke: #d64545;
+}
+
+.task-row.withdrawal-subacute .withdrawal-restart-button svg {
+  stroke: #d19a16;
 }
 
 .withdrawal-test-date {
