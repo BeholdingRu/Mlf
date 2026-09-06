@@ -34,6 +34,10 @@ export type Task = {
   title: string
   habit_days: number
   sort_order: number
+  withdrawal_syndrome: boolean
+  withdrawal_started_on: string | null
+  withdrawal_restart_on: string | null
+  created_at: string
 }
 
 export type TaskCompletion = {

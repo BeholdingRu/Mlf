@@ -20,6 +20,33 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.user_roles (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  role text not null check (role = 'admin'),
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.user_roles
+    where user_id = auth.uid()
+      and role = 'admin'
+  );
+$$;
+
+insert into public.user_roles (user_id, role)
+select id, 'admin'
+from auth.users
+where email = 'nick-p-89@mail.ru'
+on conflict (user_id) do update set role = excluded.role;
+
 alter table public.profiles
   add column if not exists theme text not null default 'green';
 
@@ -42,8 +69,16 @@ create table if not exists public.tasks (
   title text not null,
   habit_days integer not null default 21 check (habit_days >= 1),
   sort_order integer not null default 0,
+  withdrawal_syndrome boolean not null default false,
+  withdrawal_started_on date,
+  withdrawal_restart_on date,
   created_at timestamptz not null default now()
 );
+
+alter table public.tasks
+  add column if not exists withdrawal_syndrome boolean not null default false,
+  add column if not exists withdrawal_started_on date,
+  add column if not exists withdrawal_restart_on date;
 
 create table if not exists public.task_completions (
   id uuid primary key default gen_random_uuid(),
@@ -182,6 +217,7 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 alter table public.profiles enable row level security;
+alter table public.user_roles enable row level security;
 alter table public.tasks enable row level security;
 alter table public.task_completions enable row level security;
 alter table public.weight_logs enable row level security;
@@ -192,6 +228,10 @@ alter table public.daily_food_logs enable row level security;
 alter table public.saved_products enable row level security;
 alter table public.saved_exercises enable row level security;
 alter table public.scheduled_exercises enable row level security;
+
+revoke all on table public.user_roles from anon, authenticated;
+revoke all on function public.is_admin() from public;
+grant execute on function public.is_admin() to authenticated;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles

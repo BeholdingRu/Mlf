@@ -34,6 +34,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     saveAnnualCycleEnabled,
     saveShabbatTheme,
     saveTheme,
+    isAdmin,
+    adminMode,
+    setAdminMode,
   } = useData()
   const { user, signOut, changePassword } = useAuth()
   const [enabled, setEnabled] = useState(profile?.weight_enabled ?? false)
@@ -389,6 +392,20 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             </div>
           </div>
         </section>
+
+        {isAdmin && (
+          <section className="settings-block">
+            <h3>Администрирование</h3>
+            <button
+              type="button"
+              className={`admin-mode-toggle${adminMode ? ' active' : ''}`}
+              aria-pressed={adminMode}
+              onClick={() => setAdminMode(!adminMode)}
+            >
+              Режим администратора
+            </button>
+          </section>
+        )}
 
         <section className="settings-block">
           <h3>Профиль</h3>

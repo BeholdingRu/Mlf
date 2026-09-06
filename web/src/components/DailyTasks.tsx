@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { useData } from '../hooks/useData'
-import { localISODate, percent } from '../lib/dates'
+import { daysInclusive, localISODate, parseISODate, percent } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 
 type DailyTasksSubTab = 'list' | 'manage'
 
 const DAILY_TASKS_SUB_TAB_STORAGE_KEY = 'mlf:daily-tasks-sub-tab'
 const TASK_SETTINGS_DRAFT_STORAGE_KEY = 'mlf:task-settings-draft'
+const WITHDRAWAL_TEST_DATE_STORAGE_KEY = 'mlf:withdrawal-test-date'
+const WITHDRAWAL_PHASE_INFO = {
+  acute: 'Острая фаза. Начинается при снижении концентрации вещества в крови ниже порогового уровня. Для большинства веществ это происходит через 6–48 часов после последнего приема. В этот период симптомы проявляются наиболее ярко: развиваются вегетативные кризы (потливость, тахикардия, тремор), тревога, бессонница или, наоборот, гиперсомния. Максимальная выраженность симптомов часто приходится на первые 1–4 дня.',
+  subacute: 'Подострая (постабстинентная) фаза. Длится от нескольких дней до нескольких недель (примечание админ. у меня может длиться до 90 суток) Острые физические проявления стихают, но сохраняются нарушения сна, перепады настроения, раздражительность, трудности с концентрацией внимания и ангедония (неспособность получать удовольствие). Например, при отмене амфетамина эта фаза может длиться около трех недель и характеризуется легкой гиперсомнией и повышенным аппетитом.',
+  prolonged: 'Фаза длительного восстановления (пролонгированный синдром отмены — PAWS). Может продолжаться от нескольких месяцев до года и более. Это состояние не всегда фиксируется как острое заболевание, но проявляется волнообразно: внезапными приступами тяги, эмоциональной нестабильностью и астенией. Исследования показывают, что такая затяжная абстиненция характерна для отмены бензодиазепинов, антидепрессантов (СИОЗС) и длительного употребления опиоидов.',
+  clean: 'В психологии есть понятие, давно не делал = никогда не делал, ваши нейронные связи свободны от зависимости, но помните, один раз алкоголик - навсегда алкоголик, не давайте никогда даже малейшему тригеру поколебать вас, успехов!',
+} as const
 
 type TaskEditDraft = {
   title: string
@@ -17,6 +24,7 @@ type TaskEditDraft = {
 type TaskSettingsDraft = {
   newTitle: string
   newDays: string
+  newWithdrawalSyndrome: boolean
   edits: Record<string, TaskEditDraft>
 }
 
@@ -35,6 +43,7 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
     if (
       typeof draft.newTitle !== 'string'
       || typeof draft.newDays !== 'string'
+      || (draft.newWithdrawalSyndrome !== undefined && typeof draft.newWithdrawalSyndrome !== 'boolean')
       || !draft.edits
       || typeof draft.edits !== 'object'
       || Object.values(draft.edits).some(
@@ -48,6 +57,7 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
     return {
       newTitle: draft.newTitle,
       newDays: draft.newDays,
+      newWithdrawalSyndrome: draft.newWithdrawalSyndrome ?? false,
       edits: draft.edits,
     }
   } catch {
@@ -57,29 +67,40 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
 }
 
 export function DailyTasks() {
-  const { tasks, completions, completeToday, profile, addTask, updateTask, deleteTask } = useData()
+  const { tasks, completions, completeToday, profile, addTask, updateTask, restartWithdrawalTask, deleteTask, adminMode } = useData()
   const [taskSettingsDraft] = useState<TaskSettingsDraft | null>(getSavedTaskSettingsDraft)
   const [subTab, setSubTab] = useState<DailyTasksSubTab>(getSavedDailyTasksSubTab)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState(taskSettingsDraft?.newTitle ?? '')
   const [newDays, setNewDays] = useState(taskSettingsDraft?.newDays ?? '21')
+  const [newWithdrawalSyndrome, setNewWithdrawalSyndrome] = useState(taskSettingsDraft?.newWithdrawalSyndrome ?? false)
+  const [withdrawalSyndromeInfoOpen, setWithdrawalSyndromeInfoOpen] = useState(false)
   const [edits, setEdits] = useState<Record<string, TaskEditDraft>>(taskSettingsDraft?.edits ?? {})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const today = localISODate()
+  const [testDate, setTestDate] = useState(() => window.sessionStorage.getItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY) ?? today)
+  const testToday = adminMode && testDate ? testDate : today
 
   useEffect(() => {
     window.sessionStorage.setItem(DAILY_TASKS_SUB_TAB_STORAGE_KEY, subTab)
   }, [subTab])
 
   useEffect(() => {
-    if (!newTitle && newDays === '21' && Object.keys(edits).length === 0) {
+    if (!newTitle && newDays === '21' && !newWithdrawalSyndrome && Object.keys(edits).length === 0) {
       window.sessionStorage.removeItem(TASK_SETTINGS_DRAFT_STORAGE_KEY)
       return
     }
 
-    window.sessionStorage.setItem(TASK_SETTINGS_DRAFT_STORAGE_KEY, JSON.stringify({ newTitle, newDays, edits }))
-  }, [edits, newDays, newTitle])
+    window.sessionStorage.setItem(
+      TASK_SETTINGS_DRAFT_STORAGE_KEY,
+      JSON.stringify({ newTitle, newDays, newWithdrawalSyndrome, edits }),
+    )
+  }, [edits, newDays, newTitle, newWithdrawalSyndrome])
+
+  useEffect(() => {
+    window.sessionStorage.setItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY, testDate)
+  }, [testDate])
 
   async function onAdd() {
     const title = newTitle.trim()
@@ -95,9 +116,10 @@ export function DailyTasks() {
     setBusy(true)
     setError(null)
     try {
-      await addTask(title, days)
+      await addTask(title, days, newWithdrawalSyndrome)
       setNewTitle('')
       setNewDays('21')
+      setNewWithdrawalSyndrome(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось добавить задачу')
     } finally {
@@ -128,59 +150,116 @@ export function DailyTasks() {
 
       {subTab === 'list' ? (
         tasks.length ? (
-          <ul className="task-list">
-            {tasks.map((task) => {
+          <>
+            {adminMode && (
+              <label className="withdrawal-test-date">
+                Тестовая дата
+                <input
+                  type="date"
+                  value={testDate}
+                  onChange={(event) => setTestDate(event.target.value)}
+                />
+                <span className="hint">Используется только для тестового отображения прогресса задач в этой вкладке.</span>
+              </label>
+            )}
+            <ul className="task-list">
+              {tasks.map((task) => {
+              const withdrawalPhase = getWithdrawalPhase(
+                task.withdrawal_syndrome,
+                task.withdrawal_started_on,
+                task.withdrawal_restart_on,
+                testToday,
+              )
               const doneToday = completions.some(
                 (c) => c.task_id === task.id && c.completed_on === today,
               )
-              const totalDays = completions.filter((c) => c.task_id === task.id).length
-              const habit = percent(totalDays, task.habit_days)
+              const actualTotalDays = completions.filter((c) => c.task_id === task.id).length
+              const totalDays = adminMode && !task.withdrawal_syndrome
+                ? getVirtualCompletionDays(task.created_at, testToday)
+                : actualTotalDays
+              const habitFormed = !task.withdrawal_syndrome && totalDays >= task.habit_days
+              const habit = withdrawalPhase ? percent(withdrawalPhase.remainingDays, withdrawalPhase.durationDays) : percent(totalDays, task.habit_days)
               const automaticNutritionTask = profile?.weight_enabled && isNutritionTask(task)
               return (
                 <li
                   key={task.id}
-                  className={`task-row${doneToday ? ' done' : ''}${automaticNutritionTask ? ' automatic' : ''}`}
+                  className={`task-row${doneToday && !habitFormed ? ' done' : ''}${automaticNutritionTask ? ' automatic' : ''}${habitFormed ? ' habit-formed' : ''}${withdrawalPhase ? ` withdrawal-${withdrawalPhase.tone}` : ''}`}
                 >
-                  <button
-                    type="button"
-                    className="check"
-                    disabled={busyId === task.id || doneToday || automaticNutritionTask}
-                    onClick={async () => {
-                      setBusyId(task.id)
-                      try {
-                        await completeToday(task.id)
-                      } finally {
-                        setBusyId(null)
+                  {withdrawalPhase ? (
+                    <button
+                      type="button"
+                      className="ghost compact withdrawal-restart-button"
+                      disabled={busyId === task.id || withdrawalPhase.preparing}
+                      aria-label="Начать заново"
+                      title="Начать заново"
+                      onClick={async () => {
+                        if (!window.confirm('Вы подтверждаете прерывание задачи?')) return
+                        setBusyId(task.id)
+                        try {
+                          await restartWithdrawalTask(task.id)
+                          window.alert('Завтра отсчет начнется сначала, не сдавайтесь')
+                        } finally {
+                          setBusyId(null)
+                        }
+                      }}
+                    >
+                      ↻
+                    </button>
+                  ) : !habitFormed && (
+                    <button
+                      type="button"
+                      className="check"
+                      disabled={busyId === task.id || doneToday || automaticNutritionTask}
+                      onClick={async () => {
+                        setBusyId(task.id)
+                        try {
+                          await completeToday(task.id)
+                        } finally {
+                          setBusyId(null)
+                        }
+                      }}
+                      aria-pressed={doneToday}
+                      aria-label={
+                        automaticNutritionTask
+                          ? 'Ручное выполнение недоступно: задача отмечается автоматически по калориям'
+                          : doneToday
+                            ? 'Выполнено сегодня'
+                            : 'Отметить выполнение'
                       }
-                    }}
-                    aria-pressed={doneToday}
-                    aria-label={
-                      automaticNutritionTask
-                        ? 'Ручное выполнение недоступно: задача отмечается автоматически по калориям'
-                        : doneToday
-                          ? 'Выполнено сегодня'
-                          : 'Отметить выполнение'
-                    }
-                  >
-                    {doneToday ? '✓' : ''}
-                  </button>
+                    >
+                      {doneToday ? '✓' : ''}
+                    </button>
+                  )}
                   <div className="task-body">
                     <strong>{task.title}</strong>
-                    <span className="hint">
-                      {automaticNutritionTask
-                        ? doneToday
-                          ? 'Выполнено автоматически по дневной норме калорий'
-                          : 'Будет отмечена автоматически в 00:00, если норма калорий не превышена'
-                        : doneToday
-                          ? 'Выполнено сегодня'
-                          : 'Можно отметить один раз в сутки'}
-                    </span>
+                    {!habitFormed && (
+                      <span className="hint">
+                        {automaticNutritionTask
+                          ? doneToday
+                            ? 'Выполнено автоматически по дневной норме калорий'
+                            : 'Будет отмечена автоматически в 00:00, если норма калорий не превышена'
+                          : withdrawalPhase
+                            ? withdrawalPhase.preparing
+                              ? 'Перезапуск запланирован на завтра'
+                              : 'Отсчёт фазы выполняется автоматически'
+                            : doneToday
+                              ? 'Выполнено сегодня'
+                              : 'Можно отметить один раз в сутки'}
+                      </span>
+                    )}
                   </div>
-                  <HabitBar value={habit} />
+                  <HabitBar
+                    value={habit}
+                    label={withdrawalPhase?.label ?? (habitFormed ? 'привычка сформирована' : undefined)}
+                    valueLabel={withdrawalPhase ? withdrawalPhase.preparing ? null : withdrawalPhase.clean ? `${withdrawalPhase.freedomDays} дней свободы` : `осталось ${withdrawalPhase.remainingDays} дн.` : undefined}
+                    phaseInfo={withdrawalPhase?.info}
+                    hideTrack={withdrawalPhase?.clean}
+                  />
                 </li>
               )
             })}
-          </ul>
+            </ul>
+          </>
         ) : (
           <div className="empty">Пока нет задач. Добавьте первую привычку в настройках задач.</div>
         )
@@ -196,14 +275,41 @@ export function DailyTasks() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
             />
-            <input
-              type="number"
-              min={1}
-              className="days"
-              value={newDays}
-              onChange={(e) => setNewDays(e.target.value)}
-              aria-label="Дней до 100%"
-            />
+            <div className="withdrawal-syndrome-setting">
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={newWithdrawalSyndrome}
+                  onChange={(event) => setNewWithdrawalSyndrome(event.target.checked)}
+                />
+                <span>Синдром отмены</span>
+              </label>
+              <button
+                type="button"
+                className="info-button"
+                aria-label="Информация о синдроме отмены"
+                aria-expanded={withdrawalSyndromeInfoOpen}
+                aria-controls="withdrawal-syndrome-info"
+                onClick={() => setWithdrawalSyndromeInfoOpen((open) => !open)}
+              >
+                i
+              </button>
+              {withdrawalSyndromeInfoOpen && (
+                <p id="withdrawal-syndrome-info" className="withdrawal-syndrome-info">
+                  Если вы имеете любого вида биохмическую зависимость (алкогольную, никотиновую или любую другую), то можете использовать этот функционал, который сможет показать вам, сколько примерно времени вам осталось ждать, когда же вы сможете вздохнуть полной грудью, когда эта зависимость перестанет влиять на вашу жизни, всего будет 3 этапа, острый, подострый и пролонгированный. Вам не нужно будет отмечать эту задачу, это будет означать что сегодня вы справились, и она зафиксируется как выполненная, сроки этапов взяты из моей личной жизни, это максимальные сроки которые дают разные исследования
+                </p>
+              )}
+            </div>
+            {!newWithdrawalSyndrome && (
+              <input
+                type="number"
+                min={1}
+                className="days"
+                value={newDays}
+                onChange={(e) => setNewDays(e.target.value)}
+                aria-label="Дней до 100%"
+              />
+            )}
             <button type="button" className="primary compact" onClick={onAdd} disabled={busy}>
               Добавить задачу
             </button>
@@ -302,4 +408,49 @@ export function DailyTasks() {
       )}
     </section>
   )
+}
+
+function getWithdrawalPhase(
+  withdrawalSyndrome: boolean,
+  startedOn: string | null,
+  restartOn: string | null,
+  today: string,
+) {
+  if (!withdrawalSyndrome || !startedOn) return null
+
+  if (restartOn && restartOn > today) {
+    return { durationDays: 1, label: 'Подготовка', tone: 'preparing' as const, remainingDays: 1, preparing: true }
+  }
+
+  const effectiveStartedOn = restartOn && restartOn <= today ? restartOn : startedOn
+  const elapsedDays = Math.max(daysInclusive(parseISODate(effectiveStartedOn), parseISODate(today)) - 1, 0)
+  const phases = [
+    { durationDays: 4, label: 'Острая фаза', tone: 'acute', info: WITHDRAWAL_PHASE_INFO.acute },
+    { durationDays: 90, label: 'Подострая фаза', tone: 'subacute', info: WITHDRAWAL_PHASE_INFO.subacute },
+    { durationDays: 636, label: 'Длительная фаза', tone: 'prolonged', info: WITHDRAWAL_PHASE_INFO.prolonged },
+  ] as const
+  let passedDays = 0
+
+  for (const phase of phases) {
+    const remainingDays = phase.durationDays - (elapsedDays - passedDays)
+    if (remainingDays > 0) return { ...phase, remainingDays, preparing: false }
+    passedDays += phase.durationDays
+  }
+
+  return {
+    durationDays: 636,
+    label: 'Чистота',
+    tone: 'clean' as const,
+    info: WITHDRAWAL_PHASE_INFO.clean,
+    remainingDays: 0,
+    freedomDays: elapsedDays,
+    preparing: false,
+    clean: true,
+  }
+}
+
+function getVirtualCompletionDays(createdAt: string, testDate: string): number {
+  const createdOn = createdAt.slice(0, 10)
+  if (testDate < createdOn) return 0
+  return daysInclusive(parseISODate(createdOn), parseISODate(testDate))
 }

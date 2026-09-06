@@ -8,6 +8,7 @@ type PathSubTab = 'bible' | 'sh' | 'shalom-school' | 'mindfulness-practicum'
 
 const PATH_SUB_TAB_STORAGE_KEY = 'mlf:path-sub-tab'
 const MINDFULNESS_NOTE_DRAFT_STORAGE_KEY = 'mlf:mindfulness-note-draft'
+const MINDFULNESS_NOTE_FULLSCREEN_STORAGE_KEY = 'mlf:mindfulness-note-fullscreen'
 const MINDFULNESS_NOTE_TITLE_MAX_LENGTH = 160
 const MINDFULNESS_NOTE_CONTENT_MAX_LENGTH = 7000
 
@@ -45,6 +46,10 @@ const SHALOM_COURSES = [
 function getSavedPathSubTab(): PathSubTab {
   const savedTab = window.sessionStorage.getItem(PATH_SUB_TAB_STORAGE_KEY)
   return SUB_TABS.some((tab) => tab.id === savedTab) ? savedTab as PathSubTab : 'bible'
+}
+
+function getSavedMindfulnessNoteFullscreenState() {
+  return window.sessionStorage.getItem(MINDFULNESS_NOTE_FULLSCREEN_STORAGE_KEY) === 'true'
 }
 
 function getSavedMindfulnessNoteDraft(): MindfulnessNoteDraft | null {
@@ -97,6 +102,7 @@ export function PathView() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(savedNoteDraft?.editingNoteId ?? null)
   const [busyNoteId, setBusyNoteId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [noteFormFullscreen, setNoteFormFullscreen] = useState(getSavedMindfulnessNoteFullscreenState)
 
   useEffect(() => {
     window.sessionStorage.setItem(PATH_SUB_TAB_STORAGE_KEY, subTab)
@@ -115,9 +121,23 @@ export function PathView() {
   }, [editingNoteId, noteContent, noteTitle])
 
   useEffect(() => {
+    window.sessionStorage.setItem(MINDFULNESS_NOTE_FULLSCREEN_STORAGE_KEY, String(noteFormFullscreen))
+  }, [noteFormFullscreen])
+
+  useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (!noteFormFullscreen) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNoteFormFullscreen(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [noteFormFullscreen])
 
   const cycleStartedOn = getShabbatWeekStart(profile, currentTime)
   const confirmedDays = new Set(
@@ -173,6 +193,10 @@ export function PathView() {
     setNoteTitle('')
     setNoteContent('')
     setEditingNoteId(null)
+  }
+
+  function toggleNoteFormFullscreen() {
+    setNoteFormFullscreen((fullscreen) => !fullscreen)
   }
 
   async function handleNoteSubmit(event: FormEvent<HTMLFormElement>) {
@@ -330,7 +354,7 @@ export function PathView() {
           </div>
           {error && <p className="banner error">{error}</p>}
         </section>
-      ) : (
+      ) : subTab === 'mindfulness-practicum' ? (
         <section className="mindfulness-practicum">
           <div className="mindfulness-heading">
             <div>
@@ -339,7 +363,21 @@ export function PathView() {
             </div>
             <span className="mindfulness-limit">До 7 000 символов в заметке</span>
           </div>
-          <form className="mindfulness-note-form" onSubmit={(event) => void handleNoteSubmit(event)}>
+          <form
+            className={noteFormFullscreen ? 'mindfulness-note-form fullscreen' : 'mindfulness-note-form'}
+            onSubmit={(event) => void handleNoteSubmit(event)}
+          >
+            <div className="mindfulness-note-form-heading">
+              <strong>{editingNoteId ? 'Редактирование темы' : 'Новая тема'}</strong>
+              <button
+                type="button"
+                className="mindfulness-fullscreen-button"
+                onClick={toggleNoteFormFullscreen}
+                aria-pressed={noteFormFullscreen}
+              >
+                {noteFormFullscreen ? 'Свернуть' : 'На весь экран'}
+              </button>
+            </div>
             <label>
               Название темы
               <input
@@ -397,7 +435,7 @@ export function PathView() {
           )}
           {error && <p className="banner error">{error}</p>}
         </section>
-      )}
+      ) : null}
     </section>
   )
 }

@@ -26,8 +26,12 @@ import { isNutritionTask } from '../lib/nutrition-task'
 import { useAuth } from '../hooks/useAuth'
 import { DataContext, type DataContextValue } from './data-context'
 
+const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
+  const userId = user?.id
+  const userEmail = user?.email ?? ''
   const [profile, setProfile] = useState<Profile | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
@@ -42,32 +46,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [scheduledExercises, setScheduledExercises] = useState<ScheduledExercise[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [adminMode, setAdminModeEnabled] = useState(
+    () => window.sessionStorage.getItem(ADMIN_MODE_STORAGE_KEY) === 'true',
+  )
+
+  const setAdminMode = useCallback((enabled: boolean) => {
+    if (!isAdmin) return
+
+    setAdminModeEnabled(enabled)
+    if (enabled) {
+      window.sessionStorage.setItem(ADMIN_MODE_STORAGE_KEY, 'true')
+    } else {
+      window.sessionStorage.removeItem(ADMIN_MODE_STORAGE_KEY)
+    }
+  }, [isAdmin])
 
   const refresh = useCallback(async () => {
-    if (!user) return
+    if (!userId) return
     setLoading(true)
     const client = requireSupabase()
     const today = localISODate()
     const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessNotesRes] = await Promise.all([
-      client.from('profiles').select('*').eq('id', user.id).maybeSingle(),
-      client.from('tasks').select('*').eq('user_id', user.id).order('sort_order'),
-      client.from('task_completions').select('*').eq('user_id', user.id),
-      client.from('weight_logs').select('*').eq('user_id', user.id).order('logged_on', {
+      client.from('profiles').select('*').eq('id', userId).maybeSingle(),
+      client.from('tasks').select('*').eq('user_id', userId).order('sort_order'),
+      client.from('task_completions').select('*').eq('user_id', userId),
+      client.from('weight_logs').select('*').eq('user_id', userId).order('logged_on', {
         ascending: false,
       }),
-      client.from('daily_food_logs').select('*').eq('user_id', user.id).eq('logged_on', today),
+      client.from('daily_food_logs').select('*').eq('user_id', userId).eq('logged_on', today),
       client
         .from('daily_food_logs')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('logged_on', { ascending: false })
         .order('created_at'),
-      client.from('saved_products').select('*').eq('user_id', user.id).order('name'),
-      client.from('saved_exercises').select('*').eq('user_id', user.id).order('name'),
-      client.from('scheduled_exercises').select('*').eq('user_id', user.id).order('planned_on').order('sort_order'),
-      client.from('path_day_confirmations').select('*').eq('user_id', user.id),
-      client.from('course_lesson_completions').select('*').eq('user_id', user.id),
-      client.from('mindfulness_notes').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }),
+      client.from('saved_products').select('*').eq('user_id', userId).order('name'),
+      client.from('saved_exercises').select('*').eq('user_id', userId).order('name'),
+      client.from('scheduled_exercises').select('*').eq('user_id', userId).order('planned_on').order('sort_order'),
+      client.from('path_day_confirmations').select('*').eq('user_id', userId),
+      client.from('course_lesson_completions').select('*').eq('user_id', userId),
+      client.from('mindfulness_notes').select('*').eq('user_id', userId).order('updated_at', { ascending: false }),
     ])
 
     const firstError =
@@ -94,8 +113,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const inserted = await client
         .from('profiles')
         .upsert({
-          id: user.id,
-          email: user.email ?? '',
+          id: userId,
+          email: userEmail,
         })
         .select('*')
         .single()
@@ -140,17 +159,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setSavedProducts(normalizedSavedProducts)
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
+    const { data: adminStatus } = await client.rpc('is_admin')
+    setIsAdmin(adminStatus === true)
     setError(null)
     setLoading(false)
-  }, [user])
+  }, [userEmail, userId])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0)
     return () => window.clearTimeout(timer)
-  }, [user, refresh])
+  }, [refresh, userId])
 
   useEffect(() => {
-    if (!user) return
+    if (!userId) return
 
     let timeout: number
     const scheduleRefreshAtMidnight = () => {
@@ -164,7 +185,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     scheduleRefreshAtMidnight()
     return () => window.clearTimeout(timeout)
-  }, [user, refresh])
+  }, [refresh, userId])
 
   useEffect(() => {
     if (!user || !profile?.weight_enabled || profile.daily_calories_norm == null) return
@@ -248,6 +269,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       scheduledExercises,
       loading,
       error,
+      isAdmin,
+      adminMode: isAdmin && adminMode,
+      setAdminMode,
       refresh,
       async completeToday(taskId) {
         if (!user) return
@@ -272,7 +296,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (insError) throw insError
         setCompletions((prev) => [...prev, data as TaskCompletion])
       },
-      async addTask(title, habitDays) {
+      async addTask(title, habitDays, withdrawalSyndrome = false) {
         if (!user) return
         const { data, error: insError } = await requireSupabase()
           .from('tasks')
@@ -281,6 +305,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
             title,
             habit_days: habitDays,
             sort_order: tasks.length,
+            withdrawal_syndrome: withdrawalSyndrome,
+            withdrawal_started_on: withdrawalSyndrome ? localISODate() : null,
           })
           .select('*')
           .single()
@@ -296,6 +322,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (updError) throw updError
         setTasks((prev) => prev.map((t) => (t.id === id ? (data as Task) : t)))
+      },
+      async restartWithdrawalTask(taskId) {
+        const tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        const { data, error: updError } = await requireSupabase()
+          .from('tasks')
+          .update({ withdrawal_restart_on: localISODate(tomorrow) })
+          .eq('id', taskId)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setTasks((prev) => prev.map((task) => (task.id === taskId ? (data as Task) : task)))
       },
       async deleteTask(id) {
         const { error: delError } = await requireSupabase().from('tasks').delete().eq('id', id)
@@ -746,6 +784,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       scheduledExercises,
       loading,
       error,
+      isAdmin,
+      adminMode,
+      setAdminMode,
       refresh,
       user,
     ],

@@ -35,10 +35,14 @@ export type DataContextValue = {
   scheduledExercises: ScheduledExercise[]
   loading: boolean
   error: string | null
+  isAdmin: boolean
+  adminMode: boolean
+  setAdminMode: (enabled: boolean) => void
   refresh: () => Promise<void>
   completeToday: (taskId: string) => Promise<void>
-  addTask: (title: string, habitDays: number) => Promise<void>
+  addTask: (title: string, habitDays: number, withdrawalSyndrome?: boolean) => Promise<void>
   updateTask: (id: string, patch: { title?: string; habit_days?: number }) => Promise<void>
+  restartWithdrawalTask: (taskId: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   saveWeightSettings: (target: number | null) => Promise<void>
   saveWeightVisibility: (enabled: boolean) => Promise<void>
