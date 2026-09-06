@@ -612,7 +612,6 @@ type WorkoutExerciseFieldsProps = {
 
 type ExerciseExecutionState = {
   started: boolean
-  setInProgress: boolean
   remainingSets: number
   restEndsAt: number | null
   completed: boolean
@@ -636,7 +635,6 @@ function getExerciseParametersDraftStorageKey(exerciseId: string) {
 function getSavedExerciseExecution(exerciseId: string): ExerciseExecutionState {
   const fallback: ExerciseExecutionState = {
     started: false,
-    setInProgress: false,
     remainingSets: 0,
     restEndsAt: null,
     completed: false,
@@ -649,7 +647,6 @@ function getSavedExerciseExecution(exerciseId: string): ExerciseExecutionState {
     const remainingSets = state.remainingSets
     if (
       typeof state.started !== 'boolean'
-      || typeof state.setInProgress !== 'boolean'
       || !Number.isInteger(remainingSets)
       || remainingSets === undefined
       || remainingSets < 0
@@ -659,7 +656,6 @@ function getSavedExerciseExecution(exerciseId: string): ExerciseExecutionState {
 
     return {
       started: state.started,
-      setInProgress: state.setInProgress,
       remainingSets,
       restEndsAt: state.restEndsAt,
       completed: state.completed,
@@ -802,7 +798,6 @@ function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave
       }
       return {
         ...current,
-        setInProgress: false,
         remainingSets,
         restEndsAt: completed ? null : restEndsAt,
         completed,
@@ -822,7 +817,6 @@ function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave
       await onSave({ parameters_locked: true })
       setExecution({
         started: true,
-        setInProgress: false,
         remainingSets: totalSets,
         restEndsAt: null,
         completed: false,
@@ -836,11 +830,6 @@ function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave
   }
 
   const handleSetButtonClick = () => {
-    if (!execution.setInProgress) {
-      setExecution((current) => ({ ...current, setInProgress: true }))
-      return
-    }
-
     const totalRestSeconds = parseRestDuration(exercise.rest_duration)
     if (exercise.rest_timer_enabled && totalRestSeconds > 0) {
       const restEndsAt = Date.now() + totalRestSeconds * 1000
@@ -993,11 +982,11 @@ function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave
             <div className="exercise-set-status">
               <button
                 type="button"
-                className={execution.setInProgress ? 'danger compact' : 'primary compact'}
+                className="danger compact"
                 onClick={handleSetButtonClick}
                 disabled={restSeconds !== null || execution.completed}
               >
-                {execution.setInProgress ? 'Закончить подход' : 'Начать подход'}
+                Закончить подход
               </button>
               <p className="remaining-sets">
                 Осталось подходов: <strong>{execution.remainingSets}</strong>
