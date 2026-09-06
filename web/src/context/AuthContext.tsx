@@ -81,8 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRecoveryRequired(true)
       },
       async updatePassword(password) {
-        const { error } = await requireSupabase().auth.updateUser({ password })
+        const client = requireSupabase()
+        const { error } = await client.auth.updateUser({ password })
         if (error) throw error
+        const { error: signOutError } = await client.auth.signOut({ scope: 'others' })
+        if (signOutError) throw signOutError
         window.sessionStorage.removeItem(RECOVERY_REQUIRED_STORAGE_KEY)
         setRecoveryRequired(false)
       },
@@ -102,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           current_password: currentPassword,
         })
         if (error) throw error
+        const { error: signOutError } = await client.auth.signOut({ scope: 'others' })
+        if (signOutError) throw signOutError
       },
     }),
     [session, loading, recoveryRequired],
