@@ -3431,11 +3431,17 @@ nav {
     padding: 12px 16px 16px;
   }
 
-  .task-row {
+  .task-row,
+  .task-row.habit-formed {
     grid-template-columns: auto 1fr;
     padding: 10px 12px;
     gap: 10px;
     border-radius: 10px;
+  }
+
+  .task-row > .habit {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .check {
