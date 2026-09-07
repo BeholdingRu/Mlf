@@ -9,6 +9,7 @@ import { requireSupabase } from '../lib/supabase'
 import { localISODate } from '../lib/dates'
 import type {
   FoodLog,
+  MealPlanEntry,
   BibleVerse,
   CourseLessonCompletion,
   MindfulnessCategory,
@@ -39,6 +40,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
   const [foodHistoryLogs, setFoodHistoryLogs] = useState<FoodLog[]>([])
+  const [mealPlanEntries, setMealPlanEntries] = useState<MealPlanEntry[]>([])
   const [pathDayConfirmations, setPathDayConfirmations] = useState<PathDayConfirmation[]>([])
   const [courseLessonCompletions, setCourseLessonCompletions] = useState<CourseLessonCompletion[]>([])
   const [mindfulnessCategories, setMindfulnessCategories] = useState<MindfulnessCategory[]>([])
@@ -69,7 +71,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     const client = requireSupabase()
     const today = localISODate()
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes] = await Promise.all([
+    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, mealPlanRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes] = await Promise.all([
       client.from('profiles').select('*').eq('id', userId).maybeSingle(),
       client.from('tasks').select('*').eq('user_id', userId).order('sort_order'),
       client.from('task_completions').select('*').eq('user_id', userId),
@@ -83,6 +85,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         .eq('user_id', userId)
         .order('logged_on', { ascending: false })
         .order('created_at'),
+      client.from('meal_plan_entries').select('*').eq('user_id', userId).order('planned_on').order('created_at'),
       client.from('saved_products').select('*').eq('user_id', userId).order('name'),
       client.from('saved_exercises').select('*').eq('user_id', userId).order('name'),
       client.from('scheduled_exercises').select('*').eq('user_id', userId).order('planned_on').order('sort_order'),
@@ -99,6 +102,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightRes.error?.message ||
       foodRes.error?.message ||
       foodHistoryRes.error?.message ||
+      mealPlanRes.error?.message ||
       productsRes.error?.message ||
       exercisesRes.error?.message ||
       scheduledExercisesRes.error?.message ||
@@ -157,6 +161,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })
     setFoodLogs(normalizeFoodLogs(foodRes.data ?? []))
     setFoodHistoryLogs(normalizeFoodLogs(foodHistoryRes.data ?? []))
+    setMealPlanEntries((mealPlanRes.data ?? []) as MealPlanEntry[])
     setPathDayConfirmations((pathConfirmationsRes.data ?? []) as PathDayConfirmation[])
     setCourseLessonCompletions((courseLessonsRes.data ?? []) as CourseLessonCompletion[])
     setMindfulnessCategories((mindfulnessCategoriesRes.data ?? []) as MindfulnessCategory[])
@@ -266,6 +271,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightLogs,
       foodLogs,
       foodHistoryLogs,
+      mealPlanEntries,
       pathDayConfirmations,
       courseLessonCompletions,
       mindfulnessCategories,
@@ -637,6 +643,46 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setFoodLogs((prev) => prev.filter((f) => f.id !== id))
         setFoodHistoryLogs((prev) => prev.filter((f) => f.id !== id))
       },
+      async addMealPlanEntry(plannedOn, mealType, productName, weightGrams, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
+        if (!user) return
+        const { data, error: insError } = await requireSupabase()
+          .from('meal_plan_entries')
+          .insert({
+            user_id: user.id,
+            planned_on: plannedOn,
+            meal_type: mealType,
+            product_name: productName,
+            weight_grams: weightGrams,
+            calories_per_100g: caloriesPer100g,
+            proteins_per_100g: proteinsPer100g,
+            fats_per_100g: fatsPer100g,
+            carbohydrates_per_100g: carbohydratesPer100g,
+          })
+          .select('*')
+          .single()
+        if (insError) throw insError
+        setMealPlanEntries((previous) => [...previous, data as MealPlanEntry])
+      },
+      async updateMealPlanEntry(id, weightGrams) {
+        const { data, error: updateError } = await requireSupabase()
+          .from('meal_plan_entries')
+          .update({
+            weight_grams: weightGrams,
+          })
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (updateError) throw updateError
+        setMealPlanEntries((previous) => previous.map((entry) => entry.id === id ? data as MealPlanEntry : entry))
+      },
+      async deleteMealPlanEntry(id) {
+        const { error: delError } = await requireSupabase()
+          .from('meal_plan_entries')
+          .delete()
+          .eq('id', id)
+        if (delError) throw delError
+        setMealPlanEntries((previous) => previous.filter((entry) => entry.id !== id))
+      },
       async addSavedProduct(name, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g, category, isFavorite) {
         if (!user) return
         const { data, error: insError } = await requireSupabase()
@@ -815,6 +861,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightLogs,
       foodLogs,
       foodHistoryLogs,
+      mealPlanEntries,
       pathDayConfirmations,
       courseLessonCompletions,
       mindfulnessCategories,

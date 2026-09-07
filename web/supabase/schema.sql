@@ -145,6 +145,20 @@ create table if not exists public.daily_food_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.meal_plan_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  planned_on date not null,
+  meal_type text not null check (meal_type in ('breakfast', 'lunch', 'dinner')),
+  product_name text not null check (char_length(trim(product_name)) > 0),
+  weight_grams numeric(8, 1) not null check (weight_grams > 0),
+  calories_per_100g numeric(6, 2) not null check (calories_per_100g > 0),
+  proteins_per_100g numeric(6, 2) not null default 0 check (proteins_per_100g >= 0),
+  fats_per_100g numeric(6, 2) not null default 0 check (fats_per_100g >= 0),
+  carbohydrates_per_100g numeric(6, 2) not null default 0 check (carbohydrates_per_100g >= 0),
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.saved_products (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -203,6 +217,7 @@ create index if not exists course_lesson_completions_user_course_idx on public.c
 create index if not exists mindfulness_notes_user_updated_idx on public.mindfulness_notes (user_id, updated_at desc);
 create index if not exists mindfulness_categories_user_created_idx on public.mindfulness_categories (user_id, created_at);
 create index if not exists food_logs_user_on_idx on public.daily_food_logs (user_id, logged_on desc);
+create index if not exists meal_plan_entries_user_date_meal_idx on public.meal_plan_entries (user_id, planned_on, meal_type, created_at);
 create index if not exists saved_products_user_name_idx on public.saved_products (user_id, name);
 create index if not exists saved_exercises_user_category_name_idx on public.saved_exercises (user_id, category, name);
 create index if not exists scheduled_exercises_user_date_order_idx on public.scheduled_exercises (user_id, planned_on, sort_order);
@@ -239,6 +254,7 @@ alter table public.course_lesson_completions enable row level security;
 alter table public.mindfulness_notes enable row level security;
 alter table public.mindfulness_categories enable row level security;
 alter table public.daily_food_logs enable row level security;
+alter table public.meal_plan_entries enable row level security;
 alter table public.saved_products enable row level security;
 alter table public.saved_exercises enable row level security;
 alter table public.scheduled_exercises enable row level security;
@@ -289,6 +305,10 @@ create policy "mindfulness_categories_all_own" on public.mindfulness_categories
 
 drop policy if exists "food_logs_all_own" on public.daily_food_logs;
 create policy "food_logs_all_own" on public.daily_food_logs
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "meal_plan_entries_all_own" on public.meal_plan_entries;
+create policy "meal_plan_entries_all_own" on public.meal_plan_entries
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "saved_products_all_own" on public.saved_products;

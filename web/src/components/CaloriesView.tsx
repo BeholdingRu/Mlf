@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useData } from '../hooks/useData'
 import { ProductsView } from './ProductsView'
+import { MealPlannerView } from './MealPlannerView'
 import { DEFAULT_PRODUCT_CATEGORY, PRODUCT_CATEGORIES, type ProductCategory } from '../lib/product-categories'
 
-type CaloriesSubTab = 'consumption' | 'products'
+type CaloriesSubTab = 'consumption' | 'planner' | 'products'
 
 const CALORIES_SUB_TAB_STORAGE_KEY = 'mlf:calories-sub-tab'
 const FOOD_ADD_DRAFT_STORAGE_KEY = 'mlf:food-add-draft'
@@ -19,9 +20,8 @@ type FoodAddDraft = {
 }
 
 function getSavedCaloriesSubTab(): CaloriesSubTab {
-  return window.sessionStorage.getItem(CALORIES_SUB_TAB_STORAGE_KEY) === 'products'
-    ? 'products'
-    : 'consumption'
+  const storedTab = window.sessionStorage.getItem(CALORIES_SUB_TAB_STORAGE_KEY)
+  return storedTab === 'products' || storedTab === 'planner' ? storedTab : 'consumption'
 }
 
 function getSavedFoodAddDraft(): FoodAddDraft | null {
@@ -280,6 +280,13 @@ export function CaloriesView() {
           onClick={() => setSubTab('products')}
         >
           Продукты
+        </button>
+        <button
+          type="button"
+          className={subTab === 'planner' ? 'calories-tab active' : 'calories-tab'}
+          onClick={() => setSubTab('planner')}
+        >
+          Планировщик
         </button>
       </nav>
 
@@ -553,6 +560,9 @@ export function CaloriesView() {
             )}
           </div>
         </>
+      </div>
+      <div className="calories-panel" hidden={subTab !== 'planner'}>
+        <MealPlannerView />
       </div>
       <div className="calories-panel" hidden={subTab !== 'products'}>
         <ProductsView />

@@ -5,6 +5,8 @@ import type {
   CourseLessonCompletion,
   BibleVerse,
   FoodLog,
+  MealPlanEntry,
+  MealType,
   MindfulnessCategory,
   MindfulnessNote,
   PathDay,
@@ -28,6 +30,7 @@ export type DataContextValue = {
   weightLogs: WeightLog[]
   foodLogs: FoodLog[]
   foodHistoryLogs: FoodLog[]
+  mealPlanEntries: MealPlanEntry[]
   pathDayConfirmations: PathDayConfirmation[]
   courseLessonCompletions: CourseLessonCompletion[]
   mindfulnessCategories: MindfulnessCategory[]
@@ -67,6 +70,9 @@ export type DataContextValue = {
   deleteMindfulnessNote: (id: string) => Promise<void>
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
+  addMealPlanEntry: (plannedOn: string, mealType: MealType, productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
+  updateMealPlanEntry: (id: string, weightGrams: number) => Promise<void>
+  deleteMealPlanEntry: (id: string) => Promise<void>
   addSavedProduct: (name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<void>
   updateSavedProduct: (id: string, name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<void>
   setSavedProductFavorite: (id: string, isFavorite: boolean) => Promise<void>

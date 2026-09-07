@@ -101,6 +101,22 @@ export type FoodLog = {
   carbohydrates_per_100g: number
 }
 
+export type MealType = 'breakfast' | 'lunch' | 'dinner'
+
+export type MealPlanEntry = {
+  id: string
+  user_id: string
+  planned_on: string
+  meal_type: MealType
+  product_name: string
+  weight_grams: number
+  calories_per_100g: number
+  proteins_per_100g: number
+  fats_per_100g: number
+  carbohydrates_per_100g: number
+  created_at: string
+}
+
 import type { ProductCategory } from './product-categories'
 
 export type SavedProduct = {

@@ -2610,6 +2610,136 @@ nav {
   gap: 14px;
 }
 
+.meal-planner {
+  display: grid;
+  gap: 16px;
+  max-width: 1100px;
+}
+
+.meal-planner-head h2,
+.meal-planner-head p {
+  margin: 0;
+}
+
+.meal-plan-calendar {
+  flex: 0 0 380px;
+  width: min(100%, 380px);
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.meal-planner-selection {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.meal-plan-calendar .calendar-day.has-plan {
+  background: var(--done);
+  color: var(--done-ink);
+  font-weight: 700;
+}
+
+.meal-planner-head h2 {
+  color: var(--moss-deep);
+  font-family: var(--serif);
+  font-size: 24px;
+}
+
+.meal-planner-head p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.meal-selector {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 8px;
+}
+
+.meal-selector.expanded {
+  grid-template-columns: 1fr;
+}
+
+.meal-selector-button {
+  min-width: 150px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meal-selector-nutrition {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.meal-selector-button.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.meal-selector-button.active .meal-selector-nutrition {
+  margin-top: 0;
+  text-align: center;
+}
+
+.meal-selector-button:hover,
+.meal-selector-button.active {
+  border-color: var(--moss);
+}
+
+.meal-selector-button.active {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.meal-planner-form {
+  width: 680px;
+  padding: 12px;
+  gap: 10px;
+}
+
+.meal-planner-form h3 {
+  font-size: 14px;
+}
+
+.meal-planner-form .nutrition-block {
+  padding: 10px;
+}
+
+.meal-planner-form .nutrition-inputs-four {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.meal-planner-product-details {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(290px, 1fr);
+  gap: 10px;
+}
+
+.meal-planner-product-details .nutrition-block {
+  min-width: 0;
+}
+
+.meal-planner-form .product-name-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .products-view {
   display: grid;
   gap: 16px;
@@ -2948,6 +3078,23 @@ nav {
   border-radius: 10px;
   background: var(--surface);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+@media (min-width: 769px) {
+  .saved-products-menu {
+    top: 50%;
+    right: 0;
+    left: auto;
+    transform: translateY(-50%);
+  }
+
+  .meal-planner-form .saved-products-menu {
+    right: -144px;
+  }
+
+  .calories-panel .food-form:not(.meal-planner-form) .saved-products-menu {
+    right: 240px;
+  }
 }
 
 .saved-product-category,
@@ -4125,6 +4272,35 @@ nav {
     grid-template-columns: 1fr;
   }
 
+  .meal-planner-selection {
+    display: grid;
+  }
+
+  .meal-plan-calendar {
+    flex-basis: auto;
+    width: min(100%, 380px);
+  }
+
+  .meal-selector {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .meal-selector.expanded {
+    grid-template-columns: 1fr;
+  }
+
+  .meal-selector-button {
+    min-width: 0;
+  }
+
+  .meal-planner-form {
+    width: 100%;
+  }
+
+  .meal-planner-product-details {
+    grid-template-columns: 1fr;
+  }
+
   .diary-list-head {
     justify-content: center;
     text-align: center;
@@ -4143,7 +4319,8 @@ nav {
     width: 100%;
   }
 
-  .diary-calendar {
+  .diary-calendar,
+  .meal-plan-calendar {
     padding: 12px;
   }
 
@@ -4680,7 +4857,7 @@ nav {
 }
 
 .modal-content {
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 24px;
