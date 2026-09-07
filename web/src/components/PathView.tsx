@@ -11,6 +11,7 @@ const MINDFULNESS_NOTE_DRAFT_STORAGE_KEY = 'mlf:mindfulness-note-draft'
 const MINDFULNESS_NOTE_FULLSCREEN_STORAGE_KEY = 'mlf:mindfulness-note-fullscreen'
 const MINDFULNESS_NOTE_TITLE_MAX_LENGTH = 160
 const MINDFULNESS_NOTE_CONTENT_MAX_LENGTH = 7000
+const SABBATH_SCHOOL_LESSONS_URL = 'https://esd.adventist.org/library/periodicals/sabbath-school/adult-sabbath-school/'
 
 type MindfulnessNoteDraft = {
   title: string
@@ -118,6 +119,7 @@ export function PathView() {
   const [busyNoteId, setBusyNoteId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [noteFormFullscreen, setNoteFormFullscreen] = useState(getSavedMindfulnessNoteFullscreenState)
+  const [sabbathSchoolLinkDialogOpen, setSabbathSchoolLinkDialogOpen] = useState(false)
 
   useEffect(() => {
     window.sessionStorage.setItem(PATH_SUB_TAB_STORAGE_KEY, subTab)
@@ -153,6 +155,16 @@ export function PathView() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [noteFormFullscreen])
+
+  useEffect(() => {
+    if (!sabbathSchoolLinkDialogOpen) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSabbathSchoolLinkDialogOpen(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [sabbathSchoolLinkDialogOpen])
 
   const cycleStartedOn = getShabbatWeekStart(profile, currentTime)
   const confirmedDays = new Set(
@@ -203,6 +215,20 @@ export function PathView() {
     window.open('https://alexbolotnikov.org/', '_blank', 'noopener,noreferrer')
   }
 
+  function handleSabbathSchoolWebsiteClick(event: MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault()
+    setSabbathSchoolLinkDialogOpen(true)
+  }
+
+  function openSabbathSchoolLessons(target: 'tab' | 'window') {
+    if (target === 'tab') {
+      window.open(SABBATH_SCHOOL_LESSONS_URL, '_blank', 'noopener,noreferrer')
+    } else {
+      window.open(SABBATH_SCHOOL_LESSONS_URL, 'sabbath-school-lessons', 'noopener,noreferrer,popup,width=1100,height=800')
+    }
+    setSabbathSchoolLinkDialogOpen(false)
+  }
+
   function resetNoteForm() {
     window.sessionStorage.removeItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
     setNoteTitle('')
@@ -224,16 +250,22 @@ export function PathView() {
     const content = noteContent.trim()
     if (!title || !content || !selectedNoteCategoryId || busyNoteId) return
 
-    const noteId = editingNoteId ?? 'new'
+    const editedNoteId = editingNoteId
+    const noteId = editedNoteId ?? 'new'
     setBusyNoteId(noteId)
     setError(null)
     try {
-      if (editingNoteId) {
-        await updateMindfulnessNote(editingNoteId, title, content, selectedNoteCategoryId)
+      if (editedNoteId) {
+        await updateMindfulnessNote(editedNoteId, title, content, selectedNoteCategoryId)
+        setNoteTitle(title)
+        setNoteContent(content)
       } else {
-        await addMindfulnessNote(title, content, selectedNoteCategoryId)
+        const note = await addMindfulnessNote(title, content, selectedNoteCategoryId)
+        setEditingNoteId(note.id)
+        setNoteTitle(note.title)
+        setNoteContent(note.content)
+        setNoteCategoryId(note.category_id)
       }
-      resetNoteForm()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить заметку')
     } finally {
@@ -375,7 +407,14 @@ export function PathView() {
           <GrapevineOrnament />
           <div className="path-sh-content">
             <h2>Субботняя Школа</h2>
-            <p className="path-sh-description">Отметки обновляются после захода солнца в пятницу.</p>
+            <p className="path-sh-description">
+              <a
+                href="https://esd.adventist.org/library/periodicals/sabbath-school/adult-sabbath-school/"
+                onClick={handleSabbathSchoolWebsiteClick}
+              >
+                Ссылка на уроки
+              </a>
+            </p>
             {cycleStartedOn ? (
               <div className="path-days" aria-label="Подтверждение дней">
                 <DaysGrapevineOrnament />
@@ -663,6 +702,30 @@ export function PathView() {
           {error && <p className="banner error">{error}</p>}
         </section>
       ) : null}
+      {sabbathSchoolLinkDialogOpen && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setSabbathSchoolLinkDialogOpen(false)}>
+          <section
+            className="sabbath-school-link-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sabbath-school-link-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="sabbath-school-link-dialog-title">Открыть ссылку на уроки?</h2>
+            <div className="sabbath-school-link-dialog-actions">
+              <button type="button" className="add-button" onClick={() => openSabbathSchoolLessons('tab')}>
+                В новой вкладке
+              </button>
+              <button type="button" className="add-button" onClick={() => openSabbathSchoolLessons('window')}>
+                В новом окне
+              </button>
+              <button type="button" className="sabbath-school-link-cancel" onClick={() => setSabbathSchoolLinkDialogOpen(false)}>
+                Отмена
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   )
 }

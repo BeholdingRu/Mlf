@@ -575,14 +575,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setMindfulnessCategories((previous) => previous.filter((category) => category.id !== id))
       },
       async addMindfulnessNote(title, content, categoryId) {
-        if (!user) return
+        if (!user) throw new Error('Необходимо войти в аккаунт')
         const { data, error: insError } = await requireSupabase()
           .from('mindfulness_notes')
           .insert({ user_id: user.id, title, content, category_id: categoryId })
           .select('*')
           .single()
         if (insError) throw insError
-        setMindfulnessNotes((previous) => [data as MindfulnessNote, ...previous])
+        const note = data as MindfulnessNote
+        setMindfulnessNotes((previous) => [note, ...previous])
+        return note
       },
       async updateMindfulnessNote(id, title, content, categoryId) {
         const { data, error: updError } = await requireSupabase()
