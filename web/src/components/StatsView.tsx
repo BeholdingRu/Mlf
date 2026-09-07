@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { WeightChart } from './WeightChart'
 import { useData } from '../hooks/useData'
-import { percent } from '../lib/dates'
+import { localISODate, percent } from '../lib/dates'
+import { getWithdrawalPhase } from '../lib/withdrawal-phase'
 
 type StatsSubTab = 'overview' | 'manage-weight'
 
@@ -101,6 +102,33 @@ export function StatsView() {
           ) : (
             <ul className="task-list">
               {tasks.map((task) => {
+                const withdrawalPhase = getWithdrawalPhase(
+                  task.withdrawal_syndrome,
+                  task.withdrawal_started_on,
+                  task.withdrawal_restart_on,
+                  localISODate(),
+                )
+                if (withdrawalPhase) {
+                  const habit = percent(withdrawalPhase.remainingDays, withdrawalPhase.durationDays)
+                  return (
+                    <li key={task.id} className={`task-row stat withdrawal-${withdrawalPhase.tone}`}>
+                      <div className="task-body">
+                        <strong>{task.title}</strong>
+                        <span className="hint">
+                          {withdrawalPhase.preparing ? 'Перезапуск запланирован на завтра' : 'Отсчёт фазы выполняется автоматически'}
+                        </span>
+                      </div>
+                      <HabitBar
+                        value={habit}
+                        label={withdrawalPhase.label}
+                        valueLabel={withdrawalPhase.preparing ? null : withdrawalPhase.clean ? `${withdrawalPhase.freedomDays} дней свободы` : `осталось ${withdrawalPhase.remainingDays} дн.`}
+                        phaseInfo={withdrawalPhase.info}
+                        hideTrack={withdrawalPhase.clean}
+                      />
+                    </li>
+                  )
+                }
+
                 const count = completions.filter((completion) => completion.task_id === task.id).length
                 return (
                   <li key={task.id} className="task-row stat">

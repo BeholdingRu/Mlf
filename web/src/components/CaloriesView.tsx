@@ -59,7 +59,7 @@ function getSavedFoodAddDraft(): FoodAddDraft | null {
 }
 
 export function CaloriesView() {
-  const { profile, foodLogs, savedProducts, addSavedProduct, logFoodToday, deleteFoodLog, saveCaloriesNorm } = useData()
+  const { profile, foodLogs, savedProducts, addSavedProduct, setSavedProductFavorite, logFoodToday, deleteFoodLog, saveCaloriesNorm } = useData()
   const [foodAddDraft] = useState<FoodAddDraft | null>(getSavedFoodAddDraft)
   const [subTab, setSubTab] = useState<CaloriesSubTab>(getSavedCaloriesSubTab)
   const [productName, setProductName] = useState(foodAddDraft?.name ?? '')
@@ -73,6 +73,7 @@ export function CaloriesView() {
   const [savedProductMenuOpen, setSavedProductMenuOpen] = useState(false)
   const [dailyNormInput, setDailyNormInput] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [favoriteFoodId, setFavoriteFoodId] = useState<string | null>(null)
   const [savingNorm, setSavingNorm] = useState(false)
   const [editingNorm, setEditingNorm] = useState(false)
   const [normError, setNormError] = useState<string | null>(null)
@@ -212,6 +213,38 @@ export function CaloriesView() {
     } catch (err) {
       console.error('Error deleting food:', err)
       alert('Ошибка при удалении продукта')
+    }
+  }
+
+  const handleFoodFavoriteChange = async (food: typeof foodLogs[number], isFavorite: boolean) => {
+    setFavoriteFoodId(food.id)
+    try {
+      const normalizedName = food.product_name.trim().toLocaleLowerCase('ru-RU')
+      const savedProduct = savedProducts.find(
+        (product) => product.name.trim().toLocaleLowerCase('ru-RU') === normalizedName,
+      )
+
+      if (savedProduct) {
+        await setSavedProductFavorite(savedProduct.id, isFavorite)
+        return
+      }
+
+      if (!isFavorite) return
+
+      await addSavedProduct(
+        food.product_name,
+        food.calories_per_100g,
+        food.proteins_per_100g,
+        food.fats_per_100g,
+        food.carbohydrates_per_100g,
+        DEFAULT_PRODUCT_CATEGORY,
+        true,
+      )
+    } catch (err) {
+      console.error('Error adding food to favorites:', err)
+      alert('Не удалось добавить продукт в избранное')
+    } finally {
+      setFavoriteFoodId(null)
     }
   }
 
@@ -472,6 +505,9 @@ export function CaloriesView() {
               <ul>
                 {foodLogs.map((food) => {
                   const consumed = (food.weight_grams / 100) * food.calories_per_100g
+                  const savedProduct = savedProducts.find(
+                    (product) => product.name.trim().toLocaleLowerCase('ru-RU') === food.product_name.trim().toLocaleLowerCase('ru-RU'),
+                  )
                   return (
                     <li key={food.id} className="food-item">
                       <div className="food-details">
@@ -490,14 +526,26 @@ export function CaloriesView() {
                           <span className="consumed">{consumed.toFixed(0)} ккал</span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="delete-button"
-                        onClick={() => handleDeleteFood(food.id, food.product_name)}
-                        title="Удалить"
-                      >
-                        ×
-                      </button>
+                      <div className="food-actions">
+                        <label className="favorite-control" title={savedProduct?.is_favorite ? 'Убрать из избранного' : 'Добавить в избранное'}>
+                          <input
+                            type="checkbox"
+                            checked={savedProduct?.is_favorite ?? false}
+                            disabled={favoriteFoodId === food.id}
+                            onChange={(event) => void handleFoodFavoriteChange(food, event.target.checked)}
+                            aria-label={`${savedProduct?.is_favorite ? 'Убрать' : 'Добавить'} ${food.product_name} ${savedProduct?.is_favorite ? 'из' : 'в'} избранного`}
+                          />
+                          <span aria-hidden="true">★</span>
+                        </label>
+                        <button
+                          type="button"
+                          className="delete-button"
+                          onClick={() => handleDeleteFood(food.id, food.product_name)}
+                          title="Удалить"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </li>
                   )
                 })}
