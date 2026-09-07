@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { daysInclusive, parseISODate } from '../lib/dates'
 import type { WeightLog } from '../lib/types'
 
@@ -81,6 +81,17 @@ export function WeightChart({ logs, startDate, startWeight, desiredWeight, force
 
   const renderedPoints = startPoint ? [startPoint, ...chartPoints] : chartPoints
 
+  function handleChartMouseMove(event: MouseEvent<SVGSVGElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const cursorX = ((event.clientX - bounds.left) / bounds.width) * 600
+    const step = (CHART_RIGHT - CHART_LEFT) / Math.max(renderedPoints.length - 1, 1)
+    const pointIndex = Math.min(
+      renderedPoints.length - 1,
+      Math.max(0, Math.floor((cursorX - CHART_LEFT) / step)),
+    )
+    setHoveredPoint(renderedPoints[pointIndex] ?? null)
+  }
+
   return (
     <>
       <div className={forceAllPoints || fullscreen ? 'weight-chart fullscreen' : 'weight-chart'}>
@@ -96,7 +107,13 @@ export function WeightChart({ logs, startDate, startWeight, desiredWeight, force
         </div>
 
         <div className="chart-graph">
-          <svg className="chart-svg" viewBox={`0 0 600 ${CHART_HEIGHT}`} preserveAspectRatio="none" onMouseLeave={() => setHoveredPoint(null)}>
+          <svg
+            className="chart-svg"
+            viewBox={`0 0 600 ${CHART_HEIGHT}`}
+            preserveAspectRatio="none"
+            onMouseMove={handleChartMouseMove}
+            onMouseLeave={() => setHoveredPoint(null)}
+          >
             {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
               const y = CHART_PADDING + ratio * graphHeight
               const value = maxValue - ratio * range
