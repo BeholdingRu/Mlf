@@ -459,7 +459,7 @@ export function PathView() {
                     Категория
                     <input value="Субботняя школа" disabled />
                   </label>
-                  <label>
+                  <label className="mindfulness-note-content-field">
                     Краткий конспект или комментарий
                     <textarea value={noteContent} onChange={(event) => setNoteContent(event.target.value)} maxLength={MINDFULNESS_NOTE_CONTENT_MAX_LENGTH} placeholder="Запишите главные мысли, выводы или вопросы по теме" rows={6} disabled={busyNoteId !== null} required />
                   </label>
@@ -656,7 +656,7 @@ export function PathView() {
                 </div>
               )}
             </div>
-            <label>
+            <label className="mindfulness-note-content-field">
               Краткий конспект или комментарий
               <textarea
                 value={noteContent}

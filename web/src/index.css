@@ -3902,6 +3902,8 @@ nav {
   }
 
   .mindfulness-note-form {
+    display: flex;
+    flex-direction: column;
     position: fixed;
     z-index: 1000;
     inset: 0;
@@ -3910,7 +3912,8 @@ nav {
     height: 100dvh;
     max-width: none;
     padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
-    overflow: auto;
+    gap: 8px;
+    overflow: hidden;
     overscroll-behavior: contain;
     background: var(--surface);
     contain: layout paint;
@@ -3922,8 +3925,58 @@ nav {
     padding: 20px;
   }
 
-  .mindfulness-note-form .mindfulness-fullscreen-button {
+  .mindfulness-note-form-heading .mindfulness-fullscreen-button {
     display: none;
+  }
+
+  .mindfulness-note-form-heading {
+    min-height: 20px;
+  }
+
+  .mindfulness-note-form label {
+    gap: 3px;
+    font-size: 13px;
+  }
+
+  .mindfulness-note-form input,
+  .mindfulness-note-form select,
+  .mindfulness-note-form textarea,
+  .mindfulness-new-category-form input {
+    padding: 8px 10px;
+  }
+
+  .mindfulness-note-form .mindfulness-category-addition {
+    gap: 6px;
+  }
+
+  .mindfulness-note-form .mindfulness-note-content-field {
+    min-height: 0;
+    flex: 1 1 auto;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .mindfulness-note-form .mindfulness-note-content-field textarea {
+    min-height: 0;
+    height: 100%;
+    resize: none;
+  }
+
+  .mindfulness-note-form .mindfulness-form-footer {
+    flex: 0 0 auto;
+    margin-top: auto;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .mindfulness-note-form .mindfulness-form-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mindfulness-note-form .mindfulness-form-actions .add-button {
+    min-height: 44px;
+    padding: 10px 8px;
   }
 
   .mindfulness-note {
