@@ -11,6 +11,7 @@ import type {
   FoodLog,
   BibleVerse,
   CourseLessonCompletion,
+  MindfulnessCategory,
   MindfulnessNote,
   PathDayConfirmation,
   Profile,
@@ -40,6 +41,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [foodHistoryLogs, setFoodHistoryLogs] = useState<FoodLog[]>([])
   const [pathDayConfirmations, setPathDayConfirmations] = useState<PathDayConfirmation[]>([])
   const [courseLessonCompletions, setCourseLessonCompletions] = useState<CourseLessonCompletion[]>([])
+  const [mindfulnessCategories, setMindfulnessCategories] = useState<MindfulnessCategory[]>([])
   const [mindfulnessNotes, setMindfulnessNotes] = useState<MindfulnessNote[]>([])
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([])
   const [savedExercises, setSavedExercises] = useState<SavedExercise[]>([])
@@ -67,7 +69,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     const client = requireSupabase()
     const today = localISODate()
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessNotesRes] = await Promise.all([
+    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes] = await Promise.all([
       client.from('profiles').select('*').eq('id', userId).maybeSingle(),
       client.from('tasks').select('*').eq('user_id', userId).order('sort_order'),
       client.from('task_completions').select('*').eq('user_id', userId),
@@ -86,6 +88,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       client.from('scheduled_exercises').select('*').eq('user_id', userId).order('planned_on').order('sort_order'),
       client.from('path_day_confirmations').select('*').eq('user_id', userId),
       client.from('course_lesson_completions').select('*').eq('user_id', userId),
+      client.from('mindfulness_categories').select('*').eq('user_id', userId).order('created_at'),
       client.from('mindfulness_notes').select('*').eq('user_id', userId).order('updated_at', { ascending: false }),
     ])
 
@@ -101,6 +104,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       scheduledExercisesRes.error?.message ||
       pathConfirmationsRes.error?.message ||
       courseLessonsRes.error?.message ||
+      mindfulnessCategoriesRes.error?.message ||
       mindfulnessNotesRes.error?.message
     if (firstError) {
       setError(firstError)
@@ -155,6 +159,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setFoodHistoryLogs(normalizeFoodLogs(foodHistoryRes.data ?? []))
     setPathDayConfirmations((pathConfirmationsRes.data ?? []) as PathDayConfirmation[])
     setCourseLessonCompletions((courseLessonsRes.data ?? []) as CourseLessonCompletion[])
+    setMindfulnessCategories((mindfulnessCategoriesRes.data ?? []) as MindfulnessCategory[])
     setMindfulnessNotes((mindfulnessNotesRes.data ?? []) as MindfulnessNote[])
     setSavedProducts(normalizedSavedProducts)
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
@@ -263,6 +268,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodHistoryLogs,
       pathDayConfirmations,
       courseLessonCompletions,
+      mindfulnessCategories,
       mindfulnessNotes,
       savedProducts,
       savedExercises,
@@ -537,20 +543,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
           data as CourseLessonCompletion,
         ])
       },
-      async addMindfulnessNote(title, content) {
+      async addMindfulnessCategory(name) {
+        if (!user) throw new Error('Необходимо войти в аккаунт')
+        const { data, error: insError } = await requireSupabase()
+          .from('mindfulness_categories')
+          .insert({ user_id: user.id, name })
+          .select('*')
+          .single()
+        if (insError) throw insError
+        const category = data as MindfulnessCategory
+        setMindfulnessCategories((previous) => [...previous, category])
+        return category
+      },
+      async deleteMindfulnessCategory(id, destinationCategoryId) {
+        const client = requireSupabase()
+        const { error: moveError } = await client
+          .from('mindfulness_notes')
+          .update({ category_id: destinationCategoryId, updated_at: new Date().toISOString() })
+          .eq('category_id', id)
+        if (moveError) throw moveError
+
+        const { error: deleteError } = await client
+          .from('mindfulness_categories')
+          .delete()
+          .eq('id', id)
+        if (deleteError) throw deleteError
+
+        setMindfulnessNotes((previous) => previous.map((note) => (
+          note.category_id === id ? { ...note, category_id: destinationCategoryId } : note
+        )))
+        setMindfulnessCategories((previous) => previous.filter((category) => category.id !== id))
+      },
+      async addMindfulnessNote(title, content, categoryId) {
         if (!user) return
         const { data, error: insError } = await requireSupabase()
           .from('mindfulness_notes')
-          .insert({ user_id: user.id, title, content })
+          .insert({ user_id: user.id, title, content, category_id: categoryId })
           .select('*')
           .single()
         if (insError) throw insError
         setMindfulnessNotes((previous) => [data as MindfulnessNote, ...previous])
       },
-      async updateMindfulnessNote(id, title, content) {
+      async updateMindfulnessNote(id, title, content, categoryId) {
         const { data, error: updError } = await requireSupabase()
           .from('mindfulness_notes')
-          .update({ title, content, updated_at: new Date().toISOString() })
+          .update({ title, content, category_id: categoryId, updated_at: new Date().toISOString() })
           .eq('id', id)
           .select('*')
           .single()
@@ -778,6 +815,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodHistoryLogs,
       pathDayConfirmations,
       courseLessonCompletions,
+      mindfulnessCategories,
       mindfulnessNotes,
       savedProducts,
       savedExercises,

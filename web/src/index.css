@@ -1534,6 +1534,76 @@ nav {
   line-height: 1.55;
 }
 
+.path-sh-notes {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+  text-align: left;
+}
+
+.path-sh-notes-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.path-sh-notes-heading h3,
+.path-sh-note-detail h4,
+.path-sh-note-detail p {
+  margin: 0;
+}
+
+.path-sh-notes-heading h3,
+.path-sh-note-detail h4 {
+  color: var(--moss-deep);
+}
+
+.path-sh-note-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.path-sh-note-title {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--moss-deep);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.path-sh-note-title:hover,
+.path-sh-note-title.active {
+  border-color: var(--moss);
+  background: color-mix(in srgb, var(--moss) 12%, var(--surface));
+}
+
+.path-sh-empty-notes {
+  margin: 0;
+  color: var(--muted);
+}
+
+.path-sh-note-detail {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.path-sh-note-detail p {
+  margin-top: 8px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
 .path-days {
   position: relative;
   display: grid;
@@ -1754,6 +1824,65 @@ nav {
   white-space: nowrap;
 }
 
+.mindfulness-category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mindfulness-category-button {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--moss-deep);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mindfulness-category-control {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.mindfulness-category-control .mindfulness-category-button {
+  border: 0;
+  border-radius: 0;
+}
+
+.mindfulness-category-delete {
+  width: 30px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mindfulness-category-delete:hover {
+  background: color-mix(in srgb, #b33 12%, var(--surface));
+  color: #a22;
+}
+
+.mindfulness-category-button:hover,
+.mindfulness-category-button.active {
+  border-color: var(--moss);
+  background: color-mix(in srgb, var(--moss) 12%, var(--surface));
+}
+
+.mindfulness-category-control:has(.mindfulness-category-button.active) {
+  border-color: var(--moss);
+  background: color-mix(in srgb, var(--moss) 12%, var(--surface));
+}
+
 .mindfulness-note-form {
   display: grid;
   gap: 14px;
@@ -1829,10 +1958,39 @@ nav {
   resize: vertical;
 }
 
+.mindfulness-note-form select,
+.mindfulness-new-category-form input {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font: inherit;
+}
+
 .mindfulness-note-form input:focus,
 .mindfulness-note-form textarea:focus {
   outline: 2px solid color-mix(in srgb, var(--moss) 35%, transparent);
   border-color: var(--moss);
+}
+
+.mindfulness-note-form select:focus,
+.mindfulness-new-category-form input:focus {
+  outline: 2px solid color-mix(in srgb, var(--moss) 35%, transparent);
+  border-color: var(--moss);
+}
+
+.mindfulness-category-addition {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.mindfulness-new-category-form {
+  display: flex;
+  width: min(100%, 440px);
+  gap: 8px;
 }
 
 .mindfulness-form-footer,
@@ -3706,6 +3864,10 @@ nav {
 
   .mindfulness-form-actions .add-button {
     flex: 1;
+  }
+
+  .mindfulness-new-category-form {
+    width: 100%;
   }
 
   .diary-view {

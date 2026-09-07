@@ -16,6 +16,7 @@ type MindfulnessNoteDraft = {
   title: string
   content: string
   editingNoteId: string | null
+  categoryId: string | null
 }
 
 const SUB_TABS: { id: PathSubTab; label: string }[] = [
@@ -62,6 +63,7 @@ function getSavedMindfulnessNoteDraft(): MindfulnessNoteDraft | null {
       typeof draft.title !== 'string'
       || typeof draft.content !== 'string'
       || (draft.editingNoteId !== null && typeof draft.editingNoteId !== 'string')
+      || (draft.categoryId !== null && typeof draft.categoryId !== 'string')
     ) {
       window.sessionStorage.removeItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
       return null
@@ -71,6 +73,7 @@ function getSavedMindfulnessNoteDraft(): MindfulnessNoteDraft | null {
       title: draft.title.slice(0, MINDFULNESS_NOTE_TITLE_MAX_LENGTH),
       content: draft.content.slice(0, MINDFULNESS_NOTE_CONTENT_MAX_LENGTH),
       editingNoteId: draft.editingNoteId,
+      categoryId: draft.categoryId,
     }
   } catch {
     window.sessionStorage.removeItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
@@ -85,7 +88,10 @@ export function PathView() {
     confirmPathDay,
     courseLessonCompletions,
     completeCourseLesson,
+    mindfulnessCategories,
     mindfulnessNotes,
+    addMindfulnessCategory,
+    deleteMindfulnessCategory,
     addMindfulnessNote,
     updateMindfulnessNote,
     deleteMindfulnessNote,
@@ -100,6 +106,15 @@ export function PathView() {
   const [noteTitle, setNoteTitle] = useState(savedNoteDraft?.title ?? '')
   const [noteContent, setNoteContent] = useState(savedNoteDraft?.content ?? '')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(savedNoteDraft?.editingNoteId ?? null)
+  const [noteCategoryId, setNoteCategoryId] = useState<string | null>(savedNoteDraft?.categoryId ?? null)
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
+  const [noteFormOpen, setNoteFormOpen] = useState(savedNoteDraft !== null)
+  const [shNoteFormOpen, setShNoteFormOpen] = useState(false)
+  const [openedShNoteId, setOpenedShNoteId] = useState<string | null>(null)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryFormOpen, setNewCategoryFormOpen] = useState(false)
+  const [savingCategory, setSavingCategory] = useState(false)
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
   const [busyNoteId, setBusyNoteId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [noteFormFullscreen, setNoteFormFullscreen] = useState(getSavedMindfulnessNoteFullscreenState)
@@ -116,9 +131,9 @@ export function PathView() {
 
     window.sessionStorage.setItem(
       MINDFULNESS_NOTE_DRAFT_STORAGE_KEY,
-      JSON.stringify({ title: noteTitle, content: noteContent, editingNoteId }),
+      JSON.stringify({ title: noteTitle, content: noteContent, editingNoteId, categoryId: noteCategoryId }),
     )
-  }, [editingNoteId, noteContent, noteTitle])
+  }, [editingNoteId, noteCategoryId, noteContent, noteTitle])
 
   useEffect(() => {
     window.sessionStorage.setItem(MINDFULNESS_NOTE_FULLSCREEN_STORAGE_KEY, String(noteFormFullscreen))
@@ -193,6 +208,10 @@ export function PathView() {
     setNoteTitle('')
     setNoteContent('')
     setEditingNoteId(null)
+    setNoteFormOpen(false)
+    setShNoteFormOpen(false)
+    setNewCategoryName('')
+    setNewCategoryFormOpen(false)
   }
 
   function toggleNoteFormFullscreen() {
@@ -203,16 +222,16 @@ export function PathView() {
     event.preventDefault()
     const title = noteTitle.trim()
     const content = noteContent.trim()
-    if (!title || !content || busyNoteId) return
+    if (!title || !content || !selectedNoteCategoryId || busyNoteId) return
 
     const noteId = editingNoteId ?? 'new'
     setBusyNoteId(noteId)
     setError(null)
     try {
       if (editingNoteId) {
-        await updateMindfulnessNote(editingNoteId, title, content)
+        await updateMindfulnessNote(editingNoteId, title, content, selectedNoteCategoryId)
       } else {
-        await addMindfulnessNote(title, content)
+        await addMindfulnessNote(title, content, selectedNoteCategoryId)
       }
       resetNoteForm()
     } catch (err) {
@@ -226,9 +245,101 @@ export function PathView() {
     if (busyNoteId) return
     setNoteTitle(note.title)
     setNoteContent(note.content)
+    setNoteCategoryId(note.category_id)
     setEditingNoteId(note.id)
+    setNoteFormOpen(true)
     setError(null)
   }
+
+  function startShNote() {
+    if (busyNoteId || !saturdaySchoolCategoryId) return
+    window.sessionStorage.removeItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
+    setNoteTitle('')
+    setNoteContent('')
+    setNoteCategoryId(saturdaySchoolCategoryId)
+    setEditingNoteId(null)
+    setShNoteFormOpen(true)
+    setOpenedShNoteId(null)
+    setError(null)
+  }
+
+  function startShNoteEditing(note: MindfulnessNote) {
+    if (busyNoteId) return
+    setNoteTitle(note.title)
+    setNoteContent(note.content)
+    setNoteCategoryId(note.category_id)
+    setEditingNoteId(note.id)
+    setShNoteFormOpen(true)
+    setOpenedShNoteId(null)
+    setError(null)
+  }
+
+  function startNewNote() {
+    if (busyNoteId) return
+    window.sessionStorage.removeItem(MINDFULNESS_NOTE_DRAFT_STORAGE_KEY)
+    setNoteTitle('')
+    setNoteContent('')
+    setEditingNoteId(null)
+    setNoteCategoryId(selectedActiveCategoryId)
+    setNewCategoryName('')
+    setNewCategoryFormOpen(false)
+    setNoteFormOpen(true)
+    setError(null)
+  }
+
+  async function handleCategoryAddition() {
+    const name = newCategoryName.trim()
+    if (!name || savingCategory) return
+
+    setSavingCategory(true)
+    setError(null)
+    try {
+      const category = await addMindfulnessCategory(name)
+      setNoteCategoryId(category.id)
+      setActiveCategoryId(category.id)
+      setNewCategoryName('')
+      setNewCategoryFormOpen(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось добавить категорию')
+    }
+    finally {
+      setSavingCategory(false)
+    }
+  }
+
+  async function handleCategoryDeletion(categoryId: string, categoryName: string) {
+    const unsortedCategory = mindfulnessCategories.find((category) => category.name === 'Неотсортированные')
+    if (!unsortedCategory || deletingCategoryId) return
+    const notesCount = mindfulnessNotes.filter((note) => note.category_id === categoryId).length
+    const message = notesCount
+      ? `Удалить категорию «${categoryName}»? ${notesCount} ${notesCount === 1 ? 'запись будет перенесена' : 'записей будут перенесены'} в «Неотсортированные».`
+      : `Удалить категорию «${categoryName}»?`
+    if (!window.confirm(message)) return
+
+    setDeletingCategoryId(categoryId)
+    setError(null)
+    try {
+      await deleteMindfulnessCategory(categoryId, unsortedCategory.id)
+      if (activeCategoryId === categoryId) setActiveCategoryId(unsortedCategory.id)
+      if (noteCategoryId === categoryId) setNoteCategoryId(unsortedCategory.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось удалить категорию')
+    } finally {
+      setDeletingCategoryId(null)
+    }
+  }
+
+  const saturdaySchoolCategoryId = mindfulnessCategories.find((category) => category.name === 'Субботняя школа')?.id ?? null
+  const defaultMindfulnessCategoryId = saturdaySchoolCategoryId ?? mindfulnessCategories[0]?.id ?? null
+  const selectedActiveCategoryId = mindfulnessCategories.some((category) => category.id === activeCategoryId)
+    ? activeCategoryId
+    : defaultMindfulnessCategoryId
+  const selectedNoteCategoryId = mindfulnessCategories.some((category) => category.id === noteCategoryId)
+    ? noteCategoryId
+    : defaultMindfulnessCategoryId
+  const visibleMindfulnessNotes = mindfulnessNotes.filter((note) => note.category_id === selectedActiveCategoryId)
+  const saturdaySchoolNotes = mindfulnessNotes.filter((note) => note.category_id === saturdaySchoolCategoryId)
+  const openedShNote = saturdaySchoolNotes.find((note) => note.id === openedShNoteId) ?? null
 
   async function handleNoteDeletion(note: MindfulnessNote) {
     if (busyNoteId || !window.confirm(`Удалить заметку «${note.title}»?`)) return
@@ -237,6 +348,7 @@ export function PathView() {
     try {
       await deleteMindfulnessNote(note.id)
       if (editingNoteId === note.id) resetNoteForm()
+      if (openedShNoteId === note.id) setOpenedShNoteId(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось удалить заметку')
     } finally {
@@ -285,6 +397,66 @@ export function PathView() {
             ) : (
               <p className="banner error">Выберите город и часовой пояс в настройках, чтобы учитывать заход солнца.</p>
             )}
+            <section className="path-sh-notes" aria-label="Заметки Субботней школы">
+              <div className="path-sh-notes-heading">
+                <h3>Заметки</h3>
+                <button type="button" className="add-button" onClick={startShNote} disabled={busyNoteId !== null || !saturdaySchoolCategoryId}>
+                  Добавить заметку
+                </button>
+              </div>
+              {shNoteFormOpen && (
+                <form className={noteFormFullscreen ? 'mindfulness-note-form fullscreen' : 'mindfulness-note-form'} onSubmit={(event) => void handleNoteSubmit(event)}>
+                  <div className="mindfulness-note-form-heading">
+                    <strong>{editingNoteId ? 'Редактирование темы' : 'Новая запись'}</strong>
+                    <button type="button" className="mindfulness-fullscreen-button" onClick={toggleNoteFormFullscreen} aria-pressed={noteFormFullscreen}>
+                      {noteFormFullscreen ? 'Свернуть' : 'На весь экран'}
+                    </button>
+                  </div>
+                  <label>
+                    Название темы
+                    <input value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} maxLength={MINDFULNESS_NOTE_TITLE_MAX_LENGTH} placeholder="Например: Тема №1" disabled={busyNoteId !== null} required />
+                  </label>
+                  <label>
+                    Категория
+                    <input value="Субботняя школа" disabled />
+                  </label>
+                  <label>
+                    Краткий конспект или комментарий
+                    <textarea value={noteContent} onChange={(event) => setNoteContent(event.target.value)} maxLength={MINDFULNESS_NOTE_CONTENT_MAX_LENGTH} placeholder="Запишите главные мысли, выводы или вопросы по теме" rows={6} disabled={busyNoteId !== null} required />
+                  </label>
+                  <div className="mindfulness-form-footer">
+                    <span>{noteContent.length} / {MINDFULNESS_NOTE_CONTENT_MAX_LENGTH}</span>
+                    <div className="mindfulness-form-actions">
+                      <button type="button" className="add-button" onClick={resetNoteForm} disabled={busyNoteId !== null}>Отмена</button>
+                      <button type="submit" className="add-button" disabled={busyNoteId !== null}>{busyNoteId ? 'Сохранение…' : editingNoteId ? 'Сохранить изменения' : 'Сохранить'}</button>
+                    </div>
+                  </div>
+                </form>
+              )}
+              {saturdaySchoolNotes.length ? (
+                <div className="path-sh-note-list">
+                  {saturdaySchoolNotes.map((note) => (
+                    <button key={note.id} type="button" className={openedShNoteId === note.id ? 'path-sh-note-title active' : 'path-sh-note-title'} onClick={() => setOpenedShNoteId((current) => current === note.id ? null : note.id)}>
+                      {note.title}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="path-sh-empty-notes">Пока нет заметок по Субботней школе.</p>
+              )}
+              {openedShNote && !(shNoteFormOpen && editingNoteId === openedShNote.id) && (
+                <article className="path-sh-note-detail">
+                  <div>
+                    <h4>{openedShNote.title}</h4>
+                    <p>{openedShNote.content}</p>
+                  </div>
+                  <div className="mindfulness-note-actions">
+                    <button type="button" className="edit-button" aria-label={`Редактировать «${openedShNote.title}»`} onClick={() => startShNoteEditing(openedShNote)} disabled={busyNoteId !== null}>✎</button>
+                    <button type="button" className="delete-button" aria-label={`Удалить «${openedShNote.title}»`} onClick={() => void handleNoteDeletion(openedShNote)} disabled={busyNoteId !== null}>×</button>
+                  </div>
+                </article>
+              )}
+            </section>
             {error && <p className="banner error">{error}</p>}
           </div>
           <GrapevineOrnament mirrored />
@@ -363,6 +535,38 @@ export function PathView() {
             </div>
             <span className="mindfulness-limit">До 7 000 символов в заметке</span>
           </div>
+          <div className="mindfulness-category-tabs" aria-label="Категории записей">
+            <button type="button" className="add-button" onClick={startNewNote} disabled={busyNoteId !== null || !mindfulnessCategories.length}>
+              Новая запись
+            </button>
+            {mindfulnessCategories.map((category) => {
+              const isDefaultCategory = category.name === 'Субботняя школа' || category.name === 'Неотсортированные'
+              return (
+                <div key={category.id} className="mindfulness-category-control">
+                  <button
+                    type="button"
+                    className={selectedActiveCategoryId === category.id ? 'mindfulness-category-button active' : 'mindfulness-category-button'}
+                    onClick={() => setActiveCategoryId(category.id)}
+                    disabled={deletingCategoryId !== null}
+                  >
+                    {category.name}
+                  </button>
+                  {!isDefaultCategory && (
+                    <button
+                      type="button"
+                      className="mindfulness-category-delete"
+                      aria-label={`Удалить категорию «${category.name}»`}
+                      onClick={() => void handleCategoryDeletion(category.id, category.name)}
+                      disabled={deletingCategoryId !== null}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {noteFormOpen && (
           <form
             className={noteFormFullscreen ? 'mindfulness-note-form fullscreen' : 'mindfulness-note-form'}
             onSubmit={(event) => void handleNoteSubmit(event)}
@@ -390,6 +594,30 @@ export function PathView() {
               />
             </label>
             <label>
+              Категория
+              <select
+                value={selectedNoteCategoryId ?? ''}
+                onChange={(event) => setNoteCategoryId(event.target.value)}
+                disabled={busyNoteId !== null || savingCategory}
+                required
+              >
+                {mindfulnessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+              </select>
+            </label>
+            <div className="mindfulness-category-addition">
+              <button type="button" className="mindfulness-fullscreen-button" onClick={() => setNewCategoryFormOpen((open) => !open)} disabled={busyNoteId !== null || savingCategory}>
+                Добавить новую категорию
+              </button>
+              {newCategoryFormOpen && (
+                <div className="mindfulness-new-category-form">
+                  <input value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} maxLength={80} placeholder="Название категории" disabled={busyNoteId !== null || savingCategory} />
+                  <button type="button" className="add-button" onClick={() => void handleCategoryAddition()} disabled={!newCategoryName.trim() || busyNoteId !== null || savingCategory}>
+                    {savingCategory ? 'Добавление…' : 'Добавить'}
+                  </button>
+                </div>
+              )}
+            </div>
+            <label>
               Краткий конспект или комментарий
               <textarea
                 value={noteContent}
@@ -404,20 +632,19 @@ export function PathView() {
             <div className="mindfulness-form-footer">
               <span>{noteContent.length} / {MINDFULNESS_NOTE_CONTENT_MAX_LENGTH}</span>
               <div className="mindfulness-form-actions">
-                {editingNoteId && (
-                  <button type="button" className="add-button" onClick={resetNoteForm} disabled={busyNoteId !== null}>
-                    Отмена
-                  </button>
-                )}
+                <button type="button" className="add-button" onClick={resetNoteForm} disabled={busyNoteId !== null}>
+                  Отмена
+                </button>
                 <button type="submit" className="add-button" disabled={busyNoteId !== null}>
                   {busyNoteId ? 'Сохранение…' : editingNoteId ? 'Сохранить изменения' : 'Сохранить'}
                 </button>
               </div>
             </div>
           </form>
-          {mindfulnessNotes.length ? (
+          )}
+          {visibleMindfulnessNotes.length ? (
             <div className="mindfulness-notes">
-              {mindfulnessNotes.map((note) => (
+              {visibleMindfulnessNotes.map((note) => (
                 <article key={note.id} className="mindfulness-note">
                   <div className="mindfulness-note-content">
                     <h3>{note.title}</h3>
@@ -431,7 +658,7 @@ export function PathView() {
               ))}
             </div>
           ) : (
-            <div className="empty">Добавьте первую тему и её краткий конспект.</div>
+            <div className="empty">В этой категории пока нет записей.</div>
           )}
           {error && <p className="banner error">{error}</p>}
         </section>

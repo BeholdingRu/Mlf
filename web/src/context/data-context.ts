@@ -5,6 +5,7 @@ import type {
   CourseLessonCompletion,
   BibleVerse,
   FoodLog,
+  MindfulnessCategory,
   MindfulnessNote,
   PathDay,
   PathDayConfirmation,
@@ -29,6 +30,7 @@ export type DataContextValue = {
   foodHistoryLogs: FoodLog[]
   pathDayConfirmations: PathDayConfirmation[]
   courseLessonCompletions: CourseLessonCompletion[]
+  mindfulnessCategories: MindfulnessCategory[]
   mindfulnessNotes: MindfulnessNote[]
   savedProducts: SavedProduct[]
   savedExercises: SavedExercise[]
@@ -58,8 +60,10 @@ export type DataContextValue = {
   getBibleChapter: (bookOrder: number, chapter: number) => Promise<BibleVerse[]>
   confirmPathDay: (day: PathDay, cycleStartedOn: string) => Promise<void>
   completeCourseLesson: (courseId: string, lessonNumber: number) => Promise<void>
-  addMindfulnessNote: (title: string, content: string) => Promise<void>
-  updateMindfulnessNote: (id: string, title: string, content: string) => Promise<void>
+  addMindfulnessCategory: (name: string) => Promise<MindfulnessCategory>
+  deleteMindfulnessCategory: (id: string, destinationCategoryId: string) => Promise<void>
+  addMindfulnessNote: (title: string, content: string, categoryId: string) => Promise<void>
+  updateMindfulnessNote: (id: string, title: string, content: string, categoryId: string) => Promise<void>
   deleteMindfulnessNote: (id: string) => Promise<void>
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
