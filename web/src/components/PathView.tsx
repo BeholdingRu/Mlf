@@ -445,17 +445,17 @@ export function PathView() {
               </div>
               {shNoteFormOpen && (
                 <form className={noteFormFullscreen ? 'mindfulness-note-form fullscreen' : 'mindfulness-note-form'} onSubmit={(event) => void handleNoteSubmit(event)}>
-                  <div className="mindfulness-note-form-heading">
+                  <div className={editingNoteId ? 'mindfulness-note-form-heading editing' : 'mindfulness-note-form-heading'}>
                     <strong>{editingNoteId ? 'Редактирование темы' : 'Новая запись'}</strong>
                     <button type="button" className="mindfulness-fullscreen-button" onClick={toggleNoteFormFullscreen} aria-pressed={noteFormFullscreen}>
                       {noteFormFullscreen ? 'Свернуть' : 'На весь экран'}
                     </button>
                   </div>
-                  <label>
-                    Название темы
+                  <label className="mindfulness-note-short-field">
+                    <span className="mindfulness-note-title-label">Название темы</span>
                     <input value={noteTitle} onChange={(event) => setNoteTitle(event.target.value)} maxLength={MINDFULNESS_NOTE_TITLE_MAX_LENGTH} placeholder="Например: Тема №1" disabled={busyNoteId !== null} required />
                   </label>
-                  <label>
+                  <label className="mindfulness-note-short-field">
                     Категория
                     <input value="Субботняя школа" disabled />
                   </label>
@@ -610,7 +610,7 @@ export function PathView() {
             className={noteFormFullscreen ? 'mindfulness-note-form fullscreen' : 'mindfulness-note-form'}
             onSubmit={(event) => void handleNoteSubmit(event)}
           >
-            <div className="mindfulness-note-form-heading">
+            <div className={editingNoteId ? 'mindfulness-note-form-heading editing' : 'mindfulness-note-form-heading'}>
               <strong>{editingNoteId ? 'Редактирование темы' : 'Новая тема'}</strong>
               <button
                 type="button"
@@ -621,8 +621,8 @@ export function PathView() {
                 {noteFormFullscreen ? 'Свернуть' : 'На весь экран'}
               </button>
             </div>
-            <label>
-              Название темы
+            <label className="mindfulness-note-short-field">
+              <span className="mindfulness-note-title-label">Название темы</span>
               <input
                 value={noteTitle}
                 onChange={(event) => setNoteTitle(event.target.value)}
@@ -632,7 +632,7 @@ export function PathView() {
                 required
               />
             </label>
-            <label>
+            <label className="mindfulness-note-short-field">
               Категория
               <select
                 value={selectedNoteCategoryId ?? ''}
