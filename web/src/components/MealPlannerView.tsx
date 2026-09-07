@@ -18,7 +18,7 @@ const MONTHS = [
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 export function MealPlannerView() {
-  const { mealPlanEntries, savedProducts, addSavedProduct, addMealPlanEntry, updateMealPlanEntry, deleteMealPlanEntry } = useData()
+  const { mealPlanEntries, savedProducts, addSavedProduct, addMealPlanEntry, updateMealPlanEntry, deleteMealPlanEntry, logFoodToday } = useData()
   const [selectedMeal, setSelectedMeal] = useState<MealType | null>(null)
   const [selectedDate, setSelectedDate] = useState(localISODate)
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -35,6 +35,7 @@ export function MealPlannerView() {
   const [savedProductGroup, setSavedProductGroup] = useState<ProductCategory | 'favorites' | ''>('')
   const [savedProductMenuOpen, setSavedProductMenuOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [copyingEntryId, setCopyingEntryId] = useState<string | null>(null)
   const [editingEntry, setEditingEntry] = useState<MealPlanEntry | null>(null)
   const [editWeightGrams, setEditWeightGrams] = useState('')
 
@@ -138,6 +139,25 @@ export function MealPlannerView() {
     } catch (error) {
       console.error('Error deleting meal plan entry:', error)
       alert('Ошибка при удалении продукта')
+    }
+  }
+
+  async function copyToConsumption(entry: MealPlanEntry) {
+    setCopyingEntryId(entry.id)
+    try {
+      await logFoodToday(
+        entry.product_name,
+        entry.weight_grams,
+        entry.calories_per_100g,
+        entry.proteins_per_100g,
+        entry.fats_per_100g,
+        entry.carbohydrates_per_100g,
+      )
+    } catch (error) {
+      console.error('Error copying meal plan entry to consumption:', error)
+      alert('Ошибка при копировании продукта в потребление')
+    } finally {
+      setCopyingEntryId(null)
     }
   }
 
@@ -302,6 +322,7 @@ export function MealPlannerView() {
                         </div>
                       </div>
                       <div className="food-actions">
+                        <button type="button" className="copy-button" onClick={() => void copyToConsumption(entry)} disabled={copyingEntryId === entry.id} title="Копировать в потребление" aria-label={`Копировать ${entry.product_name} в потребление`}>{copyingEntryId === entry.id ? '…' : '↪'}</button>
                         <button type="button" className="edit-button" onClick={() => startEditingEntry(entry)} title="Редактировать" aria-label={`Редактировать ${entry.product_name}`}>✎</button>
                         <button type="button" className="delete-button" onClick={() => void handleDeleteProduct(entry.id, entry.product_name)} title="Удалить">×</button>
                       </div>
