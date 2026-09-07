@@ -1228,6 +1228,13 @@ nav {
   margin-bottom: 12px;
 }
 
+.chart-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .chart-title {
   font-weight: 600;
   margin: 0 0 6px;
@@ -1245,6 +1252,103 @@ nav {
   min-height: 190px;
   display: block;
   margin: 12px 0;
+}
+
+.chart-graph {
+  position: relative;
+}
+
+.chart-svg circle {
+  cursor: pointer;
+}
+
+.chart-svg circle:focus {
+  outline: none;
+  stroke: var(--moss-deep);
+  stroke-width: 2;
+}
+
+.chart-tooltip {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  display: grid;
+  gap: 2px;
+  min-width: 132px;
+  padding: 12px 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 18px;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.chart-tooltip span {
+  font-size: 15px;
+}
+
+.chart-fullscreen-button,
+.chart-close-button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--moss-deep);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chart-fullscreen-button {
+  padding: 7px 10px;
+}
+
+.chart-fullscreen-button:hover,
+.chart-close-button:hover {
+  border-color: var(--moss);
+}
+
+.chart-fullscreen-backdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: var(--overlay);
+}
+
+.weight-chart-fullscreen {
+  position: relative;
+  width: min(1200px, 100%);
+  max-height: 100%;
+  overflow: auto;
+}
+
+.weight-chart.fullscreen {
+  width: auto;
+  min-height: calc(100vh - 64px);
+  margin: 0;
+  padding: 32px;
+}
+
+.weight-chart.fullscreen .chart-svg {
+  min-height: min(65vh, 560px);
+}
+
+.chart-close-button {
+  position: sticky;
+  z-index: 1;
+  top: 12px;
+  float: right;
+  width: 36px;
+  height: 36px;
+  font-size: 26px;
+  line-height: 1;
 }
 
 .weight-chart-empty {
@@ -3825,6 +3929,10 @@ nav {
 
   .chart-info {
     margin-bottom: 10px;
+  }
+
+  .chart-fullscreen-button {
+    display: none;
   }
 
   .chart-title {
