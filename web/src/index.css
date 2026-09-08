@@ -4796,6 +4796,49 @@ nav {
     width: min(460px, calc(100vw - 32px));
   }
 
+  .media-player-card {
+    padding: 14px;
+  }
+
+  .media-audio .vds-audio-layout,
+  .media-audio .vds-audio-layout.light,
+  .media-audio .vds-audio-layout.dark {
+    min-height: 138px;
+  }
+
+  .media-audio .vds-audio-layout .vds-controls-group {
+    column-gap: 0;
+    row-gap: 2px;
+  }
+
+  .media-audio .vds-audio-layout .vds-button {
+    width: 32px;
+    height: 32px;
+    margin-right: 1px;
+  }
+
+  .media-audio .vds-audio-layout .vds-play-button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .media-audio .vds-audio-layout .vds-time-slider {
+    order: 2;
+    flex: 0 0 calc(100% - 16px);
+    width: calc(100% - 16px);
+    margin: 0 8px;
+  }
+
+  .media-audio .vds-audio-layout .vds-volume {
+    order: 3;
+    flex: 0 0 100%;
+    min-width: 0;
+  }
+
+  .media-audio .vds-audio-layout .vds-volume-slider {
+    width: calc(100% - 16px);
+  }
+
   .sidebar {
     padding: 10px;
     gap: 6px;
