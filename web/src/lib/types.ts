@@ -87,7 +87,7 @@ export type MindfulnessCategory = {
   created_at: string
 }
 
-export type CabinetTab = 'daily' | 'all' | 'calories' | 'training' | 'diary' | 'path'
+export type CabinetTab = 'daily' | 'all' | 'calories' | 'training' | 'diary' | 'media' | 'path'
 
 export type FoodLog = {
   id: string

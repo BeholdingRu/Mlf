@@ -15,6 +15,7 @@ const NAV: { id: CabinetTab; label: string }[] = [
   { id: 'calories', label: 'Учет калорий' },
   { id: 'training', label: 'Тренировки' },
   { id: 'diary', label: 'Дневник' },
+  { id: 'media', label: 'Медиа' },
 ]
 
 const MOBILE_SIDEBAR_OPEN_STORAGE_KEY = 'mlf:mobile-sidebar-open'

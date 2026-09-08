@@ -6,6 +6,7 @@ import { StatsView } from '../components/StatsView'
 import { CaloriesView } from '../components/CaloriesView'
 import { TrainingView } from '../components/TrainingView'
 import { DiaryView } from '../components/DiaryView'
+import { MediaView } from '../components/MediaView'
 import { PathView } from '../components/PathView'
 import { useData } from '../hooks/useData'
 import { useViewport } from '../hooks/useViewport'
@@ -14,7 +15,7 @@ import { applyFontScale, applyTheme, normalizeFontScale, normalizeShabbatTheme, 
 import { isShabbatActive } from '../lib/shabbat'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
-const CABINET_TABS: CabinetTab[] = ['daily', 'all', 'calories', 'training', 'diary', 'path']
+const CABINET_TABS: CabinetTab[] = ['daily', 'all', 'calories', 'training', 'diary', 'media', 'path']
 
 function getSavedCabinetTab(): CabinetTab {
   const savedTab = window.sessionStorage.getItem(CABINET_TAB_STORAGE_KEY)
@@ -69,7 +70,9 @@ export function CabinetPage() {
             ? 'Тренировки'
             : tab === 'diary'
               ? 'Дневник'
-              : 'Путь'
+              : tab === 'media'
+                ? 'Медиа'
+                : 'Путь'
 
   return (
     <div className="cabinet">
@@ -125,6 +128,11 @@ export function CabinetPage() {
         {!loading && (
           <div hidden={tab !== 'diary'}>
             <DiaryView />
+          </div>
+        )}
+        {!loading && (
+          <div hidden={tab !== 'media'}>
+            <MediaView />
           </div>
         )}
         {!loading && profile?.shabbat_enabled && (
