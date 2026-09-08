@@ -183,7 +183,7 @@ export function MediaView({ compact = false }: MediaViewProps) {
   const pendingPlaybackTrackIdRef = useRef<string | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
   const [activeTrackId, setActiveTrackId] = useState<string | null>(null)
-  const [overlayOpen, setOverlayOpen] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
   const [overlayCollapsed, setOverlayCollapsed] = useState(false)
   const [volume, setVolume] = useState(1)
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
@@ -291,7 +291,10 @@ export function MediaView({ compact = false }: MediaViewProps) {
     }
 
     const trackToPlay = nextTrack ?? (repeatMode === 'playlist' ? tracks[0] : undefined)
-    if (!trackToPlay) return
+    if (!trackToPlay) {
+      setIsPlaying(false)
+      return
+    }
 
     pendingPlaybackTrackIdRef.current = trackToPlay.id
     setActiveTrackId(trackToPlay.id)
@@ -313,7 +316,7 @@ export function MediaView({ compact = false }: MediaViewProps) {
     if (playerRef.current) playerRef.current.currentTime = 0
     setActiveTrackId(null)
     setOverlayCollapsed(false)
-    setOverlayOpen(false)
+    setIsPlaying(false)
   }
 
   const repeatLabel = repeatMode === 'off'
@@ -324,75 +327,47 @@ export function MediaView({ compact = false }: MediaViewProps) {
 
   return (
     <section
-      className={`media-view${compact ? ' is-compact' : ''}${compact && overlayOpen ? ' is-overlay' : ''}${compact && overlayCollapsed ? ' is-collapsed' : ''}`}
+      className={`media-view${compact ? ' is-compact' : ''}`}
       aria-labelledby="media-player-heading"
-      hidden={compact && !overlayOpen}
+      hidden={compact && !isPlaying}
     >
-      <div className="page-head media-page-head">
-        <div className="media-heading">
-          <h2 id="media-player-heading">Локальный музыкальный проигрыватель</h2>
-          <button
-            type="button"
-            className="info-button"
-            aria-label="Информация о локальном музыкальном проигрывателе"
-            aria-expanded={mediaInfoOpen}
-            aria-controls="media-player-info"
-            onClick={() => setMediaInfoOpen((open) => !open)}
+      <div className={`media-player-overlay is-overlay${overlayCollapsed ? ' is-collapsed' : ''}`}>
+        <div className="media-player-card">
+          <MediaPlayer
+            ref={playerRef}
+            className="media-audio"
+            src={activeTrack ? { src: activeTrack.file, type: 'audio/object' } : undefined}
+            viewType="audio"
+            title={playerTitle}
+            volume={volume}
+            onVolumeChange={(event) => setVolume(event.volume)}
+            onCanPlay={startPendingTrack}
+            onPlay={() => setIsPlaying(true)}
+            onEnded={playNextTrack}
           >
-            i
-          </button>
-          {mediaInfoOpen && (
-            <p id="media-player-info" className="media-info">
-              Музыкальный проигрыватель воспроизводит только файлы, выбранные пользователем на его устройстве. Файлы не загружаются и не хранятся сервисом. Пользователь самостоятельно отвечает за наличие прав и соблюдение законодательства при использовании материалов.
-            </p>
-          )}
-        </div>
-        <p>Музыка воспроизводится только в браузере и не передаётся на сайт.</p>
-      </div>
-
-      <div className="media-subtabs" role="tablist" aria-label="Разделы медиа">
-        <button type="button" role="tab" aria-selected={subTab === 'player'} className={subTab === 'player' ? 'media-subtab active' : 'media-subtab'} onClick={() => setSubTab('player')}>Проигрыватель</button>
-        <button type="button" role="tab" aria-selected={subTab === 'playlists'} className={subTab === 'playlists' ? 'media-subtab active' : 'media-subtab'} onClick={() => setSubTab('playlists')}>Плейлисты</button>
-      </div>
-
-      {(subTab === 'player' || compact) && <>
-      <div className="media-player-card">
-        <MediaPlayer
-          ref={playerRef}
-          className="media-audio"
-          src={activeTrack ? { src: activeTrack.file, type: 'audio/object' } : undefined}
-          viewType="audio"
-          title={playerTitle}
-          volume={volume}
-          onVolumeChange={(event) => setVolume(event.volume)}
-          onCanPlay={startPendingTrack}
-          onPlay={() => setOverlayOpen(true)}
-          onEnded={playNextTrack}
-        >
-          <MediaProvider />
-          <DefaultAudioLayout
-            icons={defaultLayoutIcons}
-            translations={VIDSTACK_RUSSIAN_TRANSLATIONS}
-            slots={{
-              title: playerTitle,
-              beforeSeekBackwardButton: compact ? <button type="button" className="media-overlay-stop vds-button" aria-label="Остановить и закрыть проигрыватель" title="Остановить" onClick={stopPlayback}><StopIcon /></button> : null,
-              seekBackwardButton: <SeekButton className="vds-seek-button vds-button" seconds={-10} aria-label="Назад на 10 секунд"><SeekIcon direction="backward" /></SeekButton>,
-              seekForwardButton: <SeekButton className="vds-seek-button vds-button" seconds={10} aria-label="Вперёд на 10 секунд"><SeekIcon direction="forward" /></SeekButton>,
-              beforeMuteButton: <button type="button" className={`vds-repeat-button vds-button repeat-${repeatMode}`} aria-label={repeatLabel} title={repeatLabel} onClick={cycleRepeatMode}><RepeatIcon mode={repeatMode} /></button>,
-              volumeSlider: (
-                <VolumeSlider.Root className="vds-volume-slider vds-slider" aria-label="Громкость" orientation="horizontal">
-                  <VolumeSlider.Track className="vds-slider-track" />
-                  <VolumeSlider.TrackFill className="vds-slider-track-fill vds-slider-track" />
-                  <VolumeSlider.Thumb className="vds-slider-thumb" />
-                  <VolumeSlider.Preview className="vds-slider-preview" noClamp>
-                    <VolumeSlider.Value className="vds-slider-value" />
-                  </VolumeSlider.Preview>
-                </VolumeSlider.Root>
-              ),
-            }}
-          />
-        </MediaPlayer>
-        {compact && (
+            <MediaProvider />
+            <DefaultAudioLayout
+              icons={defaultLayoutIcons}
+              translations={VIDSTACK_RUSSIAN_TRANSLATIONS}
+              slots={{
+                title: playerTitle,
+                beforeSeekBackwardButton: <button type="button" className="media-overlay-stop vds-button" aria-label="Остановить и закрыть проигрыватель" title="Остановить" onClick={stopPlayback}><StopIcon /></button>,
+                seekBackwardButton: <SeekButton className="vds-seek-button vds-button" seconds={-10} aria-label="Назад на 10 секунд"><SeekIcon direction="backward" /></SeekButton>,
+                seekForwardButton: <SeekButton className="vds-seek-button vds-button" seconds={10} aria-label="Вперёд на 10 секунд"><SeekIcon direction="forward" /></SeekButton>,
+                beforeMuteButton: <button type="button" className={`vds-repeat-button vds-button repeat-${repeatMode}`} aria-label={repeatLabel} title={repeatLabel} onClick={cycleRepeatMode}><RepeatIcon mode={repeatMode} /></button>,
+                volumeSlider: (
+                  <VolumeSlider.Root className="vds-volume-slider vds-slider" aria-label="Громкость" orientation="horizontal">
+                    <VolumeSlider.Track className="vds-slider-track" />
+                    <VolumeSlider.TrackFill className="vds-slider-track-fill vds-slider-track" />
+                    <VolumeSlider.Thumb className="vds-slider-thumb" />
+                    <VolumeSlider.Preview className="vds-slider-preview" noClamp>
+                      <VolumeSlider.Value className="vds-slider-value" />
+                    </VolumeSlider.Preview>
+                  </VolumeSlider.Root>
+                ),
+              }}
+            />
+          </MediaPlayer>
           <button
             type="button"
             className="media-overlay-collapse"
@@ -402,8 +377,39 @@ export function MediaView({ compact = false }: MediaViewProps) {
           >
             <CollapseIcon collapsed={overlayCollapsed} />
           </button>
-        )}
-        <div className="media-actions">
+        </div>
+      </div>
+
+      {!compact && <>
+        <div className="page-head media-page-head">
+          <div className="media-heading">
+            <h2 id="media-player-heading">Локальный музыкальный проигрыватель</h2>
+            <button
+              type="button"
+              className="info-button"
+              aria-label="Информация о локальном музыкальном проигрывателе"
+              aria-expanded={mediaInfoOpen}
+              aria-controls="media-player-info"
+              onClick={() => setMediaInfoOpen((open) => !open)}
+            >
+              i
+            </button>
+            {mediaInfoOpen && (
+              <p id="media-player-info" className="media-info">
+                Музыкальный проигрыватель воспроизводит только файлы, выбранные пользователем на его устройстве. Файлы не загружаются и не хранятся сервисом. Пользователь самостоятельно отвечает за наличие прав и соблюдение законодательства при использовании материалов.
+              </p>
+            )}
+          </div>
+          <p>Музыка воспроизводится только в браузере и не передаётся на сайт.</p>
+        </div>
+
+        <div className="media-subtabs" role="tablist" aria-label="Разделы медиа">
+          <button type="button" role="tab" aria-selected={subTab === 'player'} className={subTab === 'player' ? 'media-subtab active' : 'media-subtab'} onClick={() => setSubTab('player')}>Проигрыватель</button>
+          <button type="button" role="tab" aria-selected={subTab === 'playlists'} className={subTab === 'playlists' ? 'media-subtab active' : 'media-subtab'} onClick={() => setSubTab('playlists')}>Плейлисты</button>
+        </div>
+
+        {subTab === 'player' && <>
+          <div className="media-actions">
           <label className="primary media-file-picker">
             Выбрать аудиофайлы
             <input type="file" accept="audio/*" multiple onChange={selectFiles} />
@@ -412,7 +418,6 @@ export function MediaView({ compact = false }: MediaViewProps) {
         </div>
         <p className="hint media-status" role="status">{status}</p>
         {playlistFoldersSupported && <p className="hint">В Chrome и Edge можно сохранить доступ к выбранной папке. Браузер может запросить разрешение повторно.</p>}
-      </div>
 
       {tracks.length > 0 && (
         <ol className="media-playlist">
@@ -432,9 +437,9 @@ export function MediaView({ compact = false }: MediaViewProps) {
           ))}
         </ol>
       )}
-      </>}
+        </>}
 
-      {subTab === 'playlists' && (
+        {subTab === 'playlists' && (
         <div className="media-playlists-panel" role="tabpanel">
           {!playlistFoldersSupported ? (
             <p className="hint">
@@ -459,7 +464,8 @@ export function MediaView({ compact = false }: MediaViewProps) {
             </>
           )}
         </div>
-      )}
+        )}
+      </>}
     </section>
   )
 }
