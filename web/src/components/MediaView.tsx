@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { MediaPlayer, MediaProvider, SeekButton, VolumeSlider } from '@vidstack/react'
+import type { MediaPlayerInstance } from '@vidstack/react'
+import { DefaultAudioLayout, defaultLayoutIcons } from '@vidstack/react/player/layouts/default'
+import '@vidstack/react/player/styles/base.css'
+import '@vidstack/react/player/styles/default/theme.css'
+import '@vidstack/react/player/styles/default/layouts/audio.css'
 
 type FileSystemFileHandleLike = {
   kind: 'file'
@@ -19,7 +25,7 @@ type FileSystemWindow = Window & {
 type Track = {
   id: string
   name: string
-  url: string
+  file: File
 }
 
 type Playlist = {
@@ -29,9 +35,72 @@ type Playlist = {
 }
 
 type MediaSubTab = 'player' | 'playlists'
+type RepeatMode = 'off' | 'playlist' | 'track'
 
 const DIRECTORY_HANDLE_DB = 'mlf-media'
 const PLAYLIST_STORE = 'playlists'
+const VIDSTACK_RUSSIAN_TRANSLATIONS = {
+  Accessibility: 'Доступность',
+  AirPlay: 'AirPlay',
+  Audio: 'Аудио',
+  Auto: 'Авто',
+  Boost: 'Усиление',
+  Captions: 'Субтитры',
+  Chapters: 'Главы',
+  Continue: 'Продолжить',
+  Default: 'По умолчанию',
+  Disabled: 'Отключено',
+  Download: 'Скачать',
+  'Enter Fullscreen': 'Во весь экран',
+  'Exit Fullscreen': 'Выйти из полноэкранного режима',
+  Fullscreen: 'Полный экран',
+  LIVE: 'ПРЯМОЙ ЭФИР',
+  Loop: 'Повтор',
+  Mute: 'Выключить звук',
+  Normal: 'Обычная',
+  Off: 'Выкл.',
+  Pause: 'Пауза',
+  Play: 'Воспроизвести',
+  Playback: 'Воспроизведение',
+  Quality: 'Качество',
+  Replay: 'Повторить',
+  Reset: 'Сбросить',
+  'Seek Backward': 'Назад',
+  'Seek Forward': 'Вперёд',
+  Seek: 'Перемотка',
+  Settings: 'Настройки',
+  Speed: 'Скорость',
+  Unmute: 'Включить звук',
+  Volume: 'Громкость',
+} as const
+
+function SeekIcon({ direction }: { direction: 'backward' | 'forward' }) {
+  const arrowTransform = direction === 'forward' ? undefined : 'translate(24 0) scale(-1 1)'
+  const label = direction === 'forward' ? '+10' : '−10'
+
+  return (
+    <svg className="vds-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" strokeLinejoin="round">
+      <g transform={arrowTransform}>
+        <path d="M19 8.5A8 8 0 1 0 20 15" />
+        <path d="m19 4.5 1 4-4 1" />
+      </g>
+      <text x="12" y="15" fill="currentColor" stroke="none" textAnchor="middle" fontSize="6" fontWeight="500">{label}</text>
+    </svg>
+  )
+}
+
+function RepeatIcon({ mode }: { mode: RepeatMode }) {
+  return (
+    <svg className="vds-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 8c1.4-2.2 4-3.5 6.7-3.5 2.8 0 5.1 1.3 6.5 3.5" />
+      <path d="m16.5 4.5 2.7 3-3.9.4" />
+      <path d="M18 16c-1.4 2.2-4 3.5-6.7 3.5-2.8 0-5.1-1.3-6.5-3.5" />
+      <path d="m7.5 19.5-2.7-3 3.9-.4" />
+      {mode === 'track' && <text x="12" y="15.25" fill="currentColor" stroke="none" textAnchor="middle" fontSize="7" fontWeight="700">1</text>}
+      {mode === 'off' && <path d="M5 5 19 19" />}
+    </svg>
+  )
+}
 
 function openHandleDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -90,10 +159,12 @@ async function readAudioFiles(directory: FileSystemDirectoryHandleLike) {
 }
 
 export function MediaView() {
-  const playerRef = useRef<HTMLAudioElement>(null)
-  const urlsRef = useRef<string[]>([])
+  const playerRef = useRef<MediaPlayerInstance>(null)
+  const pendingPlaybackTrackIdRef = useRef<string | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
   const [activeTrackId, setActiveTrackId] = useState<string | null>(null)
+  const [volume, setVolume] = useState(1)
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
   const [status, setStatus] = useState('Выберите аудиофайлы или папку с музыкой.')
   const [mediaInfoOpen, setMediaInfoOpen] = useState(false)
   const [subTab, setSubTab] = useState<MediaSubTab>('player')
@@ -104,27 +175,24 @@ export function MediaView() {
   const fileSystemSupported = typeof (window as FileSystemWindow).showDirectoryPicker === 'function'
   const playlistFoldersSupported = fileSystemSupported && window.isSecureContext
 
-  useEffect(() => () => urlsRef.current.forEach((url) => URL.revokeObjectURL(url)), [])
-
   useEffect(() => {
     if (!playlistFoldersSupported) return
     void getPlaylists().then(setPlaylists).catch(() => setStatus('Не удалось загрузить сохранённые плейлисты.'))
   }, [playlistFoldersSupported])
 
-  const setFiles = (files: File[]) => {
-    urlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+  const setFiles = (files: File[], autoPlay = false) => {
     const newTracks = files.map((file, index) => ({
       id: `${file.name}-${file.lastModified}-${index}`,
       name: file.name,
-      url: URL.createObjectURL(file),
+      file,
     }))
-    urlsRef.current = newTracks.map((track) => track.url)
     setTracks(newTracks)
     setActiveTrackId(newTracks[0]?.id ?? null)
     setStatus(newTracks.length ? `Добавлено треков: ${newTracks.length}. Файлы остаются на вашем устройстве.` : 'Аудиофайлы не найдены.')
+    pendingPlaybackTrackIdRef.current = autoPlay ? newTracks[0]?.id ?? null : null
   }
 
-  const selectFiles = (event: React.ChangeEvent<HTMLInputElement>) => setFiles(Array.from(event.target.files ?? []))
+  const selectFiles = (event: React.ChangeEvent<HTMLInputElement>) => setFiles(Array.from(event.target.files ?? []), true)
 
   const selectDirectory = async () => {
     const picker = (window as FileSystemWindow).showDirectoryPicker
@@ -187,6 +255,39 @@ export function MediaView() {
 
   const activeTrack = tracks.find((track) => track.id === activeTrackId)
 
+  const playNextTrack = () => {
+    const currentTrackIndex = tracks.findIndex((track) => track.id === activeTrackId)
+    const nextTrack = currentTrackIndex >= 0 ? tracks[currentTrackIndex + 1] : undefined
+
+    if (repeatMode === 'track' && activeTrackId) {
+      playerRef.current!.currentTime = 0
+      void playerRef.current?.play()
+      return
+    }
+
+    const trackToPlay = nextTrack ?? (repeatMode === 'playlist' ? tracks[0] : undefined)
+    if (!trackToPlay) return
+
+    pendingPlaybackTrackIdRef.current = trackToPlay.id
+    setActiveTrackId(trackToPlay.id)
+  }
+
+  const startPendingTrack = () => {
+    if (!activeTrackId || pendingPlaybackTrackIdRef.current !== activeTrackId) return
+    pendingPlaybackTrackIdRef.current = null
+    void playerRef.current?.play()
+  }
+
+  const cycleRepeatMode = () => {
+    setRepeatMode((mode) => mode === 'off' ? 'playlist' : mode === 'playlist' ? 'track' : 'off')
+  }
+
+  const repeatLabel = repeatMode === 'off'
+    ? 'Повтор выключен'
+    : repeatMode === 'playlist'
+      ? 'Повтор плейлиста'
+      : 'Повтор текущего трека'
+
   return (
     <section className="media-view" aria-labelledby="media-player-heading">
       <div className="page-head media-page-head">
@@ -218,9 +319,39 @@ export function MediaView() {
 
       {subTab === 'player' && <>
       <div className="media-player-card">
-        <audio ref={playerRef} controls preload="metadata" src={activeTrack?.url} className="media-audio">
-          Ваш браузер не поддерживает воспроизведение аудио.
-        </audio>
+        <MediaPlayer
+          ref={playerRef}
+          className="media-audio"
+          src={activeTrack ? { src: activeTrack.file, type: 'audio/object' } : undefined}
+          viewType="audio"
+          title={activeTrack?.name ?? 'Локальная музыка'}
+          volume={volume}
+          onVolumeChange={(event) => setVolume(event.volume)}
+          onCanPlay={startPendingTrack}
+          onEnded={playNextTrack}
+        >
+          <MediaProvider />
+          <DefaultAudioLayout
+            icons={defaultLayoutIcons}
+            translations={VIDSTACK_RUSSIAN_TRANSLATIONS}
+            slots={{
+              title: activeTrack?.name ?? 'Локальная музыка',
+              seekBackwardButton: <SeekButton className="vds-seek-button vds-button" seconds={-10} aria-label="Назад на 10 секунд"><SeekIcon direction="backward" /></SeekButton>,
+              seekForwardButton: <SeekButton className="vds-seek-button vds-button" seconds={10} aria-label="Вперёд на 10 секунд"><SeekIcon direction="forward" /></SeekButton>,
+              beforeMuteButton: <button type="button" className={`vds-repeat-button vds-button repeat-${repeatMode}`} aria-label={repeatLabel} title={repeatLabel} onClick={cycleRepeatMode}><RepeatIcon mode={repeatMode} /></button>,
+              volumeSlider: (
+                <VolumeSlider.Root className="vds-volume-slider vds-slider" aria-label="Громкость" orientation="horizontal">
+                  <VolumeSlider.Track className="vds-slider-track" />
+                  <VolumeSlider.TrackFill className="vds-slider-track-fill vds-slider-track" />
+                  <VolumeSlider.Thumb className="vds-slider-thumb" />
+                  <VolumeSlider.Preview className="vds-slider-preview" noClamp>
+                    <VolumeSlider.Value className="vds-slider-value" />
+                  </VolumeSlider.Preview>
+                </VolumeSlider.Root>
+              ),
+            }}
+          />
+        </MediaPlayer>
         <div className="media-actions">
           <label className="primary media-file-picker">
             Выбрать аудиофайлы
@@ -240,8 +371,8 @@ export function MediaView() {
                 type="button"
                 className={track.id === activeTrackId ? 'media-track active' : 'media-track'}
                 onClick={() => {
+                  pendingPlaybackTrackIdRef.current = track.id
                   setActiveTrackId(track.id)
-                  window.setTimeout(() => void playerRef.current?.play(), 0)
                 }}
               >
                 {track.name}
