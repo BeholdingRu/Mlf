@@ -102,6 +102,22 @@ function RepeatIcon({ mode }: { mode: RepeatMode }) {
   )
 }
 
+function StopIcon() {
+  return (
+    <svg className="vds-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="7" y="7" width="10" height="10" rx="1" fill="currentColor" />
+    </svg>
+  )
+}
+
+function CollapseIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg className="vds-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d={collapsed ? 'm7 9 5 5 5-5' : 'm7 15 5-5 5 5'} />
+    </svg>
+  )
+}
+
 function openHandleDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = window.indexedDB.open(DIRECTORY_HANDLE_DB, 2)
@@ -158,11 +174,17 @@ async function readAudioFiles(directory: FileSystemDirectoryHandleLike) {
   return files
 }
 
-export function MediaView() {
+type MediaViewProps = {
+  compact?: boolean
+}
+
+export function MediaView({ compact = false }: MediaViewProps) {
   const playerRef = useRef<MediaPlayerInstance>(null)
   const pendingPlaybackTrackIdRef = useRef<string | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
   const [activeTrackId, setActiveTrackId] = useState<string | null>(null)
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  const [overlayCollapsed, setOverlayCollapsed] = useState(false)
   const [volume, setVolume] = useState(1)
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
   const [status, setStatus] = useState('Выберите аудиофайлы или папку с музыкой.')
@@ -254,6 +276,7 @@ export function MediaView() {
   }
 
   const activeTrack = tracks.find((track) => track.id === activeTrackId)
+  const playerTitle = activeTrack?.name ?? 'Локальная музыка'
 
   const playNextTrack = () => {
     const currentTrackIndex = tracks.findIndex((track) => track.id === activeTrackId)
@@ -282,6 +305,15 @@ export function MediaView() {
     setRepeatMode((mode) => mode === 'off' ? 'playlist' : mode === 'playlist' ? 'track' : 'off')
   }
 
+  const stopPlayback = () => {
+    pendingPlaybackTrackIdRef.current = null
+    playerRef.current?.pause()
+    if (playerRef.current) playerRef.current.currentTime = 0
+    setActiveTrackId(null)
+    setOverlayCollapsed(false)
+    setOverlayOpen(false)
+  }
+
   const repeatLabel = repeatMode === 'off'
     ? 'Повтор выключен'
     : repeatMode === 'playlist'
@@ -289,7 +321,11 @@ export function MediaView() {
       : 'Повтор текущего трека'
 
   return (
-    <section className="media-view" aria-labelledby="media-player-heading">
+    <section
+      className={`media-view${compact ? ' is-compact' : ''}${compact && overlayOpen ? ' is-overlay' : ''}${compact && overlayCollapsed ? ' is-collapsed' : ''}`}
+      aria-labelledby="media-player-heading"
+      hidden={compact && !overlayOpen}
+    >
       <div className="page-head media-page-head">
         <div className="media-heading">
           <h2 id="media-player-heading">Локальный музыкальный проигрыватель</h2>
@@ -317,17 +353,18 @@ export function MediaView() {
         <button type="button" role="tab" aria-selected={subTab === 'playlists'} className={subTab === 'playlists' ? 'media-subtab active' : 'media-subtab'} onClick={() => setSubTab('playlists')}>Плейлисты</button>
       </div>
 
-      {subTab === 'player' && <>
+      {(subTab === 'player' || compact) && <>
       <div className="media-player-card">
         <MediaPlayer
           ref={playerRef}
           className="media-audio"
           src={activeTrack ? { src: activeTrack.file, type: 'audio/object' } : undefined}
           viewType="audio"
-          title={activeTrack?.name ?? 'Локальная музыка'}
+          title={playerTitle}
           volume={volume}
           onVolumeChange={(event) => setVolume(event.volume)}
           onCanPlay={startPendingTrack}
+          onPlay={() => setOverlayOpen(true)}
           onEnded={playNextTrack}
         >
           <MediaProvider />
@@ -335,7 +372,8 @@ export function MediaView() {
             icons={defaultLayoutIcons}
             translations={VIDSTACK_RUSSIAN_TRANSLATIONS}
             slots={{
-              title: activeTrack?.name ?? 'Локальная музыка',
+              title: playerTitle,
+              beforeSeekBackwardButton: compact ? <button type="button" className="media-overlay-stop vds-button" aria-label="Остановить и закрыть проигрыватель" title="Остановить" onClick={stopPlayback}><StopIcon /></button> : null,
               seekBackwardButton: <SeekButton className="vds-seek-button vds-button" seconds={-10} aria-label="Назад на 10 секунд"><SeekIcon direction="backward" /></SeekButton>,
               seekForwardButton: <SeekButton className="vds-seek-button vds-button" seconds={10} aria-label="Вперёд на 10 секунд"><SeekIcon direction="forward" /></SeekButton>,
               beforeMuteButton: <button type="button" className={`vds-repeat-button vds-button repeat-${repeatMode}`} aria-label={repeatLabel} title={repeatLabel} onClick={cycleRepeatMode}><RepeatIcon mode={repeatMode} /></button>,
@@ -352,6 +390,17 @@ export function MediaView() {
             }}
           />
         </MediaPlayer>
+        {compact && (
+          <button
+            type="button"
+            className="media-overlay-collapse"
+            aria-label={overlayCollapsed ? 'Развернуть проигрыватель' : 'Свернуть проигрыватель'}
+            aria-expanded={!overlayCollapsed}
+            onClick={() => setOverlayCollapsed((collapsed) => !collapsed)}
+          >
+            <CollapseIcon collapsed={overlayCollapsed} />
+          </button>
+        )}
         <div className="media-actions">
           <label className="primary media-file-picker">
             Выбрать аудиофайлы

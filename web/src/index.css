@@ -816,6 +816,112 @@ nav {
   min-width: 0;
 }
 
+.media-view.is-overlay {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  right: 0;
+  left: 280px;
+  display: block;
+  width: auto;
+  margin: 0;
+  background: var(--sidebar);
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.cabinet:has(.desktop-sidebar-collapsed) .media-view.is-overlay {
+  left: 48px;
+}
+
+.media-view.is-overlay .media-page-head,
+.media-view.is-overlay .media-subtabs,
+.media-view.is-overlay .media-actions,
+.media-view.is-overlay .media-status,
+.media-view.is-overlay .media-player-card > .hint,
+.media-view.is-overlay .media-playlist,
+.media-view.is-overlay .media-playlists-panel {
+  display: none;
+}
+
+.media-view.is-overlay .media-player-card {
+  display: block;
+  padding: 8px clamp(16px, 3vw, 32px);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.media-overlay-stop {
+  display: none;
+}
+
+.media-overlay-collapse {
+  display: none;
+}
+
+.media-view.is-overlay .media-overlay-stop {
+  display: inline-flex;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.media-view.is-overlay .media-overlay-stop:hover {
+  background: var(--info-bg);
+}
+
+.media-view.is-overlay .media-audio {
+  --audio-brand: var(--moss);
+  --audio-controls-color: var(--ink);
+  --audio-border: 0;
+  --audio-play-button-bg: var(--moss);
+  --audio-play-button-color: var(--on-accent);
+  --audio-play-button-border: 0;
+  --audio-slider-track-bg: var(--track);
+  --audio-slider-progress-bg: color-mix(in srgb, var(--moss) 22%, var(--track));
+  --media-button-hover-bg: var(--info-bg);
+  --media-button-touch-hover-bg: var(--info-bg);
+  --media-tooltip-bg: var(--ink);
+  --media-tooltip-color: var(--panel);
+}
+
+.media-view.is-overlay .media-audio .vds-audio-layout,
+.media-view.is-overlay .media-audio .vds-audio-layout.light,
+.media-view.is-overlay .media-audio .vds-audio-layout.dark {
+  min-height: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.media-view.is-overlay .media-audio .vds-audio-layout .vds-title {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.media-view.is-overlay .media-audio .vds-audio-layout .vds-play-button {
+  color: var(--on-accent);
+  background-color: var(--moss);
+}
+
+.media-view.is-overlay .media-audio .vds-audio-layout .vds-button:hover {
+  background-color: var(--info-bg);
+}
+
+.media-view.is-overlay .media-audio .vds-audio-layout .vds-play-button:hover {
+  background-color: var(--moss-deep);
+}
+
+.media-view.is-overlay .media-audio .vds-audio-layout .vds-seek-button,
+.media-view.is-overlay .media-audio .vds-audio-layout .vds-repeat-button {
+  border-color: var(--line);
+}
+
+.media-view.is-overlay .media-audio .vds-audio-layout .vds-repeat-button:not(.repeat-off) {
+  color: var(--moss-deep);
+  background-color: var(--info-bg);
+}
+
 .media-page-head {
   position: relative;
 }
@@ -1027,8 +1133,8 @@ nav {
 
 .media-audio .vds-audio-layout .vds-volume {
   --media-slider-height: 36px;
-  flex: 0 1 132px;
-  min-width: 88px;
+  flex: 0 1 185px;
+  min-width: 123px;
   justify-content: flex-start;
 }
 
@@ -1086,10 +1192,33 @@ nav {
 
 .media-playlist {
   display: grid;
-  gap: 8px;
   margin: 0;
   padding: 0;
+  overflow: hidden;
   list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.media-playlist li + li {
+  border-top: 1px solid var(--line);
+}
+
+.media-playlist .media-track {
+  display: block;
+  border: 0;
+  border-radius: 0;
+}
+
+.media-playlist .media-track:hover,
+.media-playlist .media-track.active {
+  border-color: transparent;
+  background: var(--info-bg);
+}
+
+.media-playlist .media-track.active {
+  box-shadow: inset 3px 0 0 var(--moss);
 }
 
 .media-track {
@@ -4035,6 +4164,10 @@ nav {
     padding: 18px 24px 36px;
   }
 
+  .media-view.is-overlay {
+    left: 0;
+  }
+
   .topbar {
     flex-direction: column;
     align-items: flex-start;
@@ -4068,6 +4201,9 @@ nav {
   :root {
     --radius: 14px;
     --mobile-bottom-scroll-padding: max(72px, calc(24px + env(safe-area-inset-bottom)));
+    --mobile-sidebar-toggle-height: 32px;
+    --mobile-sidebar-divider-height: 1px;
+    --mobile-collapsed-player-height: 48px;
   }
 
   html,
@@ -4117,7 +4253,8 @@ nav {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     width: 100%;
-    min-height: 24px;
+    height: var(--mobile-sidebar-toggle-height);
+    min-height: var(--mobile-sidebar-toggle-height);
     gap: 6px;
     padding: 4px 8px;
     border: 0;
@@ -4143,7 +4280,7 @@ nav {
     display: grid;
     gap: 8px;
     padding: 12px;
-    border-top: 1px solid var(--line);
+    border-top: var(--mobile-sidebar-divider-height) solid var(--line);
     position: relative;
   }
 
@@ -4813,6 +4950,61 @@ nav {
 
   .media-audio .vds-audio-layout .vds-volume {
     display: none;
+  }
+
+  .media-view.is-overlay {
+    transition: width 0.2s ease;
+  }
+
+  .media-view.is-overlay .media-player-card {
+    position: relative;
+    padding-right: 48px;
+  }
+
+  .media-view.is-overlay .media-overlay-collapse {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  .media-view.is-overlay .media-overlay-collapse:hover {
+    background: var(--info-bg);
+  }
+
+  .media-view.is-overlay.is-collapsed {
+    left: auto;
+    width: 38.4px;
+    height: var(--mobile-collapsed-player-height);
+    min-height: 0;
+    border-bottom: 0;
+    border-left: 1px solid var(--line);
+  }
+
+  .media-view.is-overlay.is-collapsed .media-player-card {
+    height: var(--mobile-collapsed-player-height);
+    min-height: 0;
+    padding: 0;
+  }
+
+  .media-view.is-overlay.is-collapsed .media-audio {
+    display: none;
+  }
+
+  .media-view.is-overlay.is-collapsed .media-overlay-collapse {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
   }
 }
 

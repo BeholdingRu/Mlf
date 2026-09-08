@@ -131,9 +131,7 @@ export function CabinetPage() {
           </div>
         )}
         {!loading && (
-          <div hidden={tab !== 'media'}>
-            <MediaView />
-          </div>
+          <MediaView compact={tab !== 'media'} />
         )}
         {!loading && profile?.shabbat_enabled && (
           <div hidden={tab !== 'path'}>
