@@ -19,14 +19,10 @@ const NAV: { id: CabinetTab; label: string }[] = [
 ]
 
 const MOBILE_SIDEBAR_OPEN_STORAGE_KEY = 'mlf:mobile-sidebar-open'
-const DESKTOP_SIDEBAR_COLLAPSED_STORAGE_KEY = 'mlf:desktop-sidebar-collapsed'
 
 export function Sidebar({ tab, onTab, onOpenSettings, shabbatEnabled }: SidebarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(
     () => window.sessionStorage.getItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY) === 'true',
-  )
-  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(
-    () => window.sessionStorage.getItem(DESKTOP_SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true',
   )
   const navigation = shabbatEnabled
     ? [...NAV.slice(0, -1), { id: 'path' as const, label: 'Путь' }, NAV[NAV.length - 1]]
@@ -37,12 +33,8 @@ export function Sidebar({ tab, onTab, onOpenSettings, shabbatEnabled }: SidebarP
     window.sessionStorage.setItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY, String(mobileMenuOpen))
   }, [mobileMenuOpen])
 
-  useEffect(() => {
-    window.sessionStorage.setItem(DESKTOP_SIDEBAR_COLLAPSED_STORAGE_KEY, String(desktopSidebarCollapsed))
-  }, [desktopSidebarCollapsed])
-
   return (
-    <aside className={`sidebar${mobileMenuOpen ? ' mobile-menu-open' : ''}${desktopSidebarCollapsed ? ' desktop-sidebar-collapsed' : ''}`}>
+    <aside className={`sidebar${mobileMenuOpen ? ' mobile-menu-open' : ''}`}>
       <button
         type="button"
         className="mobile-sidebar-toggle"
@@ -66,17 +58,6 @@ export function Sidebar({ tab, onTab, onOpenSettings, shabbatEnabled }: SidebarP
           <span aria-hidden="true">⚙</span>
         </button>
         <nav>
-          <button
-            type="button"
-            className="desktop-sidebar-toggle"
-            onClick={() => setDesktopSidebarCollapsed((collapsed) => !collapsed)}
-            aria-expanded={!desktopSidebarCollapsed}
-            aria-controls="sidebar-navigation"
-            aria-label={desktopSidebarCollapsed ? 'Показать навигацию' : 'Скрыть навигацию'}
-            title={desktopSidebarCollapsed ? 'Показать навигацию' : 'Скрыть навигацию'}
-          >
-            <span aria-hidden="true">{desktopSidebarCollapsed ? '›' : '‹'}</span>
-          </button>
           {navigation.map((item) => (
             <button
               key={item.id}
