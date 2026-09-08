@@ -54,10 +54,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         if (error) throw error
       },
-      async signUp(email, password) {
+      async validateRegistrationCode(code) {
+        const { data, error } = await requireSupabase().rpc('is_valid_registration_code', {
+          candidate_code: code.trim(),
+        })
+        if (error) throw error
+        return data === true
+      },
+      async signUp(email, password, registrationCode) {
         const { data, error } = await requireSupabase().auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              registration_code: registrationCode.trim(),
+              alpha_test_consent: true,
+            },
+          },
         })
         if (error) throw error
         return data.session ? 'session' : 'confirm'

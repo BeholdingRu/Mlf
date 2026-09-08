@@ -12,6 +12,16 @@
     - В шаблоне должен быть токен, не только ссылка, например: `Ваш код: {{ .Token }}`
     - Сохраните шаблон и проверьте, что письма уходят (для тестов удобен Inbucket в локальном стеке или реальный SMTP).
 
+Регистрация закрыта кодом доступа. Для уже созданной базы выполните
+`supabase/add_registration_access.sql` в **SQL Editor**. Код хранится в базе только как SHA-256-хеш;
+при необходимости отключить его выполните:
+
+```sql
+update public.registration_access_codes
+set is_active = false
+where code_hash = 'eb8301c77dfc545320efd372a93c94d6c4c4b6e0cdfc89b301d5fdba5abd9cd3';
+```
+
 Если база уже была создана ранее, для каталога продуктов отдельно выполните
 `supabase/add_saved_products.sql` в **SQL Editor**.
 

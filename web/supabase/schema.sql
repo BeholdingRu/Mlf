@@ -1,8 +1,22 @@
 -- MLF: run this in the Supabase SQL editor (once per project).
 
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists public.registration_access_codes (
+  id uuid primary key default gen_random_uuid(),
+  code_hash text not null unique,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+insert into public.registration_access_codes (code_hash)
+values ('eb8301c77dfc545320efd372a93c94d6c4c4b6e0cdfc89b301d5fdba5abd9cd3')
+on conflict (code_hash) do nothing;
+
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
+  alpha_test_consent_at timestamptz,
   weight_enabled boolean not null default false,
   target_weight numeric(6, 1),
   desired_weight numeric(6, 1),
@@ -229,8 +243,8 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email)
-  values (new.id, coalesce(new.email, ''))
+  insert into public.profiles (id, email, alpha_test_consent_at)
+  values (new.id, coalesce(new.email, ''), now())
   on conflict (id) do nothing;
   insert into public.mindfulness_categories (user_id, name)
   values (new.id, 'Субботняя школа'), (new.id, 'Неотсортированные')
@@ -239,12 +253,59 @@ begin
 end;
 $$;
 
+create or replace function public.is_valid_registration_code(candidate_code text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  select exists (
+    select 1
+    from public.registration_access_codes
+    where is_active
+      and code_hash = encode(extensions.digest(trim(candidate_code), 'sha256'), 'hex')
+  );
+$$;
+
+create or replace function public.validate_registration_access()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  registration_code text;
+begin
+  registration_code := new.raw_user_meta_data ->> 'registration_code';
+
+  if not public.is_valid_registration_code(registration_code) then
+    raise exception 'Неверный код регистрации';
+  end if;
+
+  if coalesce(new.raw_user_meta_data ->> 'alpha_test_consent', 'false') <> 'true' then
+    raise exception 'Необходимо подтвердить согласие на участие в альфа-тестировании';
+  end if;
+
+  new.raw_user_meta_data := coalesce(new.raw_user_meta_data, '{}'::jsonb)
+    - 'registration_code'
+    - 'alpha_test_consent';
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_registration_access_before_create on auth.users;
+create trigger validate_registration_access_before_create
+  before insert on auth.users
+  for each row execute procedure public.validate_registration_access();
+
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
 alter table public.profiles enable row level security;
+alter table public.registration_access_codes enable row level security;
 alter table public.user_roles enable row level security;
 alter table public.tasks enable row level security;
 alter table public.task_completions enable row level security;
@@ -260,8 +321,11 @@ alter table public.saved_exercises enable row level security;
 alter table public.scheduled_exercises enable row level security;
 
 revoke all on table public.user_roles from anon, authenticated;
+revoke all on table public.registration_access_codes from anon, authenticated;
 revoke all on function public.is_admin() from public;
+revoke all on function public.is_valid_registration_code(text) from public;
 grant execute on function public.is_admin() to authenticated;
+grant execute on function public.is_valid_registration_code(text) to anon, authenticated;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles

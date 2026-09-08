@@ -456,6 +456,32 @@ input:not([type]) {
   color: var(--ink);
 }
 
+.consent-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.consent-check input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin: 2px 0 0;
+  accent-color: var(--moss);
+}
+
+.field-error {
+  color: var(--warn);
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .primary,
 .ghost,
 .danger,

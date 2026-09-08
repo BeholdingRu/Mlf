@@ -4,14 +4,18 @@ import { getAuthErrorMessage } from '../lib/auth-errors'
 
 type Mode = 'login' | 'register' | 'recovery'
 type RecoveryStep = 'email' | 'code'
+type RegistrationCodeStatus = 'idle' | 'checking' | 'valid' | 'invalid'
 const RECOVERY_CODE_LENGTH = 8
 
 export function AuthPage() {
-  const { signIn, signUp, requestRecovery, verifyRecovery } = useAuth()
+  const { signIn, signUp, validateRegistrationCode, requestRecovery, verifyRecovery } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [password2, setPassword2] = useState('')
+  const [registrationCode, setRegistrationCode] = useState('')
+  const [registrationCodeStatus, setRegistrationCodeStatus] = useState<RegistrationCodeStatus>('idle')
+  const [alphaTestConsent, setAlphaTestConsent] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -23,6 +27,29 @@ export function AuthPage() {
     setMode(nextMode)
     setError(null)
     setInfo(null)
+    if (nextMode !== 'register') {
+      setRegistrationCodeStatus('idle')
+      setAlphaTestConsent(false)
+    }
+  }
+
+  async function checkRegistrationCode() {
+    const code = registrationCode.trim()
+    if (!code) {
+      setRegistrationCodeStatus('idle')
+      return false
+    }
+
+    setRegistrationCodeStatus('checking')
+    try {
+      const valid = await validateRegistrationCode(code)
+      setRegistrationCodeStatus(valid ? 'valid' : 'invalid')
+      if (!valid) setAlphaTestConsent(false)
+      return valid
+    } catch {
+      setRegistrationCodeStatus('idle')
+      throw new Error('Не удалось проверить код регистрации. Попробуйте ещё раз.')
+    }
   }
 
   async function onSubmit(event: FormEvent) {
@@ -42,7 +69,14 @@ export function AuthPage() {
         if (password !== password2) {
           throw new Error('Пароли не совпадают')
         }
-        const result = await signUp(email.trim(), password)
+        const codeIsValid = registrationCodeStatus === 'valid' || await checkRegistrationCode()
+        if (!codeIsValid) {
+          throw new Error('Введите действующий код регистрации.')
+        }
+        if (!alphaTestConsent) {
+          throw new Error('Подтвердите согласие на участие в альфа-тестировании.')
+        }
+        const result = await signUp(email.trim(), password, registrationCode)
         if (result === 'confirm') {
           setInfo('Письмо с подтверждением отправлено. После подтверждения войдите в кабинет.')
         }
@@ -167,16 +201,52 @@ export function AuthPage() {
           )}
 
           {mode === 'register' && (
-            <label>
-              Повторите пароль
-              <input
-                type="password"
-                autoComplete="new-password"
-                required
-                value={password2}
-                onChange={(e) => setPassword2(e.target.value)}
-              />
-            </label>
+            <>
+              <label>
+                Повторите пароль
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={password2}
+                  onChange={(e) => setPassword2(e.target.value)}
+                />
+              </label>
+              <label>
+                Код регистрации
+                <input
+                  type="text"
+                  autoComplete="off"
+                  required
+                  value={registrationCode}
+                  onChange={(e) => {
+                    setRegistrationCode(e.target.value)
+                    setRegistrationCodeStatus('idle')
+                    setAlphaTestConsent(false)
+                  }}
+                  onBlur={() => {
+                    void checkRegistrationCode().catch((err: unknown) => {
+                      setError(getAuthErrorMessage(err, 'Не удалось проверить код регистрации'))
+                    })
+                  }}
+                />
+                {registrationCodeStatus === 'checking' && <span className="hint">Проверяем код…</span>}
+                {registrationCodeStatus === 'invalid' && <span className="field-error">Код регистрации неверный.</span>}
+              </label>
+              {registrationCodeStatus === 'valid' && (
+                <label className="consent-check">
+                  <input
+                    type="checkbox"
+                    checked={alphaTestConsent}
+                    onChange={(e) => setAlphaTestConsent(e.target.checked)}
+                  />
+                  <span>
+                    Вы регистрируетесь на альфа-тест проекта MLF, все данные, которые вы введёте,
+                    могут и будут использоваться разработчиком в целях тестирования.
+                  </span>
+                </label>
+              )}
+            </>
           )}
 
           {error && <p className="banner error">{error}</p>}
