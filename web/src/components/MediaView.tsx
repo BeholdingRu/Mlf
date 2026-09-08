@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { MediaPlayer, MediaProvider, SeekButton, VolumeSlider } from '@vidstack/react'
 import type { MediaPlayerInstance } from '@vidstack/react'
 import { DefaultAudioLayout, defaultLayoutIcons } from '@vidstack/react/player/layouts/default'
@@ -39,6 +39,7 @@ type RepeatMode = 'off' | 'playlist' | 'track'
 
 const DIRECTORY_HANDLE_DB = 'mlf-media'
 const PLAYLIST_STORE = 'playlists'
+const PLAYER_WIDTH_STORAGE_KEY = 'mlf:media-player-width-ratio'
 const VIDSTACK_RUSSIAN_TRANSLATIONS = {
   Accessibility: 'Доступность',
   AirPlay: 'AirPlay',
@@ -181,10 +182,16 @@ type MediaViewProps = {
 export function MediaView({ compact = false }: MediaViewProps) {
   const playerRef = useRef<MediaPlayerInstance>(null)
   const pendingPlaybackTrackIdRef = useRef<string | null>(null)
+  const resizePointerIdRef = useRef<number | null>(null)
+  const panelResizeStartRef = useRef<{ clientX: number; ratio: number; availableWidth: number } | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
   const [activeTrackId, setActiveTrackId] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [overlayCollapsed, setOverlayCollapsed] = useState(false)
+  const [overlayWidthRatio, setOverlayWidthRatio] = useState(() => {
+    const savedRatio = Number(window.localStorage.getItem(PLAYER_WIDTH_STORAGE_KEY))
+    return Number.isFinite(savedRatio) && savedRatio >= 0.5 && savedRatio <= 1 ? savedRatio : 1
+  })
   const [volume, setVolume] = useState(1)
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
   const [status, setStatus] = useState('Выберите аудиофайлы или папку с музыкой.')
@@ -201,6 +208,10 @@ export function MediaView({ compact = false }: MediaViewProps) {
     if (!playlistFoldersSupported) return
     void getPlaylists().then(setPlaylists).catch(() => setStatus('Не удалось загрузить сохранённые плейлисты.'))
   }, [playlistFoldersSupported])
+
+  useEffect(() => {
+    window.localStorage.setItem(PLAYER_WIDTH_STORAGE_KEY, String(overlayWidthRatio))
+  }, [overlayWidthRatio])
 
   const setFiles = (files: File[], autoPlay = false) => {
     const newTracks = files.map((file, index) => ({
@@ -325,13 +336,70 @@ export function MediaView({ compact = false }: MediaViewProps) {
       ? 'Повтор плейлиста'
       : 'Повтор текущего трека'
 
+  const startPanelResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (window.matchMedia('(max-width: 1024px)').matches || overlayCollapsed) return
+    const panelWidth = event.currentTarget.parentElement?.getBoundingClientRect().width ?? 0
+    if (!panelWidth) return
+
+    resizePointerIdRef.current = event.pointerId
+    panelResizeStartRef.current = {
+      clientX: event.clientX,
+      ratio: overlayWidthRatio,
+      availableWidth: panelWidth / overlayWidthRatio,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const resizePanel = (event: React.PointerEvent<HTMLDivElement>) => {
+    const resizeStart = panelResizeStartRef.current
+    if (resizePointerIdRef.current !== event.pointerId || !resizeStart) return
+
+    const ratio = resizeStart.ratio + (event.clientX - resizeStart.clientX) / resizeStart.availableWidth
+    setOverlayWidthRatio(Math.min(1, Math.max(0.5, ratio)))
+  }
+
+  const finishPanelResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (resizePointerIdRef.current !== event.pointerId) return
+    resizePointerIdRef.current = null
+    panelResizeStartRef.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  const resizePanelWithKeyboard = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = 0.05
+    if (event.key === 'ArrowLeft') setOverlayWidthRatio((ratio) => Math.max(0.5, ratio - step))
+    else if (event.key === 'ArrowRight') setOverlayWidthRatio((ratio) => Math.min(1, ratio + step))
+    else if (event.key === 'Home') setOverlayWidthRatio(1)
+    else if (event.key === 'End') setOverlayWidthRatio(0.5)
+    else return
+    event.preventDefault()
+  }
+
   return (
     <section
       className={`media-view${compact ? ' is-compact' : ''}`}
       aria-labelledby="media-player-heading"
       hidden={compact && !isPlaying}
     >
-      <div className={`media-player-overlay is-overlay${overlayCollapsed ? ' is-collapsed' : ''}`}>
+      <div
+        className={`media-player-overlay is-overlay${overlayCollapsed ? ' is-collapsed' : ''}`}
+        style={{ '--media-panel-width-ratio': overlayWidthRatio } as CSSProperties}
+      >
+        <div
+          className="media-player-resize-handle"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Изменить ширину аудиопанели"
+          aria-valuemin={50}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(overlayWidthRatio * 100)}
+          tabIndex={0}
+          onPointerDown={startPanelResize}
+          onPointerMove={resizePanel}
+          onPointerUp={finishPanelResize}
+          onPointerCancel={finishPanelResize}
+          onKeyDown={resizePanelWithKeyboard}
+        />
         <div className="media-player-card">
           <MediaPlayer
             ref={playerRef}
