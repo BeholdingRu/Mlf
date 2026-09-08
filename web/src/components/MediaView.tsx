@@ -189,7 +189,7 @@ export function MediaView({ compact = false }: MediaViewProps) {
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
   const [status, setStatus] = useState('Выберите аудиофайлы или папку с музыкой.')
   const [mediaInfoOpen, setMediaInfoOpen] = useState(false)
-  const [subTab, setSubTab] = useState<MediaSubTab>('player')
+  const [subTab, setSubTab] = useState<MediaSubTab>(() => window.matchMedia('(max-width: 768px)').matches ? 'playlists' : 'player')
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [playlistFormOpen, setPlaylistFormOpen] = useState(false)
   const [playlistName, setPlaylistName] = useState('')
@@ -271,6 +271,8 @@ export function MediaView({ compact = false }: MediaViewProps) {
   }
 
   const removePlaylist = async (playlist: Playlist) => {
+    if (!window.confirm(`Удалить плейлист «${playlist.name}»?`)) return
+
     await deletePlaylist(playlist.id)
     setPlaylists((items) => items.filter((item) => item.id !== playlist.id))
   }
