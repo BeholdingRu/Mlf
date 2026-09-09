@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useData } from '../hooks/useData'
-import type { BibleVerse } from '../lib/types'
+import type { BibleVerse, TorahPortion } from '../lib/types'
 
 type BibleBook = {
   order: number
@@ -32,9 +32,15 @@ const BIBLE_NAVIGATION_STORAGE_KEY = 'mlf:bible-navigation'
 const BIBLE_BOOKS = [...OLD_TESTAMENT, ...NEW_TESTAMENT]
 const chapterCache = new Map<string, BibleVerse[]>()
 const pendingChapters = new Map<string, Promise<BibleVerse[]>>()
+const torahPortionsCache = new Map<number, TorahPortion[]>()
 
-function getChapterKey(bookOrder: number, chapterNumber: number) {
-  return `${bookOrder}:${chapterNumber}`
+function getChapterKey(bookOrder: number, chapterNumber: number, includeTorahPortions: boolean) {
+  return `${includeTorahPortions ? 'annual' : 'plain'}:${bookOrder}:${chapterNumber}`
+}
+
+function getPortionColorStyle(portionNumber?: number | null): CSSProperties {
+  const hue = portionNumber ? Math.round(((portionNumber - 1) * 137.508) % 360) : 120
+  return { '--portion-color': `hsl(${hue} 62% 45%)` } as CSSProperties
 }
 
 function getSavedBibleNavigation(): { book: BibleBook | null; chapter: number | null } {
@@ -57,23 +63,32 @@ function getSavedBibleNavigation(): { book: BibleBook | null; chapter: number | 
 }
 
 export function BibleView() {
-  const { getBibleChapter } = useData()
+  const { getBibleChapter, getTorahPortions, profile } = useData()
+  const includeTorahPortions = profile?.annual_cycle_enabled ?? false
   const [savedNavigation] = useState(getSavedBibleNavigation)
   const [book, setBook] = useState<BibleBook | null>(savedNavigation.book)
   const [chapter, setChapter] = useState<number | null>(savedNavigation.chapter)
   const [verses, setVerses] = useState<BibleVerse[]>([])
   const [error, setError] = useState<string | null>(null)
   const [chapterListOpen, setChapterListOpen] = useState(false)
+  const [loadedTorahPortions, setLoadedTorahPortions] = useState<{
+    bookOrder: number
+    portions: TorahPortion[]
+  } | null>(null)
+  const chapterHeadingRef = useRef<HTMLDivElement>(null)
+  const torahPortions = includeTorahPortions && book && loadedTorahPortions?.bookOrder === book.order
+    ? loadedTorahPortions.portions
+    : []
 
   const loadChapter = useCallback((bookOrder: number, chapterNumber: number) => {
-    const key = getChapterKey(bookOrder, chapterNumber)
+    const key = getChapterKey(bookOrder, chapterNumber, includeTorahPortions)
     const cached = chapterCache.get(key)
     if (cached) return Promise.resolve(cached)
 
     const pending = pendingChapters.get(key)
     if (pending) return pending
 
-    const request = getBibleChapter(bookOrder, chapterNumber)
+    const request = getBibleChapter(bookOrder, chapterNumber, includeTorahPortions)
       .then((result) => {
         chapterCache.set(key, result)
         return result
@@ -81,7 +96,7 @@ export function BibleView() {
       .finally(() => pendingChapters.delete(key))
     pendingChapters.set(key, request)
     return request
-  }, [getBibleChapter])
+  }, [getBibleChapter, includeTorahPortions])
 
   useEffect(() => {
     if (!book || !chapter) return
@@ -116,6 +131,31 @@ export function BibleView() {
     window.sessionStorage.setItem(BIBLE_NAVIGATION_STORAGE_KEY, JSON.stringify({ bookOrder: book.order, chapter }))
   }, [book, chapter])
 
+  useEffect(() => {
+    if (!includeTorahPortions || !book || book.order > 5) return
+
+    const cached = torahPortionsCache.get(book.order)
+    let cancelled = false
+    const request = cached ? Promise.resolve(cached) : getTorahPortions(book.order)
+    request
+      .then((portions) => {
+        torahPortionsCache.set(book.order, portions)
+        if (!cancelled) setLoadedTorahPortions({ bookOrder: book.order, portions })
+      })
+      .catch(() => undefined)
+
+    return () => { cancelled = true }
+  }, [book, getTorahPortions, includeTorahPortions])
+
+  useEffect(() => {
+    if (!chapter || verses.length === 0) return
+
+    const frame = window.requestAnimationFrame(() => {
+      chapterHeadingRef.current?.scrollIntoView({ block: 'start' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [book?.order, chapter, verses])
+
   function selectBook(nextBook: BibleBook) {
     setBook(nextBook)
     setChapter(null)
@@ -140,7 +180,7 @@ export function BibleView() {
     }
     setChapter(nextChapter)
     setChapterListOpen(false)
-    const cached = chapterCache.get(getChapterKey(book!.order, nextChapter))
+    const cached = chapterCache.get(getChapterKey(book!.order, nextChapter, includeTorahPortions))
     setVerses(cached ?? [])
     setError(null)
   }
@@ -160,23 +200,102 @@ export function BibleView() {
             <h2>{book.name}</h2>
             <button type="button" className="bible-return-button" onClick={returnToLibrary}>Все книги</button>
           </div>
+          {includeTorahPortions && torahPortions.length > 0 && (
+            <div className="torah-portions-map" aria-label={`Недельные главы книги «${book.name}»`}>
+              {torahPortions.map((portion) => (
+                <button
+                  key={portion.id}
+                  type="button"
+                  className="torah-portion-card"
+                  style={getPortionColorStyle(portion.portion_number)}
+                  onClick={() => selectChapter(portion.start_chapter)}
+                  title={`Перейти к началу: ${portion.start_chapter}:${portion.start_verse}`}
+                >
+                  <span className="torah-portion-card-number">{portion.portion_number}</span>
+                  <span className="torah-portion-card-names">
+                    <strong>{portion.name_ru}</strong>
+                    <span><span lang="he" dir="rtl">{portion.name_he}</span> · {portion.name_en}</span>
+                  </span>
+                  <span className="torah-portion-card-range">
+                    {portion.start_chapter}:{portion.start_verse}–{portion.end_chapter}:{portion.end_verse}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className={chapter && !chapterListOpen ? 'bible-chapters chapter-selected' : 'bible-chapters'} aria-label={`Главы книги «${book.name}»`}>
-            {Array.from({ length: book.chapters }, (_, index) => index + 1).map((number) => (
-              <button key={number} type="button" className={chapter === number ? 'bible-chapter active' : 'bible-chapter'} onClick={() => selectChapter(number)} aria-expanded={chapter === number ? chapterListOpen : undefined}>
-                {number}
-              </button>
-            ))}
+            {Array.from({ length: book.chapters }, (_, index) => index + 1).map((number) => {
+              const starts = torahPortions.filter((portion) => portion.start_chapter === number)
+              const ends = torahPortions.filter((portion) => portion.end_chapter === number)
+              const classes = [
+                'bible-chapter',
+                chapter === number ? 'active' : '',
+                starts.length ? 'portion-start' : '',
+                ends.length ? 'portion-end' : '',
+              ].filter(Boolean).join(' ')
+              const boundaryStyle = {
+                '--portion-start-color': starts.length
+                  ? getPortionColorStyle(starts[0].portion_number)['--portion-color' as keyof CSSProperties]
+                  : undefined,
+                '--portion-end-color': ends.length
+                  ? getPortionColorStyle(ends[0].portion_number)['--portion-color' as keyof CSSProperties]
+                  : undefined,
+              } as CSSProperties
+              const boundaries = [
+                ...starts.map((portion) => `Начало «${portion.name_ru}» — стих ${portion.start_verse}`),
+                ...ends.map((portion) => `Конец «${portion.name_ru}» — стих ${portion.end_verse}`),
+              ].join('. ')
+              return (
+                <button
+                  key={number}
+                  type="button"
+                  className={classes}
+                  style={boundaryStyle}
+                  onClick={() => selectChapter(number)}
+                  aria-expanded={chapter === number ? chapterListOpen : undefined}
+                  title={boundaries || undefined}
+                >
+                  {number}
+                </button>
+              )
+            })}
           </div>
           {chapter && (
             <div className="bible-chapter-text" aria-live="polite">
-              <div className="bible-chapter-heading">
+              <div ref={chapterHeadingRef} className="bible-chapter-heading">
                 <h3>{book.name}, глава {chapter}</h3>
                 <ChapterNavigation book={book} chapter={chapter} onSelect={selectChapter} />
               </div>
               {error ? <p className="banner error">{error}</p> : verses.length ? (
                 <>
                   <div className="bible-verses">
-                    {verses.map((verse) => <p key={verse.verse}><sup>{verse.verse}</sup>{verse.text}</p>)}
+                    {verses.map((verse) => (
+                      <Fragment key={verse.verse}>
+                        {includeTorahPortions && verse.start_portion_id && (
+                          <div
+                            className="torah-portion-marker torah-portion-start"
+                            style={getPortionColorStyle(verse.start_portion_number)}
+                          >
+                            <span className="torah-portion-number">Недельная глава {verse.start_portion_number}</span>
+                            <strong>{verse.start_portion_name_ru}</strong>
+                            <span lang="he" dir="rtl">{verse.start_portion_name_he}</span>
+                            <span>{verse.start_portion_name_en}</span>
+                            <small>
+                              {verse.start_portion_chapter}:{verse.start_portion_verse}–{verse.start_portion_end_chapter}:{verse.start_portion_end_verse}
+                            </small>
+                          </div>
+                        )}
+                        <p><sup>{verse.verse}</sup>{verse.text}</p>
+                        {includeTorahPortions && verse.end_portion_id && (
+                          <div
+                            className="torah-portion-marker torah-portion-end"
+                            style={getPortionColorStyle(verse.end_portion_number)}
+                          >
+                            Конец недельной главы «{verse.end_portion_name_ru}»
+                          </div>
+                        )}
+                      </Fragment>
+                    ))}
                   </div>
                   <ChapterNavigation book={book} chapter={chapter} onSelect={selectChapter} />
                 </>

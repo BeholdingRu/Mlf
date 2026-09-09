@@ -13,11 +13,12 @@ type SidebarProps = {
 
 const NAV: { id: CabinetTab; label: string }[] = [
   { id: 'daily', label: 'Ежедневные задачи' },
-  { id: 'all', label: 'Статистика' },
   { id: 'calories', label: 'Учет калорий' },
   { id: 'training', label: 'Тренировки' },
-  { id: 'diary', label: 'Дневник' },
   { id: 'media', label: 'Медиа' },
+  { id: 'path', label: 'Путь' },
+  { id: 'all', label: 'Статистика' },
+  { id: 'diary', label: 'Дневник' },
 ]
 
 const MOBILE_SIDEBAR_OPEN_STORAGE_KEY = 'mlf:mobile-sidebar-open'
@@ -33,9 +34,7 @@ export function Sidebar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(
     () => window.sessionStorage.getItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY) === 'true',
   )
-  const navigation = shabbatEnabled
-    ? [...NAV.slice(0, -1), { id: 'path' as const, label: 'Путь' }, NAV[NAV.length - 1]]
-    : NAV
+  const navigation = shabbatEnabled ? NAV : NAV.filter((item) => item.id !== 'path')
   const currentTab = navigation.find((item) => item.id === tab) ?? NAV[0]
   const needsAttention = (item: CabinetTab) => (
     (item === 'daily' && hasIncompleteDailyTasks)

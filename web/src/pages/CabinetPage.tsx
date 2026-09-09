@@ -17,10 +17,10 @@ import { localISODate } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
-const CABINET_TABS: CabinetTab[] = ['daily', 'all', 'calories', 'training', 'diary', 'media', 'path']
+const CABINET_TABS: CabinetTab[] = ['daily', 'calories', 'training', 'media', 'path', 'all', 'diary']
 
 function getSavedCabinetTab(): CabinetTab {
-  if (window.matchMedia('(max-width: 768px)').matches) return 'media'
+  if (window.matchMedia('(max-width: 768px)').matches) return 'calories'
 
   const savedTab = window.sessionStorage.getItem(CABINET_TAB_STORAGE_KEY)
   return CABINET_TABS.includes(savedTab as CabinetTab) ? savedTab as CabinetTab : 'daily'

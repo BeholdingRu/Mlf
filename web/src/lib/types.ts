@@ -26,6 +26,34 @@ export type BibleVerse = {
   chapter: number
   verse: number
   text: string
+  start_portion_id?: number | null
+  start_portion_number?: number | null
+  start_portion_name_ru?: string | null
+  start_portion_name_en?: string | null
+  start_portion_name_he?: string | null
+  start_portion_chapter?: number | null
+  start_portion_verse?: number | null
+  start_portion_end_chapter?: number | null
+  start_portion_end_verse?: number | null
+  end_portion_id?: number | null
+  end_portion_number?: number | null
+  end_portion_name_ru?: string | null
+  end_portion_name_en?: string | null
+  end_portion_name_he?: string | null
+}
+
+export type TorahPortion = {
+  id: number
+  portion_number: number
+  name_en: string
+  name_he: string
+  name_ru: string
+  book_order: number
+  book_code: string
+  start_chapter: number
+  start_verse: number
+  end_chapter: number
+  end_verse: number
 }
 
 export type Task = {

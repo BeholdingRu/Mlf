@@ -21,6 +21,7 @@ import type {
   SavedProduct,
   Task,
   TaskCompletion,
+  TorahPortion,
   WeightLog,
 } from '../lib/types'
 import { DEFAULT_PRODUCT_CATEGORY } from '../lib/product-categories'
@@ -499,15 +500,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (updError) throw updError
         setProfile(data as Profile)
       },
-      async getBibleChapter(bookOrder, chapter) {
+      async getBibleChapter(bookOrder, chapter, includeTorahPortions = false) {
         const { data, error: selectError } = await requireSupabase()
-          .from('bible_verses')
-          .select('book_code, book_name, book_order, chapter, verse, text')
+          .from(includeTorahPortions ? 'bible_verses_with_torah_markers' : 'bible_verses')
+          .select('*')
           .eq('book_order', bookOrder)
           .eq('chapter', chapter)
           .order('verse')
         if (selectError) throw selectError
         return (data ?? []) as BibleVerse[]
+      },
+      async getTorahPortions(bookOrder) {
+        const { data, error: selectError } = await requireSupabase()
+          .from('torah_portions')
+          .select('id, portion_number, name_en, name_he, name_ru, book_order, book_code, start_chapter, start_verse, end_chapter, end_verse')
+          .eq('book_order', bookOrder)
+          .order('portion_number')
+        if (selectError) throw selectError
+        return (data ?? []) as TorahPortion[]
       },
       async confirmPathDay(day, cycleStartedOn) {
         if (!user) return

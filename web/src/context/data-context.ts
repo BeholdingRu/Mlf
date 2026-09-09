@@ -17,6 +17,7 @@ import type {
   SavedProduct,
   Task,
   TaskCompletion,
+  TorahPortion,
   WeightLog,
 } from '../lib/types'
 import type { FontScale, ShabbatThemeId, ThemeId } from '../lib/theme'
@@ -60,7 +61,8 @@ export type DataContextValue = {
   saveShabbatEnabled: (enabled: boolean) => Promise<void>
   saveAnnualCycleEnabled: (enabled: boolean) => Promise<void>
   saveShabbatTheme: (theme: ShabbatThemeId) => Promise<void>
-  getBibleChapter: (bookOrder: number, chapter: number) => Promise<BibleVerse[]>
+  getBibleChapter: (bookOrder: number, chapter: number, includeTorahPortions?: boolean) => Promise<BibleVerse[]>
+  getTorahPortions: (bookOrder: number) => Promise<TorahPortion[]>
   confirmPathDay: (day: PathDay, cycleStartedOn: string) => Promise<void>
   completeCourseLesson: (courseId: string, lessonNumber: number) => Promise<void>
   addMindfulnessCategory: (name: string) => Promise<MindfulnessCategory>

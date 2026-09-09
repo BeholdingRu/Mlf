@@ -2011,6 +2011,70 @@ nav {
   gap: 8px;
 }
 
+.torah-portions-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--info-bg) 58%, transparent);
+}
+
+.torah-portion-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--portion-color) 62%, var(--line));
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.torah-portion-card:hover {
+  border-color: var(--portion-color);
+  background: color-mix(in srgb, var(--portion-color) 12%, var(--surface));
+  transform: translateY(-1px);
+}
+
+.torah-portion-card-number {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--portion-color);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.torah-portion-card-names {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.torah-portion-card-names strong {
+  color: var(--portion-color);
+  font-family: var(--serif);
+  font-size: 15px;
+}
+
+.torah-portion-card-names > span,
+.torah-portion-card-range {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.torah-portion-card-range {
+  white-space: nowrap;
+}
+
 .bible-chapter {
   display: grid;
   place-items: center;
@@ -2122,6 +2186,63 @@ nav {
   font-family: var(--sans);
   font-size: 11px;
   font-weight: 700;
+}
+
+.bible-chapter.portion-start {
+  box-shadow: inset 4px 0 var(--portion-start-color);
+}
+
+.bible-chapter.portion-end {
+  box-shadow: inset -4px 0 var(--portion-end-color);
+}
+
+.bible-chapter.portion-start.portion-end {
+  box-shadow: inset 4px 0 var(--portion-start-color), inset -4px 0 var(--portion-end-color);
+}
+
+.torah-portion-marker {
+  color: var(--moss-deep);
+  font-family: var(--sans);
+}
+
+.torah-portion-start {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--portion-color);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--portion-color) 12%, var(--surface));
+}
+
+.torah-portion-start strong {
+  color: var(--portion-color);
+  font-family: var(--serif);
+  font-size: 18px;
+}
+
+.torah-portion-start [lang='he'] {
+  font-size: 18px;
+}
+
+.torah-portion-number,
+.torah-portion-start small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.torah-portion-start small {
+  margin-left: auto;
+}
+
+.torah-portion-end {
+  padding-top: 8px;
+  border-top: 2px solid var(--portion-color);
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
 }
 
 .path-sh-card {
