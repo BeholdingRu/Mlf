@@ -7,6 +7,8 @@ type SidebarProps = {
   onTab: (tab: CabinetTab) => void
   onOpenSettings: () => void
   shabbatEnabled: boolean
+  hasPlannedTraining: boolean
+  hasIncompleteDailyTasks: boolean
 }
 
 const NAV: { id: CabinetTab; label: string }[] = [
@@ -20,7 +22,14 @@ const NAV: { id: CabinetTab; label: string }[] = [
 
 const MOBILE_SIDEBAR_OPEN_STORAGE_KEY = 'mlf:mobile-sidebar-open'
 
-export function Sidebar({ tab, onTab, onOpenSettings, shabbatEnabled }: SidebarProps) {
+export function Sidebar({
+  tab,
+  onTab,
+  onOpenSettings,
+  shabbatEnabled,
+  hasPlannedTraining,
+  hasIncompleteDailyTasks,
+}: SidebarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(
     () => window.sessionStorage.getItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY) === 'true',
   )
@@ -28,6 +37,10 @@ export function Sidebar({ tab, onTab, onOpenSettings, shabbatEnabled }: SidebarP
     ? [...NAV.slice(0, -1), { id: 'path' as const, label: 'Путь' }, NAV[NAV.length - 1]]
     : NAV
   const currentTab = navigation.find((item) => item.id === tab) ?? NAV[0]
+  const needsAttention = (item: CabinetTab) => (
+    (item === 'daily' && hasIncompleteDailyTasks)
+    || (item === 'training' && hasPlannedTraining)
+  )
 
   useEffect(() => {
     window.sessionStorage.setItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY, String(mobileMenuOpen))
@@ -43,7 +56,9 @@ export function Sidebar({ tab, onTab, onOpenSettings, shabbatEnabled }: SidebarP
         aria-controls="sidebar-navigation"
       >
         <span aria-hidden="true">☰</span>
-        <span>{currentTab.label}</span>
+        <span className={needsAttention(currentTab.id) ? 'nav-label-alert' : undefined}>
+          {currentTab.label}
+        </span>
         <span aria-hidden="true">{mobileMenuOpen ? '⌃' : '⌄'}</span>
       </button>
       <div id="sidebar-navigation" className="sidebar-content">
@@ -65,7 +80,9 @@ export function Sidebar({ tab, onTab, onOpenSettings, shabbatEnabled }: SidebarP
               className={tab === item.id ? 'nav-item active' : 'nav-item'}
               onClick={() => onTab(item.id)}
             >
-              {item.label}
+              <span className={needsAttention(item.id) ? 'nav-label-alert' : undefined}>
+                {item.label}
+              </span>
             </button>
           ))}
         </nav>

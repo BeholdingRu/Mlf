@@ -39,7 +39,7 @@ type RepeatMode = 'off' | 'playlist' | 'track'
 
 const DIRECTORY_HANDLE_DB = 'mlf-media'
 const PLAYLIST_STORE = 'playlists'
-const PLAYER_WIDTH_STORAGE_KEY = 'mlf:media-player-width-ratio'
+const PLAYER_WIDTH_STORAGE_KEY = 'mlf:media-player-width-ratio-v2'
 const VIDSTACK_RUSSIAN_TRANSLATIONS = {
   Accessibility: 'Доступность',
   AirPlay: 'AirPlay',
@@ -190,7 +190,7 @@ export function MediaView({ compact = false }: MediaViewProps) {
   const [overlayCollapsed, setOverlayCollapsed] = useState(false)
   const [overlayWidthRatio, setOverlayWidthRatio] = useState(() => {
     const savedRatio = Number(window.localStorage.getItem(PLAYER_WIDTH_STORAGE_KEY))
-    return Number.isFinite(savedRatio) && savedRatio >= 0.5 && savedRatio <= 1 ? savedRatio : 1
+    return Number.isFinite(savedRatio) && savedRatio >= 0.5 && savedRatio <= 1 ? savedRatio : 0.5
   })
   const [volume, setVolume] = useState(1)
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
@@ -337,7 +337,7 @@ export function MediaView({ compact = false }: MediaViewProps) {
       : 'Повтор текущего трека'
 
   const startPanelResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (window.matchMedia('(max-width: 1024px)').matches || overlayCollapsed) return
+    if (overlayCollapsed) return
     const panelWidth = event.currentTarget.parentElement?.getBoundingClientRect().width ?? 0
     if (!panelWidth) return
 

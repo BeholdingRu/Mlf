@@ -13,6 +13,8 @@ import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
 import { applyFontScale, applyTheme, normalizeFontScale, normalizeShabbatTheme, normalizeTheme } from '../lib/theme'
 import { isShabbatActive } from '../lib/shabbat'
+import { localISODate } from '../lib/dates'
+import { isNutritionTask } from '../lib/nutrition-task'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
 const CABINET_TABS: CabinetTab[] = ['daily', 'all', 'calories', 'training', 'diary', 'media', 'path']
@@ -25,11 +27,24 @@ function getSavedCabinetTab(): CabinetTab {
 }
 
 export function CabinetPage() {
-  const { loading, error, profile } = useData()
+  const { loading, error, profile, tasks, completions, scheduledExercises } = useData()
   const viewport = useViewport()
   const [tab, setTab] = useState<CabinetTab>(getSavedCabinetTab)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [currentTime, setCurrentTime] = useState(() => new Date())
+  const hasPlannedTraining = scheduledExercises.some(
+    (exercise) => !exercise.completed && exercise.planned_on === localISODate(currentTime),
+  )
+  const today = localISODate(currentTime)
+  const hasIncompleteDailyTasks = tasks.some((task) => {
+    const automaticTask = task.withdrawal_syndrome || (profile?.weight_enabled && isNutritionTask(task))
+    const habitFormed = completions.filter((completion) => completion.task_id === task.id).length >= task.habit_days
+    const completedToday = completions.some(
+      (completion) => completion.task_id === task.id && completion.completed_on === today,
+    )
+
+    return !automaticTask && !habitFormed && !completedToday
+  })
 
   // Принудительно пересчитываем layout при смене вкладок на мобилке
   useEffect(() => {
@@ -83,6 +98,8 @@ export function CabinetPage() {
         onTab={setTab}
         onOpenSettings={() => setSettingsOpen(true)}
         shabbatEnabled={profile?.shabbat_enabled ?? false}
+        hasPlannedTraining={hasPlannedTraining}
+        hasIncompleteDailyTasks={hasIncompleteDailyTasks}
       />
       <main className="main">
         <header className="topbar">

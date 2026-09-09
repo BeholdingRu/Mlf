@@ -705,6 +705,10 @@ nav {
   font-weight: 700;
 }
 
+.nav-label-alert {
+  color: #d64545;
+}
+
 .profile {
   margin-top: auto;
   display: grid;
@@ -4228,11 +4232,7 @@ nav {
 
   .media-player-overlay.is-overlay {
     left: 0;
-    width: 100%;
-  }
-
-  .media-player-resize-handle {
-    display: none;
+    width: calc(100vw * var(--media-panel-width-ratio, 1));
   }
 
   .topbar {
@@ -5007,16 +5007,18 @@ nav {
     width: 100%;
   }
 
-  .media-audio .vds-audio-layout .vds-volume {
-    display: none;
-  }
-
   .media-player-overlay.is-overlay.is-collapsed {
     height: var(--mobile-collapsed-player-height);
   }
 
   .media-player-overlay.is-overlay.is-collapsed .media-player-card {
     height: var(--mobile-collapsed-player-height);
+  }
+}
+
+@media (max-width: 768px) and (hover: none) and (pointer: coarse) {
+  .media-audio .vds-audio-layout .vds-volume {
+    display: none;
   }
 }
 
