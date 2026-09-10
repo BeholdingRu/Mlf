@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { daysInclusive, parseISODate } from '../lib/dates'
 import type { WeightLog } from '../lib/types'
 
@@ -9,6 +9,7 @@ type WeightChartProps = {
   desiredWeight: number | null
   forceAllPoints?: boolean
   hideFullscreenButton?: boolean
+  onlyMondays?: boolean
 }
 
 type ChartPoint = {
@@ -17,10 +18,10 @@ type ChartPoint = {
   label: string
 }
 
-const CHART_PADDING = 20
-const CHART_LEFT = 40
-const CHART_RIGHT = 590
+const CHART_LEFT = 52
+const CHART_RIGHT_PADDING = 52
 const CHART_HEIGHT = 200
+const FULLSCREEN_CHART_HEIGHT = 260
 
 function selectEvenlySpacedLogs(logs: WeightLog[], maximum = 7) {
   if (logs.length <= maximum) return logs
@@ -38,32 +39,78 @@ function formatDate(iso: string) {
   }).format(parseISODate(iso))
 }
 
-export function WeightChart({ logs, startDate, startWeight, desiredWeight, forceAllPoints = false, hideFullscreenButton = false }: WeightChartProps) {
+function formatDayAndMonth(iso: string) {
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+  }).format(parseISODate(iso))
+}
+
+function formatWeightDifference(value: number, previousValue?: number) {
+  if (previousValue == null) return '—'
+  const difference = value - previousValue
+  const sign = difference > 0 ? '+' : ''
+  return `${sign}${difference.toFixed(1)} кг`
+}
+
+function isMonday(iso: string) {
+  return parseISODate(iso).getDay() === 1
+}
+
+export function WeightChart({
+  logs,
+  startDate,
+  startWeight,
+  desiredWeight,
+  forceAllPoints = false,
+  hideFullscreenButton = false,
+  onlyMondays = false,
+}: WeightChartProps) {
   const [fullscreen, setFullscreen] = useState(false)
+  const [mondayOnly, setMondayOnly] = useState(onlyMondays)
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null)
+  const chartGraphRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!forceAllPoints) return
+    const frame = window.requestAnimationFrame(() => {
+      if (chartGraphRef.current) {
+        chartGraphRef.current.scrollLeft = chartGraphRef.current.scrollWidth
+      }
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [forceAllPoints, logs, mondayOnly])
 
   if (!startDate) {
     return <div className="weight-chart-empty">Нет данных о весе</div>
   }
 
   const sorted = [...logs].sort((a, b) => a.logged_on.localeCompare(b.logged_on))
-  const visibleLogs = forceAllPoints || fullscreen ? sorted : selectEvenlySpacedLogs(sorted)
+  const filteredLogs = mondayOnly ? sorted.filter((log) => isMonday(log.logged_on)) : sorted
+  const includeStartPoint = startWeight != null && (!mondayOnly || isMonday(startDate))
+  const maximumLogPoints = Math.max(0, 7 - (includeStartPoint ? 1 : 0))
+  const visibleLogs = forceAllPoints || fullscreen
+    ? filteredLogs
+    : selectEvenlySpacedLogs(filteredLogs, maximumLogPoints)
   const firstDate = parseISODate(startDate)
   const lastDate = sorted.length > 0 ? parseISODate(sorted[sorted.length - 1].logged_on) : firstDate
   const totalDays = daysInclusive(firstDate, lastDate)
-  const allValues = startWeight != null ? [startWeight, ...sorted.map((log) => log.value)] : sorted.map((log) => log.value)
+  const allValues = includeStartPoint ? [startWeight, ...filteredLogs.map((log) => log.value)] : filteredLogs.map((log) => log.value)
+  const hasChartData = allValues.length > 0
 
-  if (allValues.length === 0) {
-    return <div className="weight-chart-empty">Нет данных о весе</div>
-  }
-
-  const minValue = Math.min(...allValues)
-  const maxValue = Math.max(...allValues)
+  const minValue = hasChartData ? Math.min(...allValues) : 0
+  const maxValue = hasChartData ? Math.max(...allValues) : 1
   const range = maxValue - minValue || 1
-  const graphHeight = CHART_HEIGHT - CHART_PADDING * 2
   const currentWeight = sorted.length > 0 ? sorted[sorted.length - 1].value : startWeight
   const chartPoints = visibleLogs.map((log) => ({ date: log.logged_on, value: log.value, label: 'Вес' }))
-  const startPoint = startWeight == null ? null : { date: startDate, value: startWeight, label: 'Стартовый вес' }
+  const startPoint = includeStartPoint ? { date: startDate, value: startWeight, label: 'Стартовый вес' } : null
+  const renderedPoints = startPoint ? [startPoint, ...chartPoints] : chartPoints
+  const chartWidth = forceAllPoints ? Math.max(900, renderedPoints.length * 104) : 600
+  const chartHeight = forceAllPoints ? FULLSCREEN_CHART_HEIGHT : CHART_HEIGHT
+  const chartRight = chartWidth - CHART_RIGHT_PADDING
+  const chartTop = 58
+  const chartBottom = 34
+  const graphHeight = chartHeight - chartTop - chartBottom
 
   let progressPercent: number | null = null
   if (startWeight != null && desiredWeight != null && currentWeight != null) {
@@ -74,17 +121,15 @@ export function WeightChart({ logs, startDate, startWeight, desiredWeight, force
 
   const pointPosition = (point: ChartPoint, index: number) => {
     return {
-      x: CHART_LEFT + (index / Math.max(renderedPoints.length - 1, 1)) * (CHART_RIGHT - CHART_LEFT),
-      y: CHART_PADDING + ((maxValue - point.value) / range) * graphHeight,
+      x: CHART_LEFT + (index / Math.max(renderedPoints.length - 1, 1)) * (chartRight - CHART_LEFT),
+      y: chartTop + ((maxValue - point.value) / range) * graphHeight,
     }
   }
 
-  const renderedPoints = startPoint ? [startPoint, ...chartPoints] : chartPoints
-
   function handleChartMouseMove(event: MouseEvent<SVGSVGElement>) {
     const bounds = event.currentTarget.getBoundingClientRect()
-    const cursorX = ((event.clientX - bounds.left) / bounds.width) * 600
-    const step = (CHART_RIGHT - CHART_LEFT) / Math.max(renderedPoints.length - 1, 1)
+    const cursorX = ((event.clientX - bounds.left) / bounds.width) * chartWidth
+    const step = (chartRight - CHART_LEFT) / Math.max(renderedPoints.length - 1, 1)
     const pointIndex = Math.min(
       renderedPoints.length - 1,
       Math.max(0, Math.floor((cursorX - CHART_LEFT) / step)),
@@ -98,28 +143,44 @@ export function WeightChart({ logs, startDate, startWeight, desiredWeight, force
         <div className="chart-info">
           <div className="chart-heading">
             <p className="chart-title">История веса</p>
-            {!hideFullscreenButton && <button type="button" className="chart-fullscreen-button" onClick={() => setFullscreen(true)}>Все записи</button>}
+            {!hideFullscreenButton && (
+              <div className="chart-actions">
+                <button type="button" className="chart-fullscreen-button" onClick={() => setFullscreen(true)}>Все записи</button>
+                <button
+                  type="button"
+                  className={mondayOnly ? 'chart-filter-button active' : 'chart-filter-button'}
+                  aria-pressed={mondayOnly}
+                  onClick={() => {
+                    setMondayOnly((enabled) => !enabled)
+                    setHoveredPoint(null)
+                  }}
+                >
+                  Только ПН
+                </button>
+              </div>
+            )}
           </div>
           <p className="chart-meta">
-            Всего записей: <strong>{sorted.length}</strong> | Дней отслеживания: <strong>{totalDays}</strong>
-            {!fullscreen && sorted.length > visibleLogs.length && ` | На графике: ${visibleLogs.length}`}
+            {mondayOnly ? 'Записей по понедельникам' : 'Всего записей'}: <strong>{filteredLogs.length}</strong> | Дней отслеживания: <strong>{totalDays}</strong>
+            {!fullscreen && renderedPoints.length < filteredLogs.length + (includeStartPoint ? 1 : 0) && ` | На графике: ${renderedPoints.length}`}
           </p>
         </div>
 
-        <div className="chart-graph">
-          <svg
+        <div ref={chartGraphRef} className="chart-graph">
+          {hasChartData ? <svg
             className="chart-svg"
-            viewBox={`0 0 600 ${CHART_HEIGHT}`}
-            preserveAspectRatio="none"
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+            preserveAspectRatio="xMinYMid meet"
+            style={forceAllPoints ? { width: `${chartWidth}px`, height: `${chartHeight}px` } : undefined}
             onMouseMove={handleChartMouseMove}
             onMouseLeave={() => setHoveredPoint(null)}
           >
             {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-              const y = CHART_PADDING + ratio * graphHeight
+              const y = chartTop + ratio * graphHeight
               const value = maxValue - ratio * range
               return (
                 <g key={`grid-${ratio}`}>
-                  <line x1={CHART_LEFT} y1={y} x2={CHART_RIGHT} y2={y} stroke="var(--line)" strokeWidth="0.5" strokeDasharray="2,2" />
+                  <line x1={CHART_LEFT} y1={y} x2={chartRight} y2={y} stroke="var(--line)" strokeWidth="0.5" strokeDasharray="2,2" />
                   <text x="35" y={y + 3} textAnchor="end" fontSize="11" fill="var(--muted)">{value.toFixed(1)}</text>
                 </g>
               )
@@ -158,9 +219,25 @@ export function WeightChart({ logs, startDate, startWeight, desiredWeight, force
               )
             })}
 
-            <line x1={CHART_LEFT} y1={CHART_HEIGHT - CHART_PADDING} x2={CHART_RIGHT} y2={CHART_HEIGHT - CHART_PADDING} stroke="var(--line)" strokeWidth="1" />
-            <line x1={CHART_LEFT} y1={CHART_PADDING} x2={CHART_LEFT} y2={CHART_HEIGHT - CHART_PADDING} stroke="var(--line)" strokeWidth="1" />
-          </svg>
+            {renderedPoints.map((point, index) => {
+              const { x, y } = pointPosition(point, index)
+              return (
+                <g key={`label-${point.label}-${point.date}`}>
+                  <text className="chart-point-details" x={x} y={y - 22} textAnchor="middle" fill="var(--ink)">
+                    <tspan x={x}>{point.value.toFixed(1)} кг</tspan>
+                    <tspan x={x} dy="12">{formatWeightDifference(point.value, renderedPoints[index - 1]?.value)}</tspan>
+                  </text>
+                  <text className="chart-point-details chart-point-date" x={x} y={y + 14} textAnchor="middle" fill="var(--ink)">
+                    <tspan x={x}>{formatDayAndMonth(point.date)}</tspan>
+                    <tspan x={x} dy="11">{parseISODate(point.date).getFullYear()}</tspan>
+                  </text>
+                </g>
+              )
+            })}
+
+            <line x1={CHART_LEFT} y1={chartHeight - chartBottom} x2={chartRight} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
+            <line x1={CHART_LEFT} y1={chartTop} x2={CHART_LEFT} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
+          </svg> : <p className="weight-chart-filter-empty">Нет записей о весе за понедельник</p>}
           {hoveredPoint && (
             <div className="chart-tooltip" role="status">
               <strong>{hoveredPoint.value.toFixed(1)} кг</strong>
@@ -179,11 +256,11 @@ export function WeightChart({ logs, startDate, startWeight, desiredWeight, force
           </div>
         )}
 
-        <div className="chart-legend">
+        {hasChartData && <div className="chart-legend">
           <p>Минимум: <strong>{minValue.toFixed(1)} кг</strong></p>
           <p>Максимум: <strong>{maxValue.toFixed(1)} кг</strong></p>
           <p>Разница: <strong>{(maxValue - minValue).toFixed(1)} кг</strong></p>
-        </div>
+        </div>}
       </div>
 
       {fullscreen && !forceAllPoints && (
@@ -191,7 +268,7 @@ export function WeightChart({ logs, startDate, startWeight, desiredWeight, force
           <div className="weight-chart-fullscreen" role="dialog" aria-modal="true" aria-label="Полная история веса">
             <button type="button" className="chart-close-button" onClick={() => setFullscreen(false)} aria-label="Закрыть полную историю веса">×</button>
             <div className="chart-fullscreen-content">
-              <WeightChart logs={logs} startDate={startDate} startWeight={startWeight} desiredWeight={desiredWeight} forceAllPoints hideFullscreenButton />
+              <WeightChart logs={logs} startDate={startDate} startWeight={startWeight} desiredWeight={desiredWeight} forceAllPoints hideFullscreenButton onlyMondays={mondayOnly} />
             </div>
           </div>
         </div>

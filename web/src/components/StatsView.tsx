@@ -4,10 +4,12 @@ import { WeightChart } from './WeightChart'
 import { useData } from '../hooks/useData'
 import { localISODate, percent } from '../lib/dates'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
+import type { WeightLog } from '../lib/types'
 
 type StatsSubTab = 'overview' | 'manage-weight'
 
 const STATS_SUB_TAB_STORAGE_KEY = 'mlf:stats-sub-tab'
+const STATS_TEST_WEIGHT_LOGS_STORAGE_KEY = 'mlf:stats-test-weight-logs'
 
 function getSavedStatsSubTab(): StatsSubTab {
   return window.sessionStorage.getItem(STATS_SUB_TAB_STORAGE_KEY) === 'manage-weight'
@@ -15,8 +17,25 @@ function getSavedStatsSubTab(): StatsSubTab {
     : 'overview'
 }
 
+function getSavedTestWeightLogs(): WeightLog[] {
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(STATS_TEST_WEIGHT_LOGS_STORAGE_KEY) ?? '[]') as unknown
+    if (!Array.isArray(saved)) return []
+    return saved.filter((item): item is WeightLog => Boolean(
+      item
+      && typeof item === 'object'
+      && typeof (item as WeightLog).id === 'string'
+      && typeof (item as WeightLog).logged_on === 'string'
+      && typeof (item as WeightLog).value === 'number',
+    ))
+  } catch {
+    window.sessionStorage.removeItem(STATS_TEST_WEIGHT_LOGS_STORAGE_KEY)
+    return []
+  }
+}
+
 export function StatsView() {
-  const { tasks, completions, weightLogs, profile, saveWeightSettings, saveDesiredWeight } = useData()
+  const { tasks, completions, weightLogs, profile, saveWeightSettings, saveDesiredWeight, adminMode } = useData()
   const [subTab, setSubTab] = useState<StatsSubTab>(getSavedStatsSubTab)
   const [target, setTarget] = useState(
     profile?.target_weight != null ? String(profile.target_weight) : '',
@@ -26,10 +45,77 @@ export function StatsView() {
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [testDate, setTestDate] = useState(localISODate)
+  const [testWeight, setTestWeight] = useState('')
+  const [testWeightLogs, setTestWeightLogs] = useState<WeightLog[]>(getSavedTestWeightLogs)
+
+  const testDates = new Set(testWeightLogs.map((log) => log.logged_on))
+  const chartWeightLogs = adminMode
+    ? [...weightLogs.filter((log) => !testDates.has(log.logged_on)), ...testWeightLogs]
+    : weightLogs
 
   useEffect(() => {
     window.sessionStorage.setItem(STATS_SUB_TAB_STORAGE_KEY, subTab)
   }, [subTab])
+
+  useEffect(() => {
+    window.sessionStorage.setItem(STATS_TEST_WEIGHT_LOGS_STORAGE_KEY, JSON.stringify(testWeightLogs))
+  }, [testWeightLogs])
+
+  function addTestWeightLog() {
+    const value = Number(testWeight.replace(',', '.'))
+    if (!testDate || !Number.isFinite(value) || value <= 0) {
+      setError('Укажите тестовую дату и вес больше нуля')
+      return
+    }
+
+    setTestWeightLogs((logs) => [
+      ...logs.filter((log) => log.logged_on !== testDate),
+      {
+        id: `test-${testDate}`,
+        user_id: 'test',
+        logged_on: testDate,
+        value,
+      },
+    ])
+    setError(null)
+  }
+
+  function fillTestWeightLogs() {
+    const availableLogs = [...chartWeightLogs].sort((a, b) => a.logged_on.localeCompare(b.logged_on))
+    const latestLog = availableLogs[availableLogs.length - 1]
+    const baseDate = latestLog?.logged_on ?? profile?.weight_started_on
+    const baseWeight = latestLog?.value ?? profile?.target_weight
+
+    if (!baseDate || baseWeight == null) {
+      setError('Сначала укажите начальный вес или добавьте тестовую запись')
+      return
+    }
+
+    const nextMonday = new Date(`${baseDate}T00:00:00`)
+    const weekday = nextMonday.getDay()
+    nextMonday.setDate(nextMonday.getDate() + (weekday === 1 ? 7 : (8 - weekday) % 7))
+
+    const generatedLogs = Array.from({ length: 4 }, (_, index): WeightLog => {
+      const date = new Date(nextMonday)
+      date.setDate(nextMonday.getDate() + index * 7)
+      const loggedOn = localISODate(date)
+      return {
+        id: `test-${loggedOn}`,
+        user_id: 'test',
+        logged_on: loggedOn,
+        value: Math.max(0.1, baseWeight - index - 1),
+      }
+    })
+
+    setTestWeightLogs((logs) => {
+      const generatedDates = new Set(generatedLogs.map((log) => log.logged_on))
+      return [...logs.filter((log) => !generatedDates.has(log.logged_on)), ...generatedLogs]
+    })
+    setTestDate(generatedLogs[generatedLogs.length - 1].logged_on)
+    setTestWeight(String(generatedLogs[generatedLogs.length - 1].value))
+    setError(null)
+  }
 
   async function saveWeight() {
     setBusy(true)
@@ -89,12 +175,50 @@ export function StatsView() {
       {subTab === 'overview' ? (
         <>
           {profile?.weight_enabled && (
-            <WeightChart
-              logs={weightLogs}
-              startDate={profile.weight_started_on}
-              startWeight={profile.target_weight}
-              desiredWeight={profile.desired_weight}
-            />
+            <>
+              {adminMode && (
+                <div className="stats-test-weight-panel">
+                  <label>
+                    Тестовая дата
+                    <input type="date" value={testDate} onChange={(event) => setTestDate(event.target.value)} />
+                  </label>
+                  <label>
+                    Вес
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.1"
+                      value={testWeight}
+                      onChange={(event) => setTestWeight(event.target.value)}
+                      placeholder="кг"
+                    />
+                  </label>
+                  <button type="button" className="primary compact" onClick={addTestWeightLog}>
+                    Добавить тестовую запись
+                  </button>
+                  {testWeightLogs.length > 0 && (
+                    <button
+                      type="button"
+                      className="ghost compact"
+                      onClick={() => setTestWeightLogs([])}
+                    >
+                      Очистить тестовые записи ({testWeightLogs.length})
+                    </button>
+                  )}
+                  <button type="button" className="ghost compact" onClick={fillTestWeightLogs}>
+                    Тестовое заполнение
+                  </button>
+                  <span className="hint">Данные добавляются только на график и не сохраняются в базе.</span>
+                  {error && <p className="banner error">{error}</p>}
+                </div>
+              )}
+              <WeightChart
+                logs={chartWeightLogs}
+                startDate={profile.weight_started_on}
+                startWeight={profile.target_weight}
+                desiredWeight={profile.desired_weight}
+              />
+            </>
           )}
 
           {!tasks.length ? (
