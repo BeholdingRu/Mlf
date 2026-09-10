@@ -31,6 +31,7 @@ import { DataContext, type DataContextValue } from './data-context'
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
+const PERMANENT_MEAL_PLAN_DATE = '1970-01-01'
 
 async function withDataLoadTimeout<T>(request: Promise<T>): Promise<T> {
   let timeoutId: number | undefined
@@ -107,7 +108,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .eq('user_id', userId)
           .order('logged_on', { ascending: false })
           .order('created_at'),
-        client.from('meal_plan_entries').select('*').eq('user_id', userId).order('planned_on').order('created_at'),
+        client.from('meal_plan_entries').select('*').eq('user_id', userId).order('created_at'),
         client.from('saved_products').select('*').eq('user_id', userId).order('name'),
         client.from('saved_exercises').select('*').eq('user_id', userId).order('name'),
         client.from('scheduled_exercises').select('*').eq('user_id', userId).order('planned_on').order('sort_order'),
@@ -683,16 +684,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setFoodLogs((prev) => prev.filter((f) => f.id !== id))
         setFoodHistoryLogs((prev) => prev.filter((f) => f.id !== id))
       },
-      async addMealPlanEntry(plannedOn, mealType, productName, weightGrams, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
+      async addMealPlanEntry(mealType, productName, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
         if (!user) return
         const { data, error: insError } = await requireSupabase()
           .from('meal_plan_entries')
           .insert({
             user_id: user.id,
-            planned_on: plannedOn,
+            planned_on: PERMANENT_MEAL_PLAN_DATE,
             meal_type: mealType,
             product_name: productName,
-            weight_grams: weightGrams,
+            weight_grams: 100,
             calories_per_100g: caloriesPer100g,
             proteins_per_100g: proteinsPer100g,
             fats_per_100g: fatsPer100g,
@@ -702,18 +703,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (insError) throw insError
         setMealPlanEntries((previous) => [...previous, data as MealPlanEntry])
-      },
-      async updateMealPlanEntry(id, weightGrams) {
-        const { data, error: updateError } = await requireSupabase()
-          .from('meal_plan_entries')
-          .update({
-            weight_grams: weightGrams,
-          })
-          .eq('id', id)
-          .select('*')
-          .single()
-        if (updateError) throw updateError
-        setMealPlanEntries((previous) => previous.map((entry) => entry.id === id ? data as MealPlanEntry : entry))
       },
       async deleteMealPlanEntry(id) {
         const { error: delError } = await requireSupabase()

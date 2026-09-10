@@ -196,7 +196,7 @@ export function MediaView({ compact = false }: MediaViewProps) {
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
   const [status, setStatus] = useState('Выберите аудиофайлы или папку с музыкой.')
   const [mediaInfoOpen, setMediaInfoOpen] = useState(false)
-  const [subTab, setSubTab] = useState<MediaSubTab>(() => window.matchMedia('(max-width: 768px)').matches ? 'playlists' : 'player')
+  const [subTab, setSubTab] = useState<MediaSubTab>('playlists')
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [playlistFormOpen, setPlaylistFormOpen] = useState(false)
   const [playlistName, setPlaylistName] = useState('')
@@ -472,8 +472,8 @@ export function MediaView({ compact = false }: MediaViewProps) {
         </div>
 
         <div className="media-subtabs" role="tablist" aria-label="Разделы медиа">
-          <button type="button" role="tab" aria-selected={subTab === 'player'} className={subTab === 'player' ? 'media-subtab active' : 'media-subtab'} onClick={() => setSubTab('player')}>Проигрыватель</button>
           <button type="button" role="tab" aria-selected={subTab === 'playlists'} className={subTab === 'playlists' ? 'media-subtab active' : 'media-subtab'} onClick={() => setSubTab('playlists')}>Плейлисты</button>
+          <button type="button" role="tab" aria-selected={subTab === 'player'} className={subTab === 'player' ? 'media-subtab active' : 'media-subtab'} onClick={() => setSubTab('player')}>Проигрыватель</button>
         </div>
 
         {subTab === 'player' && <>

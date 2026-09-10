@@ -3644,10 +3644,11 @@ nav {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: start;
   gap: 8px;
+  width: min(680px, 100%);
 }
 
 .meal-selector.expanded {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .meal-selector-button {
@@ -3662,25 +3663,11 @@ nav {
   cursor: pointer;
 }
 
-.meal-selector-nutrition {
-  display: block;
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.35;
-}
-
 .meal-selector-button.active {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 16px;
-}
-
-.meal-selector-button.active .meal-selector-nutrition {
-  margin-top: 0;
-  text-align: center;
 }
 
 .meal-selector-button:hover,
@@ -3689,14 +3676,20 @@ nav {
 }
 
 .meal-selector-button.active {
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--moss);
+  color: var(--on-accent);
 }
 
 .meal-planner-form {
-  width: 680px;
+  grid-column: 1 / -1;
+  width: 100%;
   padding: 12px;
   gap: 10px;
+}
+
+.meal-planner-form-toggle {
+  grid-column: 1 / -1;
+  width: 100%;
 }
 
 .meal-planner-form h3 {
@@ -5282,6 +5275,10 @@ nav {
 
   .meal-selector.expanded {
     grid-template-columns: 1fr;
+  }
+
+  .meal-selector.expanded .meal-selector-button:not(.active) {
+    display: none;
   }
 
   .meal-selector-button {
