@@ -15,6 +15,7 @@ import { applyFontScale, applyTheme, normalizeFontScale, normalizeShabbatTheme, 
 import { isShabbatActive } from '../lib/shabbat'
 import { localISODate } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
+import { getNextBibleLocation, type BibleNavigationTarget } from '../lib/bible-books'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
 const CABINET_TABS: CabinetTab[] = ['daily', 'calories', 'training', 'media', 'path', 'all', 'diary']
@@ -31,6 +32,7 @@ export function CabinetPage() {
   const viewport = useViewport()
   const [tab, setTab] = useState<CabinetTab>(getSavedCabinetTab)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [bibleNavigationRequest, setBibleNavigationRequest] = useState<BibleNavigationTarget | null>(null)
   const [currentTime, setCurrentTime] = useState(() => new Date())
   const hasPlannedTraining = scheduledExercises.some(
     (exercise) => !exercise.completed && exercise.planned_on === localISODate(currentTime),
@@ -87,6 +89,18 @@ export function CabinetPage() {
                 ? 'Медиа'
                 : 'Путь'
 
+  function continueBibleReading() {
+    const nextLocation = getNextBibleLocation(
+      profile?.last_bible_book_order,
+      profile?.last_bible_chapter,
+    )
+    setBibleNavigationRequest((current) => ({
+      ...nextLocation,
+      requestId: (current?.requestId ?? 0) + 1,
+    }))
+    setTab('path')
+  }
+
   return (
     <div className="cabinet">
       <Sidebar
@@ -121,7 +135,7 @@ export function CabinetPage() {
         {error && <p className="banner error">{error}</p>}
         {!loading && (
           <div hidden={tab !== 'daily'}>
-            <DailyTasks />
+            <DailyTasks onContinueBibleReading={continueBibleReading} />
           </div>
         )}
         {!loading && (
@@ -149,7 +163,10 @@ export function CabinetPage() {
         )}
         {!loading && (
           <div hidden={tab !== 'path'}>
-            <PathView />
+            <PathView
+              key={bibleNavigationRequest?.requestId ?? 'path'}
+              bibleNavigationRequest={bibleNavigationRequest}
+            />
           </div>
         )}
       </main>

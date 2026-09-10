@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type MouseEvent } from 'react'
 import { useData } from '../hooks/useData'
 import { getShabbatWeekStart } from '../lib/shabbat'
 import type { MindfulnessNote, PathDay } from '../lib/types'
+import type { BibleNavigationTarget } from '../lib/bible-books'
 import { BibleView } from './BibleView'
 
 type PathSubTab = 'bible' | 'sh' | 'shalom-school' | 'mindfulness-practicum'
@@ -82,7 +83,7 @@ function getSavedMindfulnessNoteDraft(): MindfulnessNoteDraft | null {
   }
 }
 
-export function PathView() {
+export function PathView({ bibleNavigationRequest }: { bibleNavigationRequest?: BibleNavigationTarget | null }) {
   const {
     profile,
     pathDayConfirmations,
@@ -98,7 +99,7 @@ export function PathView() {
     deleteMindfulnessNote,
   } = useData()
   const [savedNoteDraft] = useState<MindfulnessNoteDraft | null>(getSavedMindfulnessNoteDraft)
-  const [subTab, setSubTab] = useState<PathSubTab>(getSavedPathSubTab)
+  const [subTab, setSubTab] = useState<PathSubTab>(() => bibleNavigationRequest ? 'bible' : getSavedPathSubTab())
   const [currentTime, setCurrentTime] = useState(() => new Date())
   const [busyDay, setBusyDay] = useState<PathDay | null>(null)
   const [openCourseId, setOpenCourseId] = useState<string | null>(null)
@@ -120,7 +121,6 @@ export function PathView() {
   const [error, setError] = useState<string | null>(null)
   const [noteFormFullscreen, setNoteFormFullscreen] = useState(getSavedMindfulnessNoteFullscreenState)
   const [sabbathSchoolLinkDialogOpen, setSabbathSchoolLinkDialogOpen] = useState(false)
-
   useEffect(() => {
     window.sessionStorage.setItem(PATH_SUB_TAB_STORAGE_KEY, subTab)
   }, [subTab])
@@ -402,7 +402,7 @@ export function PathView() {
           </button>
         ))}
       </nav>
-      {subTab === 'bible' ? <BibleView /> : subTab === 'sh' ? (
+      {subTab === 'bible' ? <BibleView navigationRequest={bibleNavigationRequest} /> : subTab === 'sh' ? (
         <div className="path-sh-card">
           <GrapevineOrnament />
           <div className="path-sh-content">

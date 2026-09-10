@@ -1735,6 +1735,38 @@ nav {
   gap: 4px;
 }
 
+.task-title-line {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bible-continue-button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid var(--moss);
+  border-radius: 9px;
+  background: var(--info-bg);
+  color: var(--moss-deep);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.bible-continue-button:hover {
+  background: var(--moss);
+  color: var(--on-accent);
+}
+
+.bible-continue-button:focus-visible {
+  outline: 2px solid var(--leaf);
+  outline-offset: 2px;
+}
+
 .task-body .hint {
   font-size: 13px;
 }
@@ -2316,6 +2348,83 @@ nav {
   gap: 16px;
   padding-top: 18px;
   border-top: 1px solid var(--line);
+}
+
+.verse-translation-control {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .bible-verses .verse-mobile-number {
+    display: none;
+  }
+
+  .verse-translation-control {
+    position: relative;
+    display: inline-block;
+    margin-right: 5px;
+    vertical-align: super;
+    line-height: 1;
+  }
+
+  .verse-translation-number {
+    min-width: 16px;
+    padding: 1px 2px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--moss-deep);
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .verse-translation-number:hover,
+  .verse-translation-number[aria-expanded='true'] {
+    background: var(--info-bg);
+  }
+
+  .verse-translation-number:focus-visible,
+  .verse-translation-menu button:focus-visible {
+    outline: 2px solid var(--leaf);
+    outline-offset: 2px;
+  }
+
+  .verse-translation-menu {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 7px);
+    left: 0;
+    display: grid;
+    min-width: 190px;
+    padding: 5px;
+    border: 1px solid var(--moss);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    white-space: nowrap;
+  }
+
+  .verse-translation-menu button {
+    min-height: 30px;
+    padding: 6px 9px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--moss-deep);
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
+  }
+
+  .verse-translation-menu button:hover {
+    background: var(--info-bg);
+  }
+
 }
 
 .bible-chapter-heading {
@@ -4855,6 +4964,17 @@ nav {
 
   .task-body .hint {
     font-size: 12px;
+  }
+
+  .task-title-line {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .bible-continue-button {
+    padding: 5px 8px;
+    font-size: 11px;
   }
 
   .habit-track {

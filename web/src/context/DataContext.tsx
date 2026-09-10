@@ -516,6 +516,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (updError) throw updError
         setProfile(data as Profile)
       },
+      async saveBibleReadingPosition(bookOrder, chapter) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({
+            last_bible_book_order: bookOrder,
+            last_bible_chapter: chapter,
+          })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
       async getBibleChapter(bookOrder, chapter, includeTorahPortions = false) {
         const { data, error: selectError } = await requireSupabase()
           .from(includeTorahPortions ? 'bible_verses_with_torah_markers' : 'bible_verses')

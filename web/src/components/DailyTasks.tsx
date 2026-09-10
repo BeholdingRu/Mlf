@@ -4,6 +4,7 @@ import { useData } from '../hooks/useData'
 import { daysInclusive, localISODate, parseISODate, percent } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
+import { isBibleReadingTaskTitle } from '../lib/bible-books'
 
 type DailyTasksSubTab = 'list' | 'manage'
 
@@ -60,7 +61,7 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
   }
 }
 
-export function DailyTasks() {
+export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?: () => void }) {
   const { tasks, completions, completeToday, profile, addTask, updateTask, restartWithdrawalTask, deleteTask, adminMode } = useData()
   const [taskSettingsDraft] = useState<TaskSettingsDraft | null>(getSavedTaskSettingsDraft)
   const [subTab, setSubTab] = useState<DailyTasksSubTab>(getSavedDailyTasksSubTab)
@@ -229,7 +230,18 @@ export function DailyTasks() {
                     </button>
                   )}
                   <div className="task-body">
-                    <strong>{task.title}</strong>
+                    <div className="task-title-line">
+                      <strong>{task.title}</strong>
+                      {isBibleReadingTaskTitle(task.title) && onContinueBibleReading && (
+                        <button
+                          type="button"
+                          className="bible-continue-button"
+                          onClick={onContinueBibleReading}
+                        >
+                          Продолжить чтение
+                        </button>
+                      )}
+                    </div>
                     {!habitFormed && (
                       <span className="hint">
                         {automaticNutritionTask

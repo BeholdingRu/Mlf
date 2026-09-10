@@ -17,6 +17,8 @@ export type Profile = {
   shabbat_enabled: boolean
   shabbat_theme: ShabbatThemeId
   annual_cycle_enabled: boolean
+  last_bible_book_order: number | null
+  last_bible_chapter: number | null
 }
 
 export type BibleVerse = {

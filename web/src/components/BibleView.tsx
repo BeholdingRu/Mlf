@@ -1,36 +1,21 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useData } from '../hooks/useData'
+import {
+  BIBLE_BOOKS,
+  NEW_TESTAMENT,
+  OLD_TESTAMENT,
+  type BibleBook,
+  type BibleNavigationTarget,
+} from '../lib/bible-books'
 import type { BibleVerse, TorahPortion } from '../lib/types'
 
-type BibleBook = {
-  order: number
-  name: string
-  chapters: number
-}
-
-const OLD_TESTAMENT: BibleBook[] = [
-  ['Бытие', 50], ['Исход', 40], ['Левит', 27], ['Числа', 36], ['Второзаконие', 34],
-  ['Иисус Навин', 24], ['Судьи', 21], ['Руфь', 4], ['1 Царств', 31], ['2 Царств', 24],
-  ['3 Царств', 22], ['4 Царств', 25], ['1 Паралипоменон', 29], ['2 Паралипоменон', 36], ['Ездра', 10],
-  ['Неемия', 13], ['Есфирь', 10], ['Иов', 42], ['Псалтирь', 150], ['Притчи', 31],
-  ['Екклесиаст', 12], ['Песня Песней', 8], ['Исаия', 66], ['Иеремия', 52], ['Плач Иеремии', 5],
-  ['Иезекииль', 48], ['Даниил', 12], ['Осия', 14], ['Иоиль', 3], ['Амос', 9],
-  ['Авдий', 1], ['Иона', 4], ['Михей', 7], ['Наум', 3], ['Аввакум', 3],
-  ['Софония', 3], ['Аггей', 2], ['Захария', 14], ['Малахия', 4],
-].map(([name, chapters], index) => ({ order: index + 1, name: name as string, chapters: chapters as number }))
-
-const NEW_TESTAMENT: BibleBook[] = [
-  ['От Матфея', 28], ['От Марка', 16], ['От Луки', 24], ['От Иоанна', 21], ['Деяния святых Апостолов', 28],
-  ['Послание к Римлянам', 16], ['Первое послание к Коринфянам', 16], ['Второе послание к Коринфянам', 13],
-  ['Послание к Галатам', 6], ['Послание к Ефесянам', 6], ['Послание к Филиппийцам', 4], ['Послание к Колоссянам', 4], ['Первое послание к Фессалоникийцам', 5],
-  ['Второе послание к Фессалоникийцам', 3], ['Первое послание к Тимофею', 6], ['Второе послание к Тимофею', 4], ['Послание к Титу', 3], ['Послание к Филимону', 1],
-  ['Послание к Евреям', 13], ['Послание Иакова', 5], ['Первое послание Петра', 5], ['Второе послание Петра', 3], ['Первое послание Иоанна', 5],
-  ['Второе послание Иоанна', 1], ['Третье послание Иоанна', 1], ['Послание Иуды', 1], ['Откровение Иоанна Богослова', 22],
-].map(([name, chapters], index) => ({ order: index + 40, name: name as string, chapters: chapters as number }))
-
-const BIBLE_NAVIGATION_STORAGE_KEY = 'mlf:bible-navigation'
 const TORAH_RUSSIAN_PLAYLIST_URL = 'https://youtube.com/playlist?list=PLV034aDASG5T4OizaEyJyzlZV_K8tGZnv&si=1oZmv97ixhOJszK9'
-const BIBLE_BOOKS = [...OLD_TESTAMENT, ...NEW_TESTAMENT]
+const TRANSLATION_POPUP_WIDTH = 560
+const TRANSLATION_POPUP_HEIGHT = 360
+const EXTERNAL_BIBLE_TRANSLATIONS = [
+  { id: 313, code: 'BTI', label: 'Перевод Кулакова' },
+  { id: 143, code: 'НРП', label: 'Новый русский перевод' },
+] as const
 const chapterCache = new Map<string, BibleVerse[]>()
 const pendingChapters = new Map<string, Promise<BibleVerse[]>>()
 const torahPortionsCache = new Map<number, TorahPortion[]>()
@@ -44,44 +29,65 @@ function getPortionColorStyle(portionNumber?: number | null): CSSProperties {
   return { '--portion-color': `hsl(${hue} 62% 45%)` } as CSSProperties
 }
 
-function getSavedBibleNavigation(): { book: BibleBook | null; chapter: number | null } {
-  try {
-    const saved = JSON.parse(window.sessionStorage.getItem(BIBLE_NAVIGATION_STORAGE_KEY) ?? '{}') as {
-      bookOrder?: unknown
-      chapter?: unknown
-    }
-    const book = typeof saved.bookOrder === 'number'
-      ? BIBLE_BOOKS.find((item) => item.order === saved.bookOrder) ?? null
-      : null
-    const chapter = book && typeof saved.chapter === 'number' && saved.chapter >= 1 && saved.chapter <= book.chapters
-      ? saved.chapter
-      : null
-    return { book, chapter }
-  } catch {
-    window.sessionStorage.removeItem(BIBLE_NAVIGATION_STORAGE_KEY)
-    return { book: null, chapter: null }
-  }
+function getRequestedNavigation(navigationRequest?: BibleNavigationTarget | null) {
+  if (!navigationRequest) return { book: null, chapter: null }
+  const requestedBook = BIBLE_BOOKS.find((item) => item.order === navigationRequest.bookOrder) ?? null
+  const requestedChapter = requestedBook
+    && navigationRequest.chapter >= 1
+    && navigationRequest.chapter <= requestedBook.chapters
+    ? navigationRequest.chapter
+    : null
+  return { book: requestedChapter ? requestedBook : null, chapter: requestedChapter }
 }
 
-export function BibleView() {
-  const { getBibleChapter, getTorahPortions, profile } = useData()
+export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavigationTarget | null }) {
+  const { getBibleChapter, getTorahPortions, profile, saveBibleReadingPosition } = useData()
   const includeTorahPortions = profile?.annual_cycle_enabled ?? false
-  const [savedNavigation] = useState(getSavedBibleNavigation)
-  const [book, setBook] = useState<BibleBook | null>(savedNavigation.book)
-  const [chapter, setChapter] = useState<number | null>(savedNavigation.chapter)
+  const [requestedNavigation] = useState(() => getRequestedNavigation(navigationRequest))
+  const [book, setBook] = useState<BibleBook | null>(requestedNavigation.book)
+  const [chapter, setChapter] = useState<number | null>(requestedNavigation.chapter)
   const [verses, setVerses] = useState<BibleVerse[]>([])
   const [error, setError] = useState<string | null>(null)
   const [chapterListOpen, setChapterListOpen] = useState(false)
   const [playlistInfoOpen, setPlaylistInfoOpen] = useState(false)
+  const [activeTranslationVerse, setActiveTranslationVerse] = useState<number | null>(null)
   const [highlightedPortion, setHighlightedPortion] = useState<TorahPortion | null>(null)
   const [loadedTorahPortions, setLoadedTorahPortions] = useState<{
     bookOrder: number
     portions: TorahPortion[]
   } | null>(null)
   const chapterHeadingRef = useRef<HTMLDivElement>(null)
+  const saveBibleReadingPositionRef = useRef(saveBibleReadingPosition)
   const torahPortions = includeTorahPortions && book && loadedTorahPortions?.bookOrder === book.order
     ? loadedTorahPortions.portions
     : []
+
+  useEffect(() => {
+    saveBibleReadingPositionRef.current = saveBibleReadingPosition
+  }, [saveBibleReadingPosition])
+
+  useEffect(() => {
+    if (activeTranslationVerse === null) return
+
+    const closeHint = (event: PointerEvent) => {
+      if (!(event.target as Element).closest('.verse-translation-control')) setActiveTranslationVerse(null)
+    }
+    const closeHintOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveTranslationVerse(null)
+    }
+    window.addEventListener('pointerdown', closeHint)
+    window.addEventListener('keydown', closeHintOnEscape)
+    return () => {
+      window.removeEventListener('pointerdown', closeHint)
+      window.removeEventListener('keydown', closeHintOnEscape)
+    }
+  }, [activeTranslationVerse])
+
+  useEffect(() => {
+    if (!requestedNavigation.book || !requestedNavigation.chapter) return
+    void saveBibleReadingPositionRef.current(requestedNavigation.book.order, requestedNavigation.chapter)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Не удалось сохранить место чтения'))
+  }, [requestedNavigation])
 
   const loadChapter = useCallback((bookOrder: number, chapterNumber: number) => {
     const key = getChapterKey(bookOrder, chapterNumber, includeTorahPortions)
@@ -130,11 +136,6 @@ export function BibleView() {
   }, [book, chapter, loadChapter])
 
   useEffect(() => {
-    if (!book) return
-    window.sessionStorage.setItem(BIBLE_NAVIGATION_STORAGE_KEY, JSON.stringify({ bookOrder: book.order, chapter }))
-  }, [book, chapter])
-
-  useEffect(() => {
     if (!includeTorahPortions || !book || book.order > 5) return
 
     const cached = torahPortionsCache.get(book.order)
@@ -160,11 +161,19 @@ export function BibleView() {
   }, [book?.order, chapter, verses])
 
   function selectBook(nextBook: BibleBook) {
+    const savedChapter = profile?.last_bible_book_order === nextBook.order
+      && profile.last_bible_chapter
+      && profile.last_bible_chapter <= nextBook.chapters
+      ? profile.last_bible_chapter
+      : null
     setBook(nextBook)
-    setChapter(null)
+    setChapter(savedChapter)
     setChapterListOpen(false)
     setPlaylistInfoOpen(false)
-    setVerses([])
+    setActiveTranslationVerse(null)
+    setVerses(savedChapter
+      ? chapterCache.get(getChapterKey(nextBook.order, savedChapter, includeTorahPortions)) ?? []
+      : [])
     setError(null)
   }
 
@@ -173,12 +182,13 @@ export function BibleView() {
     setChapter(null)
     setChapterListOpen(false)
     setPlaylistInfoOpen(false)
+    setActiveTranslationVerse(null)
     setVerses([])
     setError(null)
-    window.sessionStorage.removeItem(BIBLE_NAVIGATION_STORAGE_KEY)
   }
 
   function selectChapter(nextChapter: number) {
+    setActiveTranslationVerse(null)
     if (nextChapter === chapter) {
       setChapterListOpen((open) => !open)
       return
@@ -188,14 +198,28 @@ export function BibleView() {
     const cached = chapterCache.get(getChapterKey(book!.order, nextChapter, includeTorahPortions))
     setVerses(cached ?? [])
     setError(null)
+    void saveBibleReadingPosition(book!.order, nextChapter)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Не удалось сохранить место чтения'))
+  }
+
+  function openExternalBibleVerse(verse: number, translation: typeof EXTERNAL_BIBLE_TRANSLATIONS[number]) {
+    if (!book || !chapter) return
+    const popupLeft = Math.max(0, Math.round(window.screenX + (window.outerWidth - TRANSLATION_POPUP_WIDTH) / 2))
+    const popupTop = Math.max(0, Math.round(window.screenY + (window.outerHeight - TRANSLATION_POPUP_HEIGHT) / 2))
+    window.open(
+      `https://www.bible.com/ru/bible/${translation.id}/${book.youVersionCode}.${chapter}.${verse}.${encodeURIComponent(translation.code)}`,
+      '_blank',
+      `popup,width=${TRANSLATION_POPUP_WIDTH},height=${TRANSLATION_POPUP_HEIGHT},left=${popupLeft},top=${popupTop},resizable=yes,scrollbars=yes,noopener,noreferrer`,
+    )
+    setActiveTranslationVerse(null)
   }
 
   return (
     <section className="bible-view">
       {!book && (
         <div className="bible-library" aria-label="Выбор книги Библии">
-          <BibleBookGroup title="Тора, Писания и Пророки" books={OLD_TESTAMENT} onSelect={selectBook} />
-          <BibleBookGroup title="Свидетельство Иисуса Христа" books={NEW_TESTAMENT} onSelect={selectBook} />
+          <BibleBookGroup title="Тора, Писания и Пророки" books={OLD_TESTAMENT} activeBookOrder={profile?.last_bible_book_order} onSelect={selectBook} />
+          <BibleBookGroup title="Свидетельство Иисуса Христа" books={NEW_TESTAMENT} activeBookOrder={profile?.last_bible_book_order} onSelect={selectBook} />
         </div>
       )}
 
@@ -305,7 +329,34 @@ export function BibleView() {
                             </small>
                           </div>
                         )}
-                        <p><sup>{verse.verse}</sup>{verse.text}</p>
+                        <p>
+                          <sup className="verse-mobile-number">{verse.verse}</sup>
+                          <span className="verse-translation-control">
+                            <button
+                              type="button"
+                              className="verse-translation-number"
+                              onClick={() => setActiveTranslationVerse((current) => current === verse.verse ? null : verse.verse)}
+                              aria-label={`Показать переводы: ${book.name} ${chapter}:${verse.verse}`}
+                              aria-expanded={activeTranslationVerse === verse.verse}
+                            >
+                              {verse.verse}
+                            </button>
+                            {activeTranslationVerse === verse.verse && (
+                              <span className="verse-translation-menu" aria-label="Выбор перевода">
+                                {EXTERNAL_BIBLE_TRANSLATIONS.map((translation) => (
+                                  <button
+                                    key={translation.code}
+                                    type="button"
+                                    onClick={() => openExternalBibleVerse(verse.verse, translation)}
+                                  >
+                                    {translation.label}
+                                  </button>
+                                ))}
+                              </span>
+                            )}
+                          </span>
+                          {verse.text}
+                        </p>
                         {includeTorahPortions && verse.end_portion_id && (
                           <div
                             className="torah-portion-marker torah-portion-end"
@@ -337,12 +388,32 @@ function ChapterNavigation({ book, chapter, onSelect }: { book: BibleBook; chapt
   )
 }
 
-function BibleBookGroup({ title, books, onSelect }: { title: string; books: BibleBook[]; onSelect: (book: BibleBook) => void }) {
+function BibleBookGroup({
+  title,
+  books,
+  activeBookOrder,
+  onSelect,
+}: {
+  title: string
+  books: BibleBook[]
+  activeBookOrder?: number | null
+  onSelect: (book: BibleBook) => void
+}) {
   return (
     <section className="bible-book-group">
       <h2>{title}</h2>
       <div className="bible-books">
-        {books.map((book) => <button key={book.order} type="button" className="bible-book" onClick={() => onSelect(book)}>{book.name}</button>)}
+        {books.map((book) => (
+          <button
+            key={book.order}
+            type="button"
+            className={activeBookOrder === book.order ? 'bible-book active' : 'bible-book'}
+            onClick={() => onSelect(book)}
+            aria-current={activeBookOrder === book.order ? 'true' : undefined}
+          >
+            {book.name}
+          </button>
+        ))}
       </div>
     </section>
   )

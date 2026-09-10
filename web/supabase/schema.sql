@@ -31,6 +31,8 @@ create table if not exists public.profiles (
   shabbat_enabled boolean not null default false,
   shabbat_theme text not null default 'shabbat-dawn',
   annual_cycle_enabled boolean not null default false,
+  last_bible_book_order smallint check (last_bible_book_order between 1 and 66),
+  last_bible_chapter smallint check (last_bible_chapter >= 1),
   created_at timestamptz not null default now()
 );
 
@@ -75,7 +77,9 @@ alter table public.profiles
   add column if not exists city_longitude numeric(7, 4),
   add column if not exists shabbat_enabled boolean not null default false,
   add column if not exists shabbat_theme text not null default 'shabbat-dawn',
-  add column if not exists annual_cycle_enabled boolean not null default false;
+  add column if not exists annual_cycle_enabled boolean not null default false,
+  add column if not exists last_bible_book_order smallint check (last_bible_book_order between 1 and 66),
+  add column if not exists last_bible_chapter smallint check (last_bible_chapter >= 1);
 
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),

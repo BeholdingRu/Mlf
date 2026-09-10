@@ -60,6 +60,7 @@ export type DataContextValue = {
   saveLocation: (timeZone: string, city: SunsetCity | null) => Promise<void>
   saveAnnualCycleEnabled: (enabled: boolean) => Promise<void>
   saveShabbatTheme: (theme: ShabbatThemeId) => Promise<void>
+  saveBibleReadingPosition: (bookOrder: number, chapter: number) => Promise<void>
   getBibleChapter: (bookOrder: number, chapter: number, includeTorahPortions?: boolean) => Promise<BibleVerse[]>
   getTorahPortions: (bookOrder: number) => Promise<TorahPortion[]>
   confirmPathDay: (day: PathDay, cycleStartedOn: string) => Promise<void>
