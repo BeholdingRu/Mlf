@@ -2188,16 +2188,11 @@ nav {
   font-weight: 700;
 }
 
-.bible-chapter.portion-start {
-  box-shadow: inset 4px 0 var(--portion-start-color);
-}
-
-.bible-chapter.portion-end {
-  box-shadow: inset -4px 0 var(--portion-end-color);
-}
-
-.bible-chapter.portion-start.portion-end {
-  box-shadow: inset 4px 0 var(--portion-start-color), inset -4px 0 var(--portion-end-color);
+.bible-chapter.portion-highlighted {
+  border-color: var(--portion-color);
+  background: color-mix(in srgb, var(--portion-color) 20%, var(--surface));
+  color: var(--ink);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--portion-color) 35%, transparent);
 }
 
 .torah-portion-marker {
@@ -5078,6 +5073,22 @@ nav {
 
   .bible-chapters.chapter-selected .bible-chapter:not(.active) {
     display: none;
+  }
+
+  .bible-reader-heading {
+    order: 1;
+  }
+
+  .bible-chapters {
+    order: 2;
+  }
+
+  .torah-portions-map {
+    order: 3;
+  }
+
+  .bible-chapter-text {
+    order: 4;
   }
 
   .code-cell {

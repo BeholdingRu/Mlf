@@ -71,6 +71,7 @@ export function BibleView() {
   const [verses, setVerses] = useState<BibleVerse[]>([])
   const [error, setError] = useState<string | null>(null)
   const [chapterListOpen, setChapterListOpen] = useState(false)
+  const [highlightedPortion, setHighlightedPortion] = useState<TorahPortion | null>(null)
   const [loadedTorahPortions, setLoadedTorahPortions] = useState<{
     bookOrder: number
     portions: TorahPortion[]
@@ -200,6 +201,32 @@ export function BibleView() {
             <h2>{book.name}</h2>
             <button type="button" className="bible-return-button" onClick={returnToLibrary}>Все книги</button>
           </div>
+          <div className={chapter && !chapterListOpen ? 'bible-chapters chapter-selected' : 'bible-chapters'} aria-label={`Главы книги «${book.name}»`}>
+            {Array.from({ length: book.chapters }, (_, index) => index + 1).map((number) => {
+              const highlighted = Boolean(
+                highlightedPortion
+                && number >= highlightedPortion.start_chapter
+                && number <= highlightedPortion.end_chapter,
+              )
+              const classes = [
+                'bible-chapter',
+                chapter === number ? 'active' : '',
+                highlighted ? 'portion-highlighted' : '',
+              ].filter(Boolean).join(' ')
+              return (
+                <button
+                  key={number}
+                  type="button"
+                  className={classes}
+                  style={highlighted ? getPortionColorStyle(highlightedPortion?.portion_number) : undefined}
+                  onClick={() => selectChapter(number)}
+                  aria-expanded={chapter === number ? chapterListOpen : undefined}
+                >
+                  {number}
+                </button>
+              )
+            })}
+          </div>
           {includeTorahPortions && torahPortions.length > 0 && (
             <div className="torah-portions-map" aria-label={`Недельные главы книги «${book.name}»`}>
               {torahPortions.map((portion) => (
@@ -209,6 +236,10 @@ export function BibleView() {
                   className="torah-portion-card"
                   style={getPortionColorStyle(portion.portion_number)}
                   onClick={() => selectChapter(portion.start_chapter)}
+                  onMouseEnter={() => setHighlightedPortion(portion)}
+                  onMouseLeave={() => setHighlightedPortion(null)}
+                  onFocus={() => setHighlightedPortion(portion)}
+                  onBlur={() => setHighlightedPortion(null)}
                   title={`Перейти к началу: ${portion.start_chapter}:${portion.start_verse}`}
                 >
                   <span className="torah-portion-card-number">{portion.portion_number}</span>
@@ -223,43 +254,6 @@ export function BibleView() {
               ))}
             </div>
           )}
-          <div className={chapter && !chapterListOpen ? 'bible-chapters chapter-selected' : 'bible-chapters'} aria-label={`Главы книги «${book.name}»`}>
-            {Array.from({ length: book.chapters }, (_, index) => index + 1).map((number) => {
-              const starts = torahPortions.filter((portion) => portion.start_chapter === number)
-              const ends = torahPortions.filter((portion) => portion.end_chapter === number)
-              const classes = [
-                'bible-chapter',
-                chapter === number ? 'active' : '',
-                starts.length ? 'portion-start' : '',
-                ends.length ? 'portion-end' : '',
-              ].filter(Boolean).join(' ')
-              const boundaryStyle = {
-                '--portion-start-color': starts.length
-                  ? getPortionColorStyle(starts[0].portion_number)['--portion-color' as keyof CSSProperties]
-                  : undefined,
-                '--portion-end-color': ends.length
-                  ? getPortionColorStyle(ends[0].portion_number)['--portion-color' as keyof CSSProperties]
-                  : undefined,
-              } as CSSProperties
-              const boundaries = [
-                ...starts.map((portion) => `Начало «${portion.name_ru}» — стих ${portion.start_verse}`),
-                ...ends.map((portion) => `Конец «${portion.name_ru}» — стих ${portion.end_verse}`),
-              ].join('. ')
-              return (
-                <button
-                  key={number}
-                  type="button"
-                  className={classes}
-                  style={boundaryStyle}
-                  onClick={() => selectChapter(number)}
-                  aria-expanded={chapter === number ? chapterListOpen : undefined}
-                  title={boundaries || undefined}
-                >
-                  {number}
-                </button>
-              )
-            })}
-          </div>
           {chapter && (
             <div className="bible-chapter-text" aria-live="polite">
               <div ref={chapterHeadingRef} className="bible-chapter-heading">
