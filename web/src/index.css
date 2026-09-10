@@ -2308,8 +2308,71 @@ nav {
 }
 
 .bible-library {
+  --bible-tree-top: color-mix(in srgb, var(--leaf) 78%, var(--moss-deep));
+  --bible-tree-bottom: color-mix(in srgb, var(--moss-deep) 82%, var(--ink));
+  position: relative;
+  isolation: isolate;
   display: grid;
   gap: 20px;
+}
+
+.bible-growth-tree {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+.bible-growth-tree-art {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(100%, 1254px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  clip-path: circle(var(--bible-tree-reveal-radius) at 50% 50%);
+  transition: clip-path 900ms ease;
+}
+
+.bible-growth-tree-art::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--bible-tree-top), var(--bible-tree-bottom));
+  content: '';
+  opacity: 0.62;
+  -webkit-mask: url('/image/tree.png') center / contain no-repeat;
+  mask: url('/image/tree.png') center / contain no-repeat;
+}
+
+.bible-growth-tree-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: grayscale(1) contrast(1.08);
+  opacity: 0.58;
+}
+
+.bible-library > .bible-book-group {
+  position: relative;
+  z-index: 1;
+}
+
+.bible-library.has-growth-tree > .bible-book-group {
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  backdrop-filter: blur(1.5px);
+}
+
+.bible-library.has-growth-tree .bible-book {
+  background: color-mix(in srgb, var(--surface-muted) 86%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bible-growth-tree-art {
+    transition: none;
+  }
 }
 
 .bible-book-group,

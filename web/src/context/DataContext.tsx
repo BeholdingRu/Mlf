@@ -11,6 +11,7 @@ import type {
   FoodLog,
   MealPlanEntry,
   BibleBookmark,
+  BibleTreeProgress,
   BibleVerse,
   CourseLessonCompletion,
   MindfulnessCategory,
@@ -33,6 +34,37 @@ import { DataContext, type DataContextValue } from './data-context'
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
 const PERMANENT_MEAL_PLAN_DATE = '1970-01-01'
+const EMPTY_BIBLE_TREE_PROGRESS: BibleTreeProgress = {
+  progressSteps: 0,
+  chaptersToday: 0,
+  startedOn: null,
+  available: false,
+}
+
+type BibleTreeProgressRpcRow = {
+  progress_steps: number
+  chapters_today: number
+  started_on: string | null
+}
+
+function isBibleTreeFeatureMissing(error: { code?: string; message?: string } | null) {
+  return error?.code === 'PGRST202'
+    || error?.code === '42883'
+    || error?.code === '42P01'
+    || error?.message?.includes('refresh_bible_tree_progress') === true
+    || error?.message?.includes('record_bible_chapter_read') === true
+}
+
+function normalizeBibleTreeProgress(data: unknown): BibleTreeProgress {
+  const result = Array.isArray(data) ? data[0] : data
+  const row = result as BibleTreeProgressRpcRow | null | undefined
+  return {
+    progressSteps: Math.max(0, Math.min(334, Number(row?.progress_steps) || 0)),
+    chaptersToday: Math.max(0, Number(row?.chapters_today) || 0),
+    startedOn: row?.started_on ?? null,
+    available: true,
+  }
+}
 
 async function withDataLoadTimeout<T>(request: Promise<T>): Promise<T> {
   let timeoutId: number | undefined
@@ -61,6 +93,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [foodHistoryLogs, setFoodHistoryLogs] = useState<FoodLog[]>([])
   const [mealPlanEntries, setMealPlanEntries] = useState<MealPlanEntry[]>([])
   const [bibleBookmarks, setBibleBookmarks] = useState<BibleBookmark[]>([])
+  const [bibleTreeProgress, setBibleTreeProgress] = useState<BibleTreeProgress>(EMPTY_BIBLE_TREE_PROGRESS)
   const [pathDayConfirmations, setPathDayConfirmations] = useState<PathDayConfirmation[]>([])
   const [courseLessonCompletions, setCourseLessonCompletions] = useState<CourseLessonCompletion[]>([])
   const [mindfulnessCategories, setMindfulnessCategories] = useState<MindfulnessCategory[]>([])
@@ -203,6 +236,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setMindfulnessCategories((mindfulnessCategoriesRes.data ?? []) as MindfulnessCategory[])
     setMindfulnessNotes((mindfulnessNotesRes.data ?? []) as MindfulnessNote[])
     setBibleBookmarks((bibleBookmarksRes.data ?? []) as BibleBookmark[])
+    const bibleTreeResult = await client.rpc('refresh_bible_tree_progress')
+    if (bibleTreeResult.error) {
+      if (!isBibleTreeFeatureMissing(bibleTreeResult.error)) {
+        setError(bibleTreeResult.error.message)
+        setLoading(false)
+        return
+      }
+      setBibleTreeProgress(EMPTY_BIBLE_TREE_PROGRESS)
+    } else {
+      setBibleTreeProgress(normalizeBibleTreeProgress(bibleTreeResult.data))
+    }
     setSavedProducts(normalizedSavedProducts)
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
@@ -310,6 +354,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodHistoryLogs,
       mealPlanEntries,
       bibleBookmarks,
+      bibleTreeProgress,
       pathDayConfirmations,
       courseLessonCompletions,
       mindfulnessCategories,
@@ -539,6 +584,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (updError) throw updError
         setProfile(data as Profile)
+      },
+      async recordBibleChapterRead(bookOrder, chapter) {
+        if (!user) return null
+        const { data, error: recordError } = await requireSupabase().rpc('record_bible_chapter_read', {
+          p_book_order: bookOrder,
+          p_chapter: chapter,
+        })
+        if (recordError) {
+          if (isBibleTreeFeatureMissing(recordError)) return null
+          throw recordError
+        }
+        const nextProgress = normalizeBibleTreeProgress(data)
+        setBibleTreeProgress(nextProgress)
+        return nextProgress
+      },
+      async refreshBibleTreeProgress() {
+        if (!user) return
+        const { data, error: refreshError } = await requireSupabase().rpc('refresh_bible_tree_progress')
+        if (refreshError) {
+          if (isBibleTreeFeatureMissing(refreshError)) return
+          throw refreshError
+        }
+        setBibleTreeProgress(normalizeBibleTreeProgress(data))
       },
       async addBibleBookmark(bookOrder, chapter, verse, title, color) {
         if (!user) throw new Error('Не удалось определить пользователя')
@@ -939,6 +1007,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodHistoryLogs,
       mealPlanEntries,
       bibleBookmarks,
+      bibleTreeProgress,
       pathDayConfirmations,
       courseLessonCompletions,
       mindfulnessCategories,

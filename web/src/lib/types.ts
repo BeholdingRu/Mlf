@@ -55,6 +55,13 @@ export type BibleBookmark = {
   created_at: string
 }
 
+export type BibleTreeProgress = {
+  progressSteps: number
+  chaptersToday: number
+  startedOn: string | null
+  available: boolean
+}
+
 export type TorahPortion = {
   id: number
   portion_number: number

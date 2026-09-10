@@ -4,6 +4,7 @@ import type {
   ExerciseType,
   CourseLessonCompletion,
   BibleBookmark,
+  BibleTreeProgress,
   BibleVerse,
   FoodLog,
   MealPlanEntry,
@@ -34,6 +35,7 @@ export type DataContextValue = {
   foodHistoryLogs: FoodLog[]
   mealPlanEntries: MealPlanEntry[]
   bibleBookmarks: BibleBookmark[]
+  bibleTreeProgress: BibleTreeProgress
   pathDayConfirmations: PathDayConfirmation[]
   courseLessonCompletions: CourseLessonCompletion[]
   mindfulnessCategories: MindfulnessCategory[]
@@ -63,6 +65,8 @@ export type DataContextValue = {
   saveAnnualCycleEnabled: (enabled: boolean) => Promise<void>
   saveShabbatTheme: (theme: ShabbatThemeId) => Promise<void>
   saveBibleReadingPosition: (bookOrder: number, chapter: number) => Promise<void>
+  recordBibleChapterRead: (bookOrder: number, chapter: number) => Promise<BibleTreeProgress | null>
+  refreshBibleTreeProgress: () => Promise<void>
   addBibleBookmark: (bookOrder: number, chapter: number, verse: number, title: string, color: string) => Promise<BibleBookmark>
   updateBibleBookmark: (id: string, title: string, color: string) => Promise<void>
   deleteBibleBookmark: (id: string) => Promise<void>

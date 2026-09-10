@@ -8,10 +8,13 @@ import {
   type BibleNavigationTarget,
 } from '../lib/bible-books'
 import { EXTERNAL_BIBLE_TRANSLATIONS, openBibleTranslation } from '../lib/bible-translations'
+import { daysInclusive, isoDateInTimeZone, millisecondsUntilNextDayInTimeZone, parseISODate } from '../lib/dates'
 import type { BibleBookmark, BibleVerse, TorahPortion } from '../lib/types'
+import { BibleGrowthTree } from './BibleGrowthTree'
 
 const TORAH_RUSSIAN_PLAYLIST_URL = 'https://youtube.com/playlist?list=PLV034aDASG5T4OizaEyJyzlZV_K8tGZnv&si=1oZmv97ixhOJszK9'
 const DEFAULT_BOOKMARK_COLOR = '#fff2a8'
+const BIBLE_TREE_TEST_DATE_STORAGE_KEY = 'mlf:bible-tree-test-date'
 const chapterCache = new Map<string, BibleVerse[]>()
 const pendingChapters = new Map<string, Promise<BibleVerse[]>>()
 const torahPortionsCache = new Map<number, TorahPortion[]>()
@@ -44,15 +47,20 @@ function getRequestedNavigation(navigationRequest?: BibleNavigationTarget | null
 export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavigationTarget | null }) {
   const {
     addBibleBookmark,
+    adminMode,
     bibleBookmarks,
+    bibleTreeProgress,
     deleteBibleBookmark,
     getBibleChapter,
     getTorahPortions,
     profile,
+    recordBibleChapterRead,
+    refreshBibleTreeProgress,
     saveBibleReadingPosition,
     updateBibleBookmark,
   } = useData()
   const includeTorahPortions = profile?.annual_cycle_enabled ?? false
+  const today = isoDateInTimeZone(profile?.time_zone)
   const [requestedNavigation] = useState(() => getRequestedNavigation(navigationRequest))
   const [book, setBook] = useState<BibleBook | null>(requestedNavigation.book)
   const [chapter, setChapter] = useState<number | null>(requestedNavigation.chapter)
@@ -66,6 +74,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   const [bookmarkColor, setBookmarkColor] = useState(DEFAULT_BOOKMARK_COLOR)
   const [bookmarkBusy, setBookmarkBusy] = useState(false)
   const [bookmarkError, setBookmarkError] = useState<string | null>(null)
+  const [testDate, setTestDate] = useState(() => window.sessionStorage.getItem(BIBLE_TREE_TEST_DATE_STORAGE_KEY) ?? today)
   const [highlightedPortion, setHighlightedPortion] = useState<TorahPortion | null>(null)
   const [loadedTorahPortions, setLoadedTorahPortions] = useState<{
     bookOrder: number
@@ -74,6 +83,11 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   const chapterHeadingRef = useRef<HTMLDivElement>(null)
   const suppressChapterScrollRef = useRef(false)
   const saveBibleReadingPositionRef = useRef(saveBibleReadingPosition)
+  const recordBibleChapterReadRef = useRef(recordBibleChapterRead)
+  const refreshBibleTreeProgressRef = useRef(refreshBibleTreeProgress)
+  const recordedChapterKeysRef = useRef(new Set<string>())
+  const chapterRecordQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const chaptersTodayRef = useRef(bibleTreeProgress.chaptersToday)
   const torahPortions = includeTorahPortions && book && loadedTorahPortions?.bookOrder === book.order
     ? loadedTorahPortions.portions
     : []
@@ -82,10 +96,95 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
       .filter((bookmark) => bookmark.book_order === book?.order && bookmark.chapter === chapter)
       .map((bookmark) => [bookmark.verse, bookmark]),
   )
+  const actualVisibleTreeSteps = Math.min(
+    334,
+    bibleTreeProgress.progressSteps + (bibleTreeProgress.chaptersToday >= 5 ? 1 : 0),
+  )
+  const testStartDate = bibleTreeProgress.startedOn ?? today
+  const simulatedTreeSteps = testDate && testDate >= testStartDate
+    ? Math.min(334, daysInclusive(parseISODate(testStartDate), parseISODate(testDate)))
+    : 0
+  const visibleTreeSteps = adminMode ? simulatedTreeSteps : actualVisibleTreeSteps
+  const treeProgressPercent = Math.min(100, visibleTreeSteps * 0.3)
+  const trackBibleChapter = useCallback((bookOrder: number, chapterNumber: number) => {
+    if (chaptersTodayRef.current >= 5) return
+    const chapterKey = `${isoDateInTimeZone(profile?.time_zone)}:${bookOrder}:${chapterNumber}`
+    if (recordedChapterKeysRef.current.has(chapterKey)) return
+    recordedChapterKeysRef.current.add(chapterKey)
+    chapterRecordQueueRef.current = chapterRecordQueueRef.current
+      .then(async () => {
+        if (chaptersTodayRef.current >= 5) return
+        const nextProgress = await recordBibleChapterReadRef.current(bookOrder, chapterNumber)
+        if (nextProgress) chaptersTodayRef.current = nextProgress.chaptersToday
+      })
+      .catch(() => {
+        recordedChapterKeysRef.current.delete(chapterKey)
+      })
+  }, [profile?.time_zone])
 
   useEffect(() => {
     saveBibleReadingPositionRef.current = saveBibleReadingPosition
   }, [saveBibleReadingPosition])
+
+  useEffect(() => {
+    window.sessionStorage.setItem(BIBLE_TREE_TEST_DATE_STORAGE_KEY, testDate)
+  }, [testDate])
+
+  useEffect(() => {
+    recordBibleChapterReadRef.current = recordBibleChapterRead
+  }, [recordBibleChapterRead])
+
+  useEffect(() => {
+    refreshBibleTreeProgressRef.current = refreshBibleTreeProgress
+  }, [refreshBibleTreeProgress])
+
+  useEffect(() => {
+    chaptersTodayRef.current = bibleTreeProgress.chaptersToday
+  }, [bibleTreeProgress.chaptersToday])
+
+  useEffect(() => {
+    let disposed = false
+    let timer: number | undefined
+    let observedDate = isoDateInTimeZone(profile?.time_zone)
+
+    const scheduleMidnightCheck = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        const currentDate = isoDateInTimeZone(profile?.time_zone)
+        if (currentDate !== observedDate) {
+          observedDate = currentDate
+          void refreshBibleTreeProgressRef.current()
+            .catch(() => undefined)
+            .finally(() => {
+              if (!disposed) scheduleMidnightCheck()
+            })
+          return
+        }
+        scheduleMidnightCheck()
+      }, millisecondsUntilNextDayInTimeZone(profile?.time_zone))
+    }
+
+    const checkDateWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      const currentDate = isoDateInTimeZone(profile?.time_zone)
+      if (currentDate === observedDate) return
+      observedDate = currentDate
+      window.clearTimeout(timer)
+      void refreshBibleTreeProgressRef.current()
+        .catch(() => undefined)
+        .finally(() => {
+          if (!disposed) scheduleMidnightCheck()
+        })
+    }
+
+    scheduleMidnightCheck()
+    document.addEventListener('visibilitychange', checkDateWhenVisible)
+    return () => {
+      disposed = true
+      window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', checkDateWhenVisible)
+    }
+  }, [profile?.time_zone])
 
   useEffect(() => {
     if (activeVerseMenu === null) return
@@ -203,6 +302,12 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
     return () => window.cancelAnimationFrame(frame)
   }, [book, chapter, requestedNavigation, verses])
 
+  useEffect(() => {
+    if (!book || !chapter || verses.length === 0) return
+    if (verses[0]?.book_order !== book.order || verses[0]?.chapter !== chapter) return
+    trackBibleChapter(book.order, chapter)
+  }, [book, chapter, trackBibleChapter, verses])
+
   function selectBook(nextBook: BibleBook) {
     const savedChapter = profile?.last_bible_book_order === nextBook.order
       && profile.last_bible_chapter
@@ -240,6 +345,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
       return
     }
     suppressChapterScrollRef.current = !scrollToChapterHeading
+    trackBibleChapter(book!.order, nextChapter)
     setChapter(nextChapter)
     setChapterListOpen(false)
     const cached = chapterCache.get(getChapterKey(book!.order, nextChapter, includeTorahPortions))
@@ -312,10 +418,25 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
 
   return (
     <section className="bible-view">
+      {adminMode && (
+        <label className="withdrawal-test-date bible-tree-test-date">
+          Тестовая дата
+          <input
+            type="date"
+            value={testDate}
+            min={testStartDate}
+            onChange={(event) => setTestDate(event.target.value)}
+          />
+          <span className="hint">
+            Дерево показывает результат так, будто каждый день было прочитано 5 уникальных глав. Данные в БД не сохраняются.
+          </span>
+        </label>
+      )}
       {!book && (
-        <div className="bible-library" aria-label="Выбор книги Библии">
-          <BibleBookGroup title="Тора, Писания и Пророки" books={OLD_TESTAMENT} activeBookOrder={profile?.last_bible_book_order} onSelect={selectBook} />
+        <div className={treeProgressPercent > 0 ? 'bible-library has-growth-tree' : 'bible-library'} aria-label="Выбор книги Библии">
+          <BibleGrowthTree progress={treeProgressPercent} />
           <BibleBookGroup title="Свидетельство Иисуса Христа" books={NEW_TESTAMENT} activeBookOrder={profile?.last_bible_book_order} onSelect={selectBook} />
+          <BibleBookGroup title="Тора, Писания и Пророки" books={OLD_TESTAMENT} activeBookOrder={profile?.last_bible_book_order} onSelect={selectBook} />
         </div>
       )}
 
