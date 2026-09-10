@@ -2313,7 +2313,9 @@ nav {
   position: relative;
   isolation: isolate;
   display: grid;
-  gap: 20px;
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
 }
 
 .bible-growth-tree {
@@ -2342,8 +2344,8 @@ nav {
   background: linear-gradient(180deg, var(--bible-tree-top), var(--bible-tree-bottom));
   content: '';
   opacity: 0.62;
-  -webkit-mask: url('/image/tree.png') center / contain no-repeat;
-  mask: url('/image/tree.png') center / contain no-repeat;
+  -webkit-mask: url('/image/test1.png') center / contain no-repeat;
+  mask: url('/image/test1.png') center / contain no-repeat;
 }
 
 .bible-growth-tree-image {
@@ -2357,12 +2359,10 @@ nav {
 
 .bible-library > .bible-book-group {
   position: relative;
-  z-index: 1;
 }
 
 .bible-library.has-growth-tree > .bible-book-group {
   background: color-mix(in srgb, var(--surface) 84%, transparent);
-  backdrop-filter: blur(1.5px);
 }
 
 .bible-library.has-growth-tree .bible-book {
@@ -2370,9 +2370,108 @@ nav {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bible-growth-tree-art {
+  .bible-growth-tree-art,
+  .bible-library-growth-vine,
+  .bible-grape-reveal {
     transition: none;
   }
+}
+
+.bible-library-vine-anchor {
+  position: relative;
+  z-index: 2;
+  height: 20px;
+  pointer-events: none;
+}
+
+.bible-library-growth-vine {
+  --bible-vine-leaf-color: color-mix(in srgb, var(--leaf) 20%, #000);
+  --bible-vine-moss-color: color-mix(in srgb, var(--moss) 20%, #000);
+  --bible-vine-deep-color: color-mix(in srgb, var(--moss-deep) 20%, #000);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(680px, 100%, 1100px);
+  aspect-ratio: 1;
+  overflow: visible;
+  transform: translate(-50%, -50%);
+  clip-path: circle(var(--bible-vine-reveal-radius) at 50% 50%);
+  fill: none;
+  opacity: 0.2;
+  pointer-events: none;
+  transition: clip-path 900ms ease;
+}
+
+:root[data-theme='dark'] .bible-library-growth-vine,
+:root[data-theme='dark-blue'] .bible-library-growth-vine,
+:root[data-theme='dark-purple'] .bible-library-growth-vine,
+:root[data-theme='shabbat-dawn'] .bible-library-growth-vine {
+  opacity: 0.8;
+}
+
+.bible-vine-stems,
+.bible-vine-tendrils {
+  stroke: var(--bible-vine-leaf-color);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.bible-vine-stems {
+  stroke-width: 2.4;
+  opacity: 1;
+}
+
+.bible-vine-tendrils {
+  stroke-width: 1.7;
+  opacity: 1;
+}
+
+.bible-vine-leaves {
+  opacity: 1;
+}
+
+.bible-vine-leaf-stem {
+  fill: none;
+  stroke: var(--bible-vine-leaf-color);
+  stroke-linecap: round;
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.bible-vine-leaf-shape {
+  fill: color-mix(in srgb, var(--bible-vine-leaf-color) 80%, var(--bible-vine-deep-color));
+  stroke: var(--bible-vine-deep-color);
+  stroke-width: 0.9;
+}
+
+.bible-vine-grapes {
+  fill: var(--bible-vine-moss-color);
+  stroke: var(--bible-vine-deep-color);
+  stroke-width: 0.8;
+  opacity: 1;
+}
+
+.bible-grape-reveal {
+  transition: r 900ms ease;
+}
+
+.bible-vine-grape-stem {
+  fill: none;
+  stroke: var(--bible-vine-leaf-color);
+  stroke-linecap: round;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.bible-vine-grape-berry {
+  fill: color-mix(in srgb, var(--bible-vine-moss-color) 82%, var(--bible-vine-deep-color));
+  stroke-width: 1.1;
+  vector-effect: non-scaling-stroke;
+}
+
+.bible-vine-grape-berry.light {
+  fill: color-mix(in srgb, var(--bible-vine-leaf-color) 58%, var(--bible-vine-moss-color));
 }
 
 .bible-book-group,
@@ -2399,6 +2498,12 @@ nav {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.bible-book-group h2 {
+  position: relative;
+  z-index: 4;
+  text-shadow: 0 0 5px var(--surface), 0 0 2px var(--surface);
 }
 
 .bible-reader-title {
@@ -2439,6 +2544,8 @@ nav {
 }
 
 .bible-book {
+  position: relative;
+  overflow: hidden;
   min-height: 46px;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -2453,8 +2560,15 @@ nav {
   transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 
+.bible-book-label {
+  position: relative;
+  z-index: 4;
+  text-shadow: 0 0 4px var(--surface-muted), 0 0 2px var(--surface-muted);
+}
+
 .bible-book:hover,
 .bible-book.active {
+  z-index: 3;
   border-color: var(--moss);
   background: var(--info-bg);
   color: var(--moss-deep);
@@ -5956,7 +6070,9 @@ nav {
   }
 
   .bible-view { gap: 20px; }
-  .bible-library, .bible-book-group { gap: 12px; }
+  .bible-library { gap: 0; }
+  .bible-library-vine-anchor { height: 12px; }
+  .bible-book-group { gap: 12px; }
   .bible-book-group h2 { font-size: 21px; }
   .bible-books { grid-template-columns: 1fr; }
   .bible-chapter-navigation { width: 100%; }

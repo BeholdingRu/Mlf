@@ -422,11 +422,17 @@ create table if not exists public.bible_chapter_reads (
 
 create table if not exists public.bible_tree_progress (
   user_id uuid primary key references public.profiles (id) on delete cascade,
-  progress_steps smallint not null default 0 check (progress_steps between 0 and 334),
+  progress_steps smallint not null default 0 check (progress_steps between 0 and 668),
   started_on date not null,
   last_processed_on date not null,
   updated_at timestamptz not null default now()
 );
+
+alter table public.bible_tree_progress
+  drop constraint if exists bible_tree_progress_progress_steps_check;
+alter table public.bible_tree_progress
+  add constraint bible_tree_progress_progress_steps_check
+  check (progress_steps between 0 and 668);
 
 create index if not exists bible_chapter_reads_user_date_idx
   on public.bible_chapter_reads (user_id, read_on);
@@ -504,7 +510,7 @@ begin
     from public.bible_chapter_reads as reads
     where reads.user_id = current_user_id and reads.read_on = processing_date;
     if chapter_count >= 5 then
-      next_progress := least(334, next_progress + 1);
+      next_progress := least(668, next_progress + 1);
     else
       next_progress := greatest(0, next_progress - 1);
     end if;

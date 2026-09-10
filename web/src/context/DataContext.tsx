@@ -30,6 +30,7 @@ import { DEFAULT_PRODUCT_CATEGORY } from '../lib/product-categories'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { useAuth } from '../hooks/useAuth'
 import { DataContext, type DataContextValue } from './data-context'
+import { BIBLE_GROWTH_TOTAL_STEPS } from '../lib/bible-growth'
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
@@ -59,7 +60,7 @@ function normalizeBibleTreeProgress(data: unknown): BibleTreeProgress {
   const result = Array.isArray(data) ? data[0] : data
   const row = result as BibleTreeProgressRpcRow | null | undefined
   return {
-    progressSteps: Math.max(0, Math.min(334, Number(row?.progress_steps) || 0)),
+    progressSteps: Math.max(0, Math.min(BIBLE_GROWTH_TOTAL_STEPS, Number(row?.progress_steps) || 0)),
     chaptersToday: Math.max(0, Number(row?.chapters_today) || 0),
     startedOn: row?.started_on ?? null,
     available: true,

@@ -8,9 +8,10 @@ import {
   type BibleNavigationTarget,
 } from '../lib/bible-books'
 import { EXTERNAL_BIBLE_TRANSLATIONS, openBibleTranslation } from '../lib/bible-translations'
+import { BIBLE_GROWTH_STAGE_STEPS, BIBLE_GROWTH_TOTAL_STEPS } from '../lib/bible-growth'
 import { daysInclusive, isoDateInTimeZone, millisecondsUntilNextDayInTimeZone, parseISODate } from '../lib/dates'
 import type { BibleBookmark, BibleVerse, TorahPortion } from '../lib/types'
-import { BibleGrowthTree } from './BibleGrowthTree'
+import { BibleGrowthVine } from './BibleGrowthVine'
 
 const TORAH_RUSSIAN_PLAYLIST_URL = 'https://youtube.com/playlist?list=PLV034aDASG5T4OizaEyJyzlZV_K8tGZnv&si=1oZmv97ixhOJszK9'
 const DEFAULT_BOOKMARK_COLOR = '#fff2a8'
@@ -97,15 +98,16 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
       .map((bookmark) => [bookmark.verse, bookmark]),
   )
   const actualVisibleTreeSteps = Math.min(
-    334,
+    BIBLE_GROWTH_TOTAL_STEPS,
     bibleTreeProgress.progressSteps + (bibleTreeProgress.chaptersToday >= 5 ? 1 : 0),
   )
   const testStartDate = bibleTreeProgress.startedOn ?? today
   const simulatedTreeSteps = testDate && testDate >= testStartDate
-    ? Math.min(334, daysInclusive(parseISODate(testStartDate), parseISODate(testDate)))
+    ? Math.min(BIBLE_GROWTH_TOTAL_STEPS, daysInclusive(parseISODate(testStartDate), parseISODate(testDate)))
     : 0
   const visibleTreeSteps = adminMode ? simulatedTreeSteps : actualVisibleTreeSteps
-  const treeProgressPercent = Math.min(100, visibleTreeSteps * 0.3)
+  const vineProgressPercent = Math.min(100, visibleTreeSteps * 0.3)
+  const grapeProgressPercent = Math.min(100, Math.max(0, visibleTreeSteps - BIBLE_GROWTH_STAGE_STEPS) * 0.3)
   const trackBibleChapter = useCallback((bookOrder: number, chapterNumber: number) => {
     if (chaptersTodayRef.current >= 5) return
     const chapterKey = `${isoDateInTimeZone(profile?.time_zone)}:${bookOrder}:${chapterNumber}`
@@ -428,14 +430,14 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
             onChange={(event) => setTestDate(event.target.value)}
           />
           <span className="hint">
-            Дерево показывает результат так, будто каждый день было прочитано 5 уникальных глав. Данные в БД не сохраняются.
+            Лоза и плоды показывают результат так, будто каждый день было прочитано 5 уникальных глав. Данные в БД не сохраняются.
           </span>
         </label>
       )}
       {!book && (
-        <div className={treeProgressPercent > 0 ? 'bible-library has-growth-tree' : 'bible-library'} aria-label="Выбор книги Библии">
-          <BibleGrowthTree progress={treeProgressPercent} />
+        <div className={vineProgressPercent > 0 ? 'bible-library has-growth-tree' : 'bible-library'} aria-label="Выбор книги Библии">
           <BibleBookGroup title="Свидетельство Иисуса Христа" books={NEW_TESTAMENT} activeBookOrder={profile?.last_bible_book_order} onSelect={selectBook} />
+          <BibleGrowthVine progress={vineProgressPercent} grapeProgress={grapeProgressPercent} />
           <BibleBookGroup title="Тора, Писания и Пророки" books={OLD_TESTAMENT} activeBookOrder={profile?.last_bible_book_order} onSelect={selectBook} />
         </div>
       )}
@@ -691,7 +693,7 @@ function BibleBookGroup({
             onClick={() => onSelect(book)}
             aria-current={activeBookOrder === book.order ? 'true' : undefined}
           >
-            {book.name}
+            <span className="bible-book-label">{book.name}</span>
           </button>
         ))}
       </div>
