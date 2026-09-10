@@ -8,6 +8,7 @@ export type BibleBook = {
 export type BibleNavigationTarget = {
   bookOrder: number
   chapter: number
+  verse?: number
   requestId: number
 }
 

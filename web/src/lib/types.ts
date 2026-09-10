@@ -44,6 +44,17 @@ export type BibleVerse = {
   end_portion_name_he?: string | null
 }
 
+export type BibleBookmark = {
+  id: string
+  user_id: string
+  book_order: number
+  chapter: number
+  verse: number
+  title: string
+  color: string
+  created_at: string
+}
+
 export type TorahPortion = {
   id: number
   portion_number: number

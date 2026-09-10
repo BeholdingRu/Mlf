@@ -7,15 +7,11 @@ import {
   type BibleBook,
   type BibleNavigationTarget,
 } from '../lib/bible-books'
-import type { BibleVerse, TorahPortion } from '../lib/types'
+import { EXTERNAL_BIBLE_TRANSLATIONS, openBibleTranslation } from '../lib/bible-translations'
+import type { BibleBookmark, BibleVerse, TorahPortion } from '../lib/types'
 
 const TORAH_RUSSIAN_PLAYLIST_URL = 'https://youtube.com/playlist?list=PLV034aDASG5T4OizaEyJyzlZV_K8tGZnv&si=1oZmv97ixhOJszK9'
-const TRANSLATION_POPUP_WIDTH = 560
-const TRANSLATION_POPUP_HEIGHT = 360
-const EXTERNAL_BIBLE_TRANSLATIONS = [
-  { id: 313, code: 'BTI', label: 'Перевод Кулакова' },
-  { id: 143, code: 'НРП', label: 'Новый русский перевод' },
-] as const
+const DEFAULT_BOOKMARK_COLOR = '#fff2a8'
 const chapterCache = new Map<string, BibleVerse[]>()
 const pendingChapters = new Map<string, Promise<BibleVerse[]>>()
 const torahPortionsCache = new Map<number, TorahPortion[]>()
@@ -30,18 +26,32 @@ function getPortionColorStyle(portionNumber?: number | null): CSSProperties {
 }
 
 function getRequestedNavigation(navigationRequest?: BibleNavigationTarget | null) {
-  if (!navigationRequest) return { book: null, chapter: null }
+  if (!navigationRequest) return { book: null, chapter: null, verse: null }
   const requestedBook = BIBLE_BOOKS.find((item) => item.order === navigationRequest.bookOrder) ?? null
   const requestedChapter = requestedBook
     && navigationRequest.chapter >= 1
     && navigationRequest.chapter <= requestedBook.chapters
     ? navigationRequest.chapter
     : null
-  return { book: requestedChapter ? requestedBook : null, chapter: requestedChapter }
+  const requestedVerse = requestedChapter
+    && typeof navigationRequest.verse === 'number'
+    && navigationRequest.verse > 0
+    ? navigationRequest.verse
+    : null
+  return { book: requestedChapter ? requestedBook : null, chapter: requestedChapter, verse: requestedVerse }
 }
 
 export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavigationTarget | null }) {
-  const { getBibleChapter, getTorahPortions, profile, saveBibleReadingPosition } = useData()
+  const {
+    addBibleBookmark,
+    bibleBookmarks,
+    deleteBibleBookmark,
+    getBibleChapter,
+    getTorahPortions,
+    profile,
+    saveBibleReadingPosition,
+    updateBibleBookmark,
+  } = useData()
   const includeTorahPortions = profile?.annual_cycle_enabled ?? false
   const [requestedNavigation] = useState(() => getRequestedNavigation(navigationRequest))
   const [book, setBook] = useState<BibleBook | null>(requestedNavigation.book)
@@ -50,30 +60,47 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   const [error, setError] = useState<string | null>(null)
   const [chapterListOpen, setChapterListOpen] = useState(false)
   const [playlistInfoOpen, setPlaylistInfoOpen] = useState(false)
-  const [activeTranslationVerse, setActiveTranslationVerse] = useState<number | null>(null)
+  const [activeVerseMenu, setActiveVerseMenu] = useState<number | null>(null)
+  const [bookmarkFormVerse, setBookmarkFormVerse] = useState<number | null>(null)
+  const [bookmarkTitle, setBookmarkTitle] = useState('')
+  const [bookmarkColor, setBookmarkColor] = useState(DEFAULT_BOOKMARK_COLOR)
+  const [bookmarkBusy, setBookmarkBusy] = useState(false)
+  const [bookmarkError, setBookmarkError] = useState<string | null>(null)
   const [highlightedPortion, setHighlightedPortion] = useState<TorahPortion | null>(null)
   const [loadedTorahPortions, setLoadedTorahPortions] = useState<{
     bookOrder: number
     portions: TorahPortion[]
   } | null>(null)
   const chapterHeadingRef = useRef<HTMLDivElement>(null)
+  const suppressChapterScrollRef = useRef(false)
   const saveBibleReadingPositionRef = useRef(saveBibleReadingPosition)
   const torahPortions = includeTorahPortions && book && loadedTorahPortions?.bookOrder === book.order
     ? loadedTorahPortions.portions
     : []
+  const chapterBookmarks = new Map(
+    bibleBookmarks
+      .filter((bookmark) => bookmark.book_order === book?.order && bookmark.chapter === chapter)
+      .map((bookmark) => [bookmark.verse, bookmark]),
+  )
 
   useEffect(() => {
     saveBibleReadingPositionRef.current = saveBibleReadingPosition
   }, [saveBibleReadingPosition])
 
   useEffect(() => {
-    if (activeTranslationVerse === null) return
+    if (activeVerseMenu === null) return
 
     const closeHint = (event: PointerEvent) => {
-      if (!(event.target as Element).closest('.verse-translation-control')) setActiveTranslationVerse(null)
+      if (!(event.target as Element).closest('.verse-action-control')) {
+        setActiveVerseMenu(null)
+        setBookmarkFormVerse(null)
+      }
     }
     const closeHintOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setActiveTranslationVerse(null)
+      if (event.key === 'Escape') {
+        setActiveVerseMenu(null)
+        setBookmarkFormVerse(null)
+      }
     }
     window.addEventListener('pointerdown', closeHint)
     window.addEventListener('keydown', closeHintOnEscape)
@@ -81,7 +108,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
       window.removeEventListener('pointerdown', closeHint)
       window.removeEventListener('keydown', closeHintOnEscape)
     }
-  }, [activeTranslationVerse])
+  }, [activeVerseMenu])
 
   useEffect(() => {
     if (!requestedNavigation.book || !requestedNavigation.chapter) return
@@ -152,13 +179,29 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   }, [book, getTorahPortions, includeTorahPortions])
 
   useEffect(() => {
-    if (!chapter || verses.length === 0) return
+    if (!book || !chapter || verses.length === 0) return
+
+    if (suppressChapterScrollRef.current) {
+      suppressChapterScrollRef.current = false
+      return
+    }
 
     const frame = window.requestAnimationFrame(() => {
-      chapterHeadingRef.current?.scrollIntoView({ block: 'start' })
+      const requestedVerse = requestedNavigation.book?.order === book?.order
+        && requestedNavigation.chapter === chapter
+        ? requestedNavigation.verse
+        : null
+      const verseElement = requestedVerse
+        ? document.getElementById(`bible-verse-${book.order}-${chapter}-${requestedVerse}`)
+        : null
+      if (verseElement) {
+        verseElement.scrollIntoView({ block: 'center' })
+      } else {
+        chapterHeadingRef.current?.scrollIntoView({ block: 'start' })
+      }
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [book?.order, chapter, verses])
+  }, [book, chapter, requestedNavigation, verses])
 
   function selectBook(nextBook: BibleBook) {
     const savedChapter = profile?.last_bible_book_order === nextBook.order
@@ -170,7 +213,8 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
     setChapter(savedChapter)
     setChapterListOpen(false)
     setPlaylistInfoOpen(false)
-    setActiveTranslationVerse(null)
+    setActiveVerseMenu(null)
+    setBookmarkFormVerse(null)
     setVerses(savedChapter
       ? chapterCache.get(getChapterKey(nextBook.order, savedChapter, includeTorahPortions)) ?? []
       : [])
@@ -182,17 +226,20 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
     setChapter(null)
     setChapterListOpen(false)
     setPlaylistInfoOpen(false)
-    setActiveTranslationVerse(null)
+    setActiveVerseMenu(null)
+    setBookmarkFormVerse(null)
     setVerses([])
     setError(null)
   }
 
-  function selectChapter(nextChapter: number) {
-    setActiveTranslationVerse(null)
+  function selectChapter(nextChapter: number, scrollToChapterHeading = true) {
+    setActiveVerseMenu(null)
+    setBookmarkFormVerse(null)
     if (nextChapter === chapter) {
       setChapterListOpen((open) => !open)
       return
     }
+    suppressChapterScrollRef.current = !scrollToChapterHeading
     setChapter(nextChapter)
     setChapterListOpen(false)
     const cached = chapterCache.get(getChapterKey(book!.order, nextChapter, includeTorahPortions))
@@ -204,14 +251,63 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
 
   function openExternalBibleVerse(verse: number, translation: typeof EXTERNAL_BIBLE_TRANSLATIONS[number]) {
     if (!book || !chapter) return
-    const popupLeft = Math.max(0, Math.round(window.screenX + (window.outerWidth - TRANSLATION_POPUP_WIDTH) / 2))
-    const popupTop = Math.max(0, Math.round(window.screenY + (window.outerHeight - TRANSLATION_POPUP_HEIGHT) / 2))
-    window.open(
-      `https://www.bible.com/ru/bible/${translation.id}/${book.youVersionCode}.${chapter}.${verse}.${encodeURIComponent(translation.code)}`,
-      '_blank',
-      `popup,width=${TRANSLATION_POPUP_WIDTH},height=${TRANSLATION_POPUP_HEIGHT},left=${popupLeft},top=${popupTop},resizable=yes,scrollbars=yes,noopener,noreferrer`,
-    )
-    setActiveTranslationVerse(null)
+    openBibleTranslation(book, chapter, verse, translation)
+    setActiveVerseMenu(null)
+    setBookmarkFormVerse(null)
+  }
+
+  function toggleVerseMenu(verse: number) {
+    const opening = activeVerseMenu !== verse
+    setActiveVerseMenu(opening ? verse : null)
+    setBookmarkFormVerse(null)
+    setBookmarkError(null)
+  }
+
+  function startBookmarkCreation(verse: number) {
+    if (!book || !chapter) return
+    setBookmarkFormVerse(verse)
+    setBookmarkTitle(`${book.name} ${chapter}:${verse}`)
+    setBookmarkColor(DEFAULT_BOOKMARK_COLOR)
+  }
+
+  function startBookmarkEditing(bookmark: BibleBookmark) {
+    setBookmarkFormVerse(bookmark.verse)
+    setBookmarkTitle(bookmark.title)
+    setBookmarkColor(bookmark.color)
+  }
+
+  async function saveBookmark(verse: number, existingBookmark?: BibleBookmark) {
+    if (!book || !chapter || !bookmarkTitle.trim() || bookmarkBusy) return
+    setBookmarkBusy(true)
+    setBookmarkError(null)
+    try {
+      if (existingBookmark) {
+        await updateBibleBookmark(existingBookmark.id, bookmarkTitle, bookmarkColor)
+      } else {
+        await addBibleBookmark(book.order, chapter, verse, bookmarkTitle, bookmarkColor)
+      }
+      setActiveVerseMenu(null)
+      setBookmarkFormVerse(null)
+    } catch (saveError) {
+      setBookmarkError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить закладку')
+    } finally {
+      setBookmarkBusy(false)
+    }
+  }
+
+  async function removeBookmark(bookmark: BibleBookmark) {
+    if (bookmarkBusy) return
+    setBookmarkBusy(true)
+    setBookmarkError(null)
+    try {
+      await deleteBibleBookmark(bookmark.id)
+      setActiveVerseMenu(null)
+      setBookmarkFormVerse(null)
+    } catch (deleteError) {
+      setBookmarkError(deleteError instanceof Error ? deleteError.message : 'Не удалось удалить закладку')
+    } finally {
+      setBookmarkBusy(false)
+    }
   }
 
   return (
@@ -269,7 +365,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
                   type="button"
                   className={classes}
                   style={highlighted ? getPortionColorStyle(highlightedPortion?.portion_number) : undefined}
-                  onClick={() => selectChapter(number)}
+                  onClick={() => selectChapter(number, false)}
                   aria-expanded={chapter === number ? chapterListOpen : undefined}
                 >
                   {number}
@@ -310,11 +406,13 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
                 <h3>{book.name}, глава {chapter}</h3>
                 <ChapterNavigation book={book} chapter={chapter} onSelect={selectChapter} />
               </div>
+              {bookmarkError && <p className="banner error">{bookmarkError}</p>}
               {error ? <p className="banner error">{error}</p> : verses.length ? (
                 <>
                   <div className="bible-verses">
-                    {verses.map((verse) => (
-                      <Fragment key={verse.verse}>
+                    {verses.map((verse) => {
+                      const bookmark = chapterBookmarks.get(verse.verse)
+                      return <Fragment key={verse.verse}>
                         {includeTorahPortions && verse.start_portion_id && (
                           <div
                             className="torah-portion-marker torah-portion-start"
@@ -329,29 +427,90 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
                             </small>
                           </div>
                         )}
-                        <p>
-                          <sup className="verse-mobile-number">{verse.verse}</sup>
-                          <span className="verse-translation-control">
+                        <p
+                          id={`bible-verse-${book.order}-${chapter}-${verse.verse}`}
+                          className={bookmark ? 'bible-verse bookmarked' : 'bible-verse'}
+                          style={bookmark ? { '--bookmark-color': bookmark.color } as CSSProperties : undefined}
+                        >
+                          <span className="verse-action-control">
                             <button
                               type="button"
-                              className="verse-translation-number"
-                              onClick={() => setActiveTranslationVerse((current) => current === verse.verse ? null : verse.verse)}
-                              aria-label={`Показать переводы: ${book.name} ${chapter}:${verse.verse}`}
-                              aria-expanded={activeTranslationVerse === verse.verse}
+                              className="verse-action-number"
+                              onClick={() => toggleVerseMenu(verse.verse)}
+                              aria-label={`Действия со стихом: ${book.name} ${chapter}:${verse.verse}`}
+                              aria-expanded={activeVerseMenu === verse.verse}
                             >
                               {verse.verse}
                             </button>
-                            {activeTranslationVerse === verse.verse && (
-                              <span className="verse-translation-menu" aria-label="Выбор перевода">
-                                {EXTERNAL_BIBLE_TRANSLATIONS.map((translation) => (
-                                  <button
-                                    key={translation.code}
-                                    type="button"
-                                    onClick={() => openExternalBibleVerse(verse.verse, translation)}
-                                  >
-                                    {translation.label}
+                            {activeVerseMenu === verse.verse && (
+                              <span className="verse-actions-menu" aria-label="Действия со стихом">
+                                {bookmarkFormVerse === verse.verse ? (
+                                  <span className="verse-bookmark-form">
+                                    <label>
+                                      <span>Название закладки</span>
+                                      <input
+                                        type="text"
+                                        value={bookmarkTitle}
+                                        maxLength={160}
+                                        disabled={bookmarkBusy}
+                                        onChange={(event) => setBookmarkTitle(event.target.value)}
+                                        onKeyDown={(event) => {
+                                          if (event.key === 'Enter') {
+                                            event.preventDefault()
+                                            void saveBookmark(verse.verse, bookmark)
+                                          }
+                                        }}
+                                      />
+                                    </label>
+                                    <label className="verse-bookmark-color-field">
+                                      <span>Цвет</span>
+                                      <input
+                                        type="color"
+                                        value={bookmarkColor}
+                                        disabled={bookmarkBusy}
+                                        aria-label="Цвет закладки"
+                                        onChange={(event) => setBookmarkColor(event.target.value)}
+                                      />
+                                    </label>
+                                    <span className="verse-bookmark-form-actions">
+                                      <button type="button" disabled={bookmarkBusy || !bookmarkTitle.trim()} onClick={() => void saveBookmark(verse.verse, bookmark)}>
+                                        {bookmarkBusy ? 'Сохранение…' : 'Сохранить'}
+                                      </button>
+                                      <button type="button" disabled={bookmarkBusy} onClick={() => setBookmarkFormVerse(null)}>Отмена</button>
+                                    </span>
+                                  </span>
+                                ) : bookmark ? (
+                                  <span className="verse-bookmark-existing-actions">
+                                    <button type="button" disabled={bookmarkBusy} onClick={() => startBookmarkEditing(bookmark)}>
+                                      Редактировать закладку
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="verse-bookmark-delete-action"
+                                      disabled={bookmarkBusy}
+                                      onClick={() => void removeBookmark(bookmark)}
+                                    >
+                                      {bookmarkBusy ? 'Удаление…' : 'Удалить закладку'}
+                                    </button>
+                                  </span>
+                                ) : (
+                                  <button type="button" onClick={() => startBookmarkCreation(verse.verse)}>
+                                    Добавить закладку
                                   </button>
-                                ))}
+                                )}
+                                {bookmarkFormVerse !== verse.verse && (
+                                  <span className="verse-translation-links" aria-label="Выбор перевода">
+                                    {EXTERNAL_BIBLE_TRANSLATIONS.map((translation) => (
+                                      <button
+                                        key={translation.code}
+                                        type="button"
+                                        onClick={() => openExternalBibleVerse(verse.verse, translation)}
+                                      >
+                                        {translation.label}
+                                      </button>
+                                    ))}
+                                  </span>
+                                )}
                               </span>
                             )}
                           </span>
@@ -366,7 +525,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
                           </div>
                         )}
                       </Fragment>
-                    ))}
+                    })}
                   </div>
                   <ChapterNavigation book={book} chapter={chapter} onSelect={selectChapter} />
                 </>

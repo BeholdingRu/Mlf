@@ -4,8 +4,9 @@ import { getShabbatWeekStart } from '../lib/shabbat'
 import type { MindfulnessNote, PathDay } from '../lib/types'
 import type { BibleNavigationTarget } from '../lib/bible-books'
 import { BibleView } from './BibleView'
+import { BibleBookmarksView, BookmarkIcon } from './BibleBookmarksView'
 
-type PathSubTab = 'bible' | 'sh' | 'shalom-school' | 'mindfulness-practicum'
+type PathSubTab = 'bible' | 'bookmarks' | 'sh' | 'shalom-school' | 'mindfulness-practicum'
 
 const PATH_SUB_TAB_STORAGE_KEY = 'mlf:path-sub-tab'
 const MINDFULNESS_NOTE_DRAFT_STORAGE_KEY = 'mlf:mindfulness-note-draft'
@@ -23,6 +24,7 @@ type MindfulnessNoteDraft = {
 
 const SUB_TABS: { id: PathSubTab; label: string }[] = [
   { id: 'bible', label: 'Библия' },
+  { id: 'bookmarks', label: 'Закладки' },
   { id: 'sh', label: 'С.Ш.' },
   { id: 'shalom-school', label: 'Школа Шалом' },
   { id: 'mindfulness-practicum', label: 'Практикум осознанности' },
@@ -100,6 +102,7 @@ export function PathView({ bibleNavigationRequest }: { bibleNavigationRequest?: 
   } = useData()
   const [savedNoteDraft] = useState<MindfulnessNoteDraft | null>(getSavedMindfulnessNoteDraft)
   const [subTab, setSubTab] = useState<PathSubTab>(() => bibleNavigationRequest ? 'bible' : getSavedPathSubTab())
+  const [bookmarkNavigationRequest, setBookmarkNavigationRequest] = useState<BibleNavigationTarget | null>(null)
   const [currentTime, setCurrentTime] = useState(() => new Date())
   const [busyDay, setBusyDay] = useState<PathDay | null>(null)
   const [openCourseId, setOpenCourseId] = useState<string | null>(null)
@@ -388,6 +391,16 @@ export function PathView({ bibleNavigationRequest }: { bibleNavigationRequest?: 
     }
   }
 
+  function selectSubTab(nextSubTab: PathSubTab) {
+    if (nextSubTab === 'bible') setBookmarkNavigationRequest(null)
+    setSubTab(nextSubTab)
+  }
+
+  function openBookmark(target: BibleNavigationTarget) {
+    setBookmarkNavigationRequest(target)
+    setSubTab('bible')
+  }
+
   return (
     <section className="path-view">
       <nav className="calories-tabs" aria-label="Разделы Пути">
@@ -395,14 +408,18 @@ export function PathView({ bibleNavigationRequest }: { bibleNavigationRequest?: 
           <button
             key={tab.id}
             type="button"
-            className={subTab === tab.id ? 'calories-tab active' : 'calories-tab'}
-            onClick={() => setSubTab(tab.id)}
+            className={`${subTab === tab.id ? 'calories-tab active' : 'calories-tab'}${tab.id === 'bible' ? ' path-bible-tab' : ''}${tab.id === 'bookmarks' ? ' path-bookmarks-tab' : ''}`}
+            onClick={() => selectSubTab(tab.id)}
+            aria-label={tab.label}
+            title={tab.id === 'bookmarks' ? tab.label : undefined}
           >
-            {tab.label}
+            {tab.id === 'bookmarks' ? <BookmarkIcon filled={subTab === 'bookmarks'} /> : tab.label}
           </button>
         ))}
       </nav>
-      {subTab === 'bible' ? <BibleView navigationRequest={bibleNavigationRequest} /> : subTab === 'sh' ? (
+      {subTab === 'bible' ? <BibleView navigationRequest={bookmarkNavigationRequest ?? bibleNavigationRequest} /> : subTab === 'bookmarks' ? (
+        <BibleBookmarksView onOpen={openBookmark} />
+      ) : subTab === 'sh' ? (
         <div className="path-sh-card">
           <GrapevineOrnament />
           <div className="path-sh-content">

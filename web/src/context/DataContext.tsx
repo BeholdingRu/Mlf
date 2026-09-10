@@ -10,6 +10,7 @@ import { localISODate } from '../lib/dates'
 import type {
   FoodLog,
   MealPlanEntry,
+  BibleBookmark,
   BibleVerse,
   CourseLessonCompletion,
   MindfulnessCategory,
@@ -59,6 +60,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
   const [foodHistoryLogs, setFoodHistoryLogs] = useState<FoodLog[]>([])
   const [mealPlanEntries, setMealPlanEntries] = useState<MealPlanEntry[]>([])
+  const [bibleBookmarks, setBibleBookmarks] = useState<BibleBookmark[]>([])
   const [pathDayConfirmations, setPathDayConfirmations] = useState<PathDayConfirmation[]>([])
   const [courseLessonCompletions, setCourseLessonCompletions] = useState<CourseLessonCompletion[]>([])
   const [mindfulnessCategories, setMindfulnessCategories] = useState<MindfulnessCategory[]>([])
@@ -116,13 +118,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         client.from('course_lesson_completions').select('*').eq('user_id', userId),
         client.from('mindfulness_categories').select('*').eq('user_id', userId).order('created_at'),
         client.from('mindfulness_notes').select('*').eq('user_id', userId).order('updated_at', { ascending: false }),
+        client.from('bible_bookmarks').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
       ]))
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить данны кабинета')
       setLoading(false)
       return
     }
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, mealPlanRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes] = responses
+    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, mealPlanRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes, bibleBookmarksRes] = responses
+
+    const bookmarksTableMissing = bibleBookmarksRes.error?.code === '42P01'
+      || bibleBookmarksRes.error?.code === 'PGRST205'
 
     const firstError =
       profileRes.error?.message ||
@@ -138,7 +144,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       pathConfirmationsRes.error?.message ||
       courseLessonsRes.error?.message ||
       mindfulnessCategoriesRes.error?.message ||
-      mindfulnessNotesRes.error?.message
+      mindfulnessNotesRes.error?.message ||
+      (!bookmarksTableMissing && bibleBookmarksRes.error?.message)
     if (firstError) {
       setError(firstError)
       setLoading(false)
@@ -195,6 +202,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCourseLessonCompletions((courseLessonsRes.data ?? []) as CourseLessonCompletion[])
     setMindfulnessCategories((mindfulnessCategoriesRes.data ?? []) as MindfulnessCategory[])
     setMindfulnessNotes((mindfulnessNotesRes.data ?? []) as MindfulnessNote[])
+    setBibleBookmarks((bibleBookmarksRes.data ?? []) as BibleBookmark[])
     setSavedProducts(normalizedSavedProducts)
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
@@ -301,6 +309,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodLogs,
       foodHistoryLogs,
       mealPlanEntries,
+      bibleBookmarks,
       pathDayConfirmations,
       courseLessonCompletions,
       mindfulnessCategories,
@@ -530,6 +539,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (updError) throw updError
         setProfile(data as Profile)
+      },
+      async addBibleBookmark(bookOrder, chapter, verse, title, color) {
+        if (!user) throw new Error('Не удалось определить пользователя')
+        const { data, error: insertError } = await requireSupabase()
+          .from('bible_bookmarks')
+          .insert({
+            user_id: user.id,
+            book_order: bookOrder,
+            chapter,
+            verse,
+            title: title.trim(),
+            color,
+          })
+          .select('*')
+          .single()
+        if (insertError) throw insertError
+        const bookmark = data as BibleBookmark
+        setBibleBookmarks((previous) => [bookmark, ...previous])
+        return bookmark
+      },
+      async updateBibleBookmark(id, title, color) {
+        const { data, error: updateError } = await requireSupabase()
+          .from('bible_bookmarks')
+          .update({ title: title.trim(), color })
+          .eq('id', id)
+          .select('*')
+          .single()
+        if (updateError) throw updateError
+        const bookmark = data as BibleBookmark
+        setBibleBookmarks((previous) => previous.map((item) => item.id === id ? bookmark : item))
+      },
+      async deleteBibleBookmark(id) {
+        const { error: deleteError } = await requireSupabase()
+          .from('bible_bookmarks')
+          .delete()
+          .eq('id', id)
+        if (deleteError) throw deleteError
+        setBibleBookmarks((previous) => previous.filter((bookmark) => bookmark.id !== id))
       },
       async getBibleChapter(bookOrder, chapter, includeTorahPortions = false) {
         const { data, error: selectError } = await requireSupabase()
@@ -891,6 +938,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodLogs,
       foodHistoryLogs,
       mealPlanEntries,
+      bibleBookmarks,
       pathDayConfirmations,
       courseLessonCompletions,
       mindfulnessCategories,

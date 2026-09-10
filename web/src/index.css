@@ -2105,6 +2105,202 @@ nav {
   gap: 24px;
 }
 
+.calories-tab.path-bible-tab {
+  padding-left: 40px;
+  padding-right: 0;
+  text-align: right;
+}
+
+.calories-tab.path-bookmarks-tab {
+  display: grid;
+  place-items: center;
+  min-width: 48px;
+  padding-left: 0;
+  padding-right: 28px;
+}
+
+.bookmark-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.bible-bookmarks-view {
+  display: grid;
+  gap: 16px;
+  max-width: 1100px;
+}
+
+.bible-bookmarks-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bible-bookmarks-heading > .bookmark-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--moss-deep);
+}
+
+.bible-bookmarks-heading h2,
+.bible-bookmarks-heading p {
+  margin: 0;
+}
+
+.bible-bookmarks-heading h2 {
+  color: var(--moss-deep);
+  font-family: var(--serif);
+  font-size: 25px;
+}
+
+.bible-bookmarks-heading p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.bible-bookmarks-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 769px) {
+  .bible-bookmarks-list {
+    grid-template-columns: minmax(0, 780px);
+  }
+}
+
+.bible-bookmark-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--bookmark-color) 75%, var(--line));
+  border-left: 6px solid var(--bookmark-color);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bookmark-color) 26%, var(--surface));
+  overflow: visible;
+}
+
+.bible-bookmark-open {
+  display: grid;
+  grid-column: 1;
+  grid-row: 1;
+  gap: 4px;
+  min-width: 0;
+  padding: 13px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bible-bookmark-open strong,
+.bible-bookmark-open span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bible-bookmark-open span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bible-bookmark-open:hover {
+  background: color-mix(in srgb, var(--bookmark-color) 18%, transparent);
+}
+
+.bible-bookmark-actions {
+  display: flex;
+  grid-column: 2;
+  grid-row: 1;
+  align-items: center;
+  gap: 4px;
+  align-self: center;
+  flex: 0 0 auto;
+  margin-right: 10px;
+}
+
+.bible-bookmark-go-to {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--moss-deep);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bible-bookmark-go-to:hover {
+  opacity: 0.7;
+}
+
+.bible-bookmark-verse-text {
+  grid-column: 1 / -1;
+  padding: 12px 14px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--bookmark-color) 60%, var(--line));
+  border-radius: 0 0 11px 5px;
+  background: color-mix(in srgb, var(--bookmark-color) 14%, var(--surface));
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.bible-bookmark-verse-text p {
+  margin: 0;
+}
+
+.bible-bookmark-verse-text .error-text {
+  color: var(--warn);
+  font-family: var(--sans);
+  font-size: 13px;
+}
+
+.bible-bookmark-actions button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.bible-bookmark-edit-modal {
+  display: grid;
+  gap: 16px;
+}
+
+.bible-bookmark-edit-modal h3,
+.bible-bookmark-edit-modal .modal-actions {
+  margin: 0;
+}
+
+.bible-bookmark-edit-color {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bible-bookmark-edit-color input[type='color'] {
+  width: 54px;
+  height: 38px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
 .bible-view {
   display: grid;
   gap: 24px;
@@ -2349,81 +2545,138 @@ nav {
   border-top: 1px solid var(--line);
 }
 
-.verse-translation-control {
+.verse-action-control {
+  position: relative;
+  display: inline-block;
+  margin-right: 5px;
+  vertical-align: super;
+  line-height: 1;
+}
+
+.verse-action-number {
+  min-width: 16px;
+  padding: 1px 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--moss-deep);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.verse-action-number:hover,
+.verse-action-number[aria-expanded='true'] {
+  background: var(--info-bg);
+}
+
+.verse-action-number:focus-visible,
+.verse-actions-menu button:focus-visible,
+.verse-actions-menu input:focus-visible {
+  outline: 2px solid var(--leaf);
+  outline-offset: 2px;
+}
+
+.verse-actions-menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 7px);
+  left: 0;
+  display: grid;
+  width: min(300px, calc(100vw - 64px));
+  padding: 6px;
+  border: 1px solid var(--moss);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+.verse-actions-menu button {
+  min-height: 32px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--moss-deep);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.verse-actions-menu button:hover {
+  background: var(--info-bg);
+}
+
+.verse-actions-menu .verse-bookmark-delete-action {
+  color: var(--warn);
+}
+
+.verse-bookmark-existing-actions {
+  display: grid;
+  gap: 2px;
+}
+
+.verse-bookmark-form {
+  display: grid;
+  gap: 8px;
+  padding: 6px;
+}
+
+.verse-bookmark-form label {
+  display: grid;
+  gap: 5px;
+}
+
+.verse-bookmark-form input[type='text'] {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font: inherit;
+}
+
+.verse-bookmark-color-field {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.verse-bookmark-color-field input[type='color'] {
+  width: 46px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-muted);
+}
+
+.verse-bookmark-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.verse-translation-links {
   display: none;
 }
 
 @media (min-width: 769px) {
-  .bible-verses .verse-mobile-number {
-    display: none;
-  }
-
-  .verse-translation-control {
-    position: relative;
-    display: inline-block;
-    margin-right: 5px;
-    vertical-align: super;
-    line-height: 1;
-  }
-
-  .verse-translation-number {
-    min-width: 16px;
-    padding: 1px 2px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--moss-deep);
-    font-family: var(--sans);
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .verse-translation-number:hover,
-  .verse-translation-number[aria-expanded='true'] {
-    background: var(--info-bg);
-  }
-
-  .verse-translation-number:focus-visible,
-  .verse-translation-menu button:focus-visible {
-    outline: 2px solid var(--leaf);
-    outline-offset: 2px;
-  }
-
-  .verse-translation-menu {
-    position: absolute;
-    z-index: 5;
-    top: calc(100% + 7px);
-    left: 0;
+  .verse-translation-links {
     display: grid;
-    min-width: 190px;
-    padding: 5px;
-    border: 1px solid var(--moss);
-    border-radius: 8px;
-    background: var(--surface);
-    box-shadow: var(--shadow);
-    white-space: nowrap;
+    padding-top: 5px;
+    border-top: 1px solid var(--line);
   }
-
-  .verse-translation-menu button {
-    min-height: 30px;
-    padding: 6px 9px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--moss-deep);
-    font-family: var(--sans);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1.2;
-    text-align: left;
-  }
-
-  .verse-translation-menu button:hover {
-    background: var(--info-bg);
-  }
-
 }
 
 .bible-chapter-heading {
@@ -2489,6 +2742,18 @@ nav {
   font-family: var(--serif);
   font-size: 17px;
   line-height: 1.7;
+}
+
+.bible-verses .bible-verse {
+  padding: 3px 7px;
+  border-radius: 8px;
+  scroll-margin-top: 24px;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.bible-verses .bible-verse.bookmarked {
+  background: color-mix(in srgb, var(--bookmark-color) 38%, var(--surface));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--bookmark-color) 72%, #5e5632);
 }
 
 .bible-verses sup {
@@ -5131,6 +5396,11 @@ nav {
   .calories-tab {
     padding: 10px 14px;
     font-size: 13px;
+  }
+
+  .calories-tab.path-bible-tab {
+    padding-left: 28px;
+    padding-right: 0;
   }
 
   .mindfulness-heading,

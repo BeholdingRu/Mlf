@@ -150,6 +150,18 @@ create table if not exists public.mindfulness_notes (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.bible_bookmarks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  book_order smallint not null check (book_order between 1 and 66),
+  chapter smallint not null check (chapter > 0),
+  verse smallint not null check (verse > 0),
+  title text not null check (char_length(trim(title)) between 1 and 160),
+  color text not null default '#fff2a8' check (color ~ '^#[0-9A-Fa-f]{6}$'),
+  created_at timestamptz not null default now(),
+  unique (user_id, book_order, chapter, verse)
+);
+
 create table if not exists public.daily_food_logs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -234,6 +246,7 @@ create index if not exists path_day_confirmations_user_cycle_idx on public.path_
 create index if not exists course_lesson_completions_user_course_idx on public.course_lesson_completions (user_id, course_id);
 create index if not exists mindfulness_notes_user_updated_idx on public.mindfulness_notes (user_id, updated_at desc);
 create index if not exists mindfulness_categories_user_created_idx on public.mindfulness_categories (user_id, created_at);
+create index if not exists bible_bookmarks_user_created_idx on public.bible_bookmarks (user_id, created_at desc);
 create index if not exists food_logs_user_on_idx on public.daily_food_logs (user_id, logged_on desc);
 create index if not exists meal_plan_entries_user_date_meal_idx on public.meal_plan_entries (user_id, planned_on, meal_type, created_at);
 create index if not exists saved_products_user_name_idx on public.saved_products (user_id, name);
@@ -318,6 +331,7 @@ alter table public.path_day_confirmations enable row level security;
 alter table public.course_lesson_completions enable row level security;
 alter table public.mindfulness_notes enable row level security;
 alter table public.mindfulness_categories enable row level security;
+alter table public.bible_bookmarks enable row level security;
 alter table public.daily_food_logs enable row level security;
 alter table public.meal_plan_entries enable row level security;
 alter table public.saved_products enable row level security;
@@ -369,6 +383,10 @@ create policy "mindfulness_notes_all_own" on public.mindfulness_notes
 
 drop policy if exists "mindfulness_categories_all_own" on public.mindfulness_categories;
 create policy "mindfulness_categories_all_own" on public.mindfulness_categories
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "bible_bookmarks_all_own" on public.bible_bookmarks;
+create policy "bible_bookmarks_all_own" on public.bible_bookmarks
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "food_logs_all_own" on public.daily_food_logs;
