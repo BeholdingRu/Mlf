@@ -2038,12 +2038,11 @@ nav {
 }
 
 .chart-close-button {
-  position: sticky;
-  z-index: 1;
-  top: 12px;
-  float: right;
+  flex: 0 0 auto;
   width: 36px;
   height: 36px;
+  margin-left: 10px;
+  padding: 0;
   font-size: 26px;
   line-height: 1;
 }

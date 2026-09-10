@@ -16,6 +16,7 @@ type WeightChartProps = {
   filterWeekday?: WeightChartWeekday
   initialWeekdayFilterEnabled?: boolean
   initialMonthFilterEnabled?: boolean
+  onCloseFullscreen?: () => void
 }
 
 type ChartPoint = {
@@ -94,6 +95,7 @@ export function WeightChart({
   filterWeekday = 1,
   initialWeekdayFilterEnabled = false,
   initialMonthFilterEnabled = false,
+  onCloseFullscreen,
 }: WeightChartProps) {
   const [fullscreen, setFullscreen] = useState(false)
   const [weekdayFilterEnabled, setWeekdayFilterEnabled] = useState(initialWeekdayFilterEnabled)
@@ -111,6 +113,16 @@ export function WeightChart({
     })
     return () => window.cancelAnimationFrame(frame)
   }, [forceAllPoints, logs, weekdayFilterEnabled, monthFilterEnabled, filterWeekday])
+
+  useEffect(() => {
+    if (!fullscreen || forceAllPoints) return
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFullscreen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [fullscreen, forceAllPoints])
 
   if (!startDate) {
     return <div className="weight-chart-empty">Нет данных о весе</div>
@@ -220,6 +232,16 @@ export function WeightChart({
                     }}
                   >
                     Фильтр:месяц
+                  </button>
+                )}
+                {forceAllPoints && onCloseFullscreen && (
+                  <button
+                    type="button"
+                    className="chart-close-button"
+                    onClick={onCloseFullscreen}
+                    aria-label="Закрыть полную историю веса"
+                  >
+                    ×
                   </button>
                 )}
               </div>
@@ -348,7 +370,6 @@ export function WeightChart({
       {fullscreen && !forceAllPoints && (
         <div className="chart-fullscreen-backdrop" role="presentation">
           <div className="weight-chart-fullscreen" role="dialog" aria-modal="true" aria-label="Полная история веса">
-            <button type="button" className="chart-close-button" onClick={() => setFullscreen(false)} aria-label="Закрыть полную историю веса">×</button>
             <div className="chart-fullscreen-content">
               <WeightChart
                 logs={logs}
@@ -360,6 +381,7 @@ export function WeightChart({
                 filterWeekday={filterWeekday}
                 initialWeekdayFilterEnabled={weekdayFilterEnabled}
                 initialMonthFilterEnabled={monthFilterEnabled}
+                onCloseFullscreen={() => setFullscreen(false)}
               />
             </div>
           </div>
