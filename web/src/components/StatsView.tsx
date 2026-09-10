@@ -5,11 +5,16 @@ import { useData } from '../hooks/useData'
 import { localISODate, percent } from '../lib/dates'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
 import type { WeightLog } from '../lib/types'
+import {
+  WEIGHT_CHART_WEEKDAYS,
+  type WeightChartWeekday,
+} from '../lib/weight-chart-weekdays'
 
 type StatsSubTab = 'overview' | 'manage-weight'
 
 const STATS_SUB_TAB_STORAGE_KEY = 'mlf:stats-sub-tab'
 const STATS_TEST_WEIGHT_LOGS_STORAGE_KEY = 'mlf:stats-test-weight-logs'
+const WEIGHT_CHART_WEEKDAY_STORAGE_KEY = 'mlf:weight-chart-weekday'
 
 function getSavedStatsSubTab(): StatsSubTab {
   return window.sessionStorage.getItem(STATS_SUB_TAB_STORAGE_KEY) === 'manage-weight'
@@ -34,6 +39,15 @@ function getSavedTestWeightLogs(): WeightLog[] {
   }
 }
 
+function getSavedWeightChartWeekday(): WeightChartWeekday {
+  const savedValue = window.localStorage.getItem(WEIGHT_CHART_WEEKDAY_STORAGE_KEY)
+  if (savedValue == null) return 1
+  const savedWeekday = Number(savedValue)
+  return WEIGHT_CHART_WEEKDAYS.some((option) => option.value === savedWeekday)
+    ? savedWeekday as WeightChartWeekday
+    : 1
+}
+
 export function StatsView() {
   const { tasks, completions, weightLogs, profile, saveWeightSettings, saveDesiredWeight, adminMode } = useData()
   const [subTab, setSubTab] = useState<StatsSubTab>(getSavedStatsSubTab)
@@ -48,6 +62,8 @@ export function StatsView() {
   const [testDate, setTestDate] = useState(localISODate)
   const [testWeight, setTestWeight] = useState('')
   const [testWeightLogs, setTestWeightLogs] = useState<WeightLog[]>(getSavedTestWeightLogs)
+  const [weightChartWeekday, setWeightChartWeekday] = useState<WeightChartWeekday>(getSavedWeightChartWeekday)
+  const [weekdayPickerOpen, setWeekdayPickerOpen] = useState(false)
 
   const testDates = new Set(testWeightLogs.map((log) => log.logged_on))
   const chartWeightLogs = adminMode
@@ -61,6 +77,10 @@ export function StatsView() {
   useEffect(() => {
     window.sessionStorage.setItem(STATS_TEST_WEIGHT_LOGS_STORAGE_KEY, JSON.stringify(testWeightLogs))
   }, [testWeightLogs])
+
+  useEffect(() => {
+    window.localStorage.setItem(WEIGHT_CHART_WEEKDAY_STORAGE_KEY, String(weightChartWeekday))
+  }, [weightChartWeekday])
 
   function addTestWeightLog() {
     const value = Number(testWeight.replace(',', '.'))
@@ -217,6 +237,7 @@ export function StatsView() {
                 startDate={profile.weight_started_on}
                 startWeight={profile.target_weight}
                 desiredWeight={profile.desired_weight}
+                filterWeekday={weightChartWeekday}
               />
             </>
           )}
@@ -299,6 +320,42 @@ export function StatsView() {
             <button type="button" className="primary compact" onClick={saveDesired} disabled={busy}>
               Сохранить желаемый вес
             </button>
+          </div>
+
+          <div className="weight-chart-filter-settings">
+            <button
+              type="button"
+              className="primary compact"
+              aria-expanded={weekdayPickerOpen}
+              onClick={() => setWeekdayPickerOpen((open) => !open)}
+            >
+              Фильтр для графика
+            </button>
+            {weekdayPickerOpen && (
+              <div className="weight-chart-weekday-picker">
+                <span className="hint">Выберите день недели</span>
+                <div className="weight-chart-weekday-options" role="radiogroup" aria-label="День недели для фильтра графика">
+                  {WEIGHT_CHART_WEEKDAYS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={weightChartWeekday === option.value}
+                      className={weightChartWeekday === option.value
+                        ? 'weight-chart-weekday-option active'
+                        : 'weight-chart-weekday-option'}
+                      title={option.label}
+                      onClick={() => {
+                        setWeightChartWeekday(option.value)
+                        setWeekdayPickerOpen(false)
+                      }}
+                    >
+                      {option.short}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           {error && <p className="banner error">{error}</p>}
         </div>

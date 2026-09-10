@@ -467,17 +467,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (updError) throw updError
         setProfile(data as Profile)
       },
-      async saveShabbatEnabled(enabled) {
-        if (!user || !profile) return
-        const { data, error: updError } = await requireSupabase()
-          .from('profiles')
-          .update({ shabbat_enabled: enabled })
-          .eq('id', user.id)
-          .select('*')
-          .single()
-        if (updError) throw updError
-        setProfile(data as Profile)
-      },
       async saveAnnualCycleEnabled(enabled) {
         if (!user || !profile) return
         const { data, error: updError } = await requireSupabase()

@@ -6,7 +6,6 @@ type SidebarProps = {
   tab: CabinetTab
   onTab: (tab: CabinetTab) => void
   onOpenSettings: () => void
-  shabbatEnabled: boolean
   hasPlannedTraining: boolean
   hasIncompleteDailyTasks: boolean
 }
@@ -27,15 +26,13 @@ export function Sidebar({
   tab,
   onTab,
   onOpenSettings,
-  shabbatEnabled,
   hasPlannedTraining,
   hasIncompleteDailyTasks,
 }: SidebarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(
     () => window.sessionStorage.getItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY) === 'true',
   )
-  const navigation = shabbatEnabled ? NAV : NAV.filter((item) => item.id !== 'path')
-  const currentTab = navigation.find((item) => item.id === tab) ?? NAV[0]
+  const currentTab = NAV.find((item) => item.id === tab) ?? NAV[0]
   const needsAttention = (item: CabinetTab) => (
     (item === 'daily' && hasIncompleteDailyTasks)
     || (item === 'training' && hasPlannedTraining)
@@ -72,7 +69,7 @@ export function Sidebar({
           <span aria-hidden="true">⚙</span>
         </button>
         <nav>
-          {navigation.map((item) => (
+          {NAV.map((item) => (
             <button
               key={item.id}
               type="button"

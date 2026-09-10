@@ -128,7 +128,7 @@ export function DiaryView() {
           {monthDays.map((day) => {
             const iso = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day))
             const isFriday = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day).getDay() === 5
-            const sunsetTime = profile?.shabbat_enabled && isFriday && profile.time_zone && profile.city_latitude !== null && profile.city_longitude !== null
+            const sunsetTime = profile && isFriday && profile.time_zone && profile.city_latitude !== null && profile.city_longitude !== null
               ? getSunsetTime(iso, profile.city_latitude, profile.city_longitude, profile.time_zone)
               : null
             const classes = [

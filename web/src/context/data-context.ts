@@ -58,7 +58,6 @@ export type DataContextValue = {
   saveTheme: (theme: ThemeId) => Promise<void>
   saveFontScale: (scale: FontScale) => Promise<void>
   saveLocation: (timeZone: string, city: SunsetCity | null) => Promise<void>
-  saveShabbatEnabled: (enabled: boolean) => Promise<void>
   saveAnnualCycleEnabled: (enabled: boolean) => Promise<void>
   saveShabbatTheme: (theme: ShabbatThemeId) => Promise<void>
   getBibleChapter: (bookOrder: number, chapter: number, includeTorahPortions?: boolean) => Promise<BibleVerse[]>

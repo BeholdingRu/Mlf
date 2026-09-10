@@ -1470,6 +1470,51 @@ nav {
   gap: 8px;
 }
 
+.weight-chart-filter-settings {
+  padding-top: 4px;
+}
+
+.weight-chart-weekday-picker {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.weight-chart-weekday-options {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(38px, 1fr));
+  gap: 6px;
+}
+
+.weight-chart-weekday-option {
+  min-height: 38px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.weight-chart-weekday-option:hover,
+.weight-chart-weekday-option.active {
+  border-color: var(--moss);
+  background: var(--moss);
+  color: white;
+}
+
+@media (max-width: 480px) {
+  .weight-chart-weekday-options {
+    grid-template-columns: repeat(4, minmax(44px, 1fr));
+  }
+}
+
 .stats-test-weight-panel {
   display: flex;
   align-items: end;

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { daysInclusive, parseISODate } from '../lib/dates'
 import type { WeightLog } from '../lib/types'
+import {
+  WEIGHT_CHART_WEEKDAYS,
+  type WeightChartWeekday,
+} from '../lib/weight-chart-weekdays'
 
 type WeightChartProps = {
   logs: WeightLog[]
@@ -9,7 +13,8 @@ type WeightChartProps = {
   desiredWeight: number | null
   forceAllPoints?: boolean
   hideFullscreenButton?: boolean
-  onlyMondays?: boolean
+  filterWeekday?: WeightChartWeekday
+  initialWeekdayFilterEnabled?: boolean
 }
 
 type ChartPoint = {
@@ -53,8 +58,8 @@ function formatWeightDifference(value: number, previousValue?: number) {
   return `${sign}${difference.toFixed(1)} кг`
 }
 
-function isMonday(iso: string) {
-  return parseISODate(iso).getDay() === 1
+function isSelectedWeekday(iso: string, weekday: WeightChartWeekday) {
+  return parseISODate(iso).getDay() === weekday
 }
 
 export function WeightChart({
@@ -64,12 +69,14 @@ export function WeightChart({
   desiredWeight,
   forceAllPoints = false,
   hideFullscreenButton = false,
-  onlyMondays = false,
+  filterWeekday = 1,
+  initialWeekdayFilterEnabled = false,
 }: WeightChartProps) {
   const [fullscreen, setFullscreen] = useState(false)
-  const [mondayOnly, setMondayOnly] = useState(onlyMondays)
+  const [weekdayFilterEnabled, setWeekdayFilterEnabled] = useState(initialWeekdayFilterEnabled)
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null)
   const chartGraphRef = useRef<HTMLDivElement>(null)
+  const selectedWeekday = WEIGHT_CHART_WEEKDAYS.find((option) => option.value === filterWeekday) ?? WEIGHT_CHART_WEEKDAYS[0]
 
   useEffect(() => {
     if (!forceAllPoints) return
@@ -79,15 +86,17 @@ export function WeightChart({
       }
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [forceAllPoints, logs, mondayOnly])
+  }, [forceAllPoints, logs, weekdayFilterEnabled, filterWeekday])
 
   if (!startDate) {
     return <div className="weight-chart-empty">Нет данных о весе</div>
   }
 
   const sorted = [...logs].sort((a, b) => a.logged_on.localeCompare(b.logged_on))
-  const filteredLogs = mondayOnly ? sorted.filter((log) => isMonday(log.logged_on)) : sorted
-  const includeStartPoint = startWeight != null && (!mondayOnly || isMonday(startDate))
+  const filteredLogs = weekdayFilterEnabled
+    ? sorted.filter((log) => isSelectedWeekday(log.logged_on, filterWeekday))
+    : sorted
+  const includeStartPoint = startWeight != null && (!weekdayFilterEnabled || isSelectedWeekday(startDate, filterWeekday))
   const maximumLogPoints = Math.max(0, 7 - (includeStartPoint ? 1 : 0))
   const visibleLogs = forceAllPoints || fullscreen
     ? filteredLogs
@@ -148,20 +157,20 @@ export function WeightChart({
                 <button type="button" className="chart-fullscreen-button" onClick={() => setFullscreen(true)}>Все записи</button>
                 <button
                   type="button"
-                  className={mondayOnly ? 'chart-filter-button active' : 'chart-filter-button'}
-                  aria-pressed={mondayOnly}
+                  className={weekdayFilterEnabled ? 'chart-filter-button active' : 'chart-filter-button'}
+                  aria-pressed={weekdayFilterEnabled}
                   onClick={() => {
-                    setMondayOnly((enabled) => !enabled)
+                    setWeekdayFilterEnabled((enabled) => !enabled)
                     setHoveredPoint(null)
                   }}
                 >
-                  Только ПН
+                  Фильтр:{selectedWeekday.short.toUpperCase()}
                 </button>
               </div>
             )}
           </div>
           <p className="chart-meta">
-            {mondayOnly ? 'Записей по понедельникам' : 'Всего записей'}: <strong>{filteredLogs.length}</strong> | Дней отслеживания: <strong>{totalDays}</strong>
+            {weekdayFilterEnabled ? `Записей ${selectedWeekday.recordsLabel}` : 'Всего записей'}: <strong>{filteredLogs.length}</strong> | Дней отслеживания: <strong>{totalDays}</strong>
             {!fullscreen && renderedPoints.length < filteredLogs.length + (includeStartPoint ? 1 : 0) && ` | На графике: ${renderedPoints.length}`}
           </p>
         </div>
@@ -237,7 +246,7 @@ export function WeightChart({
 
             <line x1={CHART_LEFT} y1={chartHeight - chartBottom} x2={chartRight} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
             <line x1={CHART_LEFT} y1={chartTop} x2={CHART_LEFT} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
-          </svg> : <p className="weight-chart-filter-empty">Нет записей о весе за понедельник</p>}
+          </svg> : <p className="weight-chart-filter-empty">Нет записей о весе за {selectedWeekday.emptyLabel}</p>}
           {hoveredPoint && (
             <div className="chart-tooltip" role="status">
               <strong>{hoveredPoint.value.toFixed(1)} кг</strong>
@@ -268,7 +277,16 @@ export function WeightChart({
           <div className="weight-chart-fullscreen" role="dialog" aria-modal="true" aria-label="Полная история веса">
             <button type="button" className="chart-close-button" onClick={() => setFullscreen(false)} aria-label="Закрыть полную историю веса">×</button>
             <div className="chart-fullscreen-content">
-              <WeightChart logs={logs} startDate={startDate} startWeight={startWeight} desiredWeight={desiredWeight} forceAllPoints hideFullscreenButton onlyMondays={mondayOnly} />
+              <WeightChart
+                logs={logs}
+                startDate={startDate}
+                startWeight={startWeight}
+                desiredWeight={desiredWeight}
+                forceAllPoints
+                hideFullscreenButton
+                filterWeekday={filterWeekday}
+                initialWeekdayFilterEnabled={weekdayFilterEnabled}
+              />
             </div>
           </div>
         </div>

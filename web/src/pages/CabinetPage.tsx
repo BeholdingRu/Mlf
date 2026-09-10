@@ -69,10 +69,6 @@ export function CabinetPage() {
   }, [])
 
   useEffect(() => {
-    if (profile && !profile.shabbat_enabled && tab === 'path') setTab('daily')
-  }, [profile?.shabbat_enabled, tab])
-
-  useEffect(() => {
     window.sessionStorage.setItem(CABINET_TAB_STORAGE_KEY, tab)
   }, [tab])
 
@@ -97,7 +93,6 @@ export function CabinetPage() {
         tab={tab}
         onTab={setTab}
         onOpenSettings={() => setSettingsOpen(true)}
-        shabbatEnabled={profile?.shabbat_enabled ?? false}
         hasPlannedTraining={hasPlannedTraining}
         hasIncompleteDailyTasks={hasIncompleteDailyTasks}
       />
@@ -152,7 +147,7 @@ export function CabinetPage() {
         {!loading && (
           <MediaView compact={tab !== 'media'} />
         )}
-        {!loading && profile?.shabbat_enabled && (
+        {!loading && (
           <div hidden={tab !== 'path'}>
             <PathView />
           </div>

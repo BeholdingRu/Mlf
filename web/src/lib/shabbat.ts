@@ -26,7 +26,7 @@ function minutes(time: string | null) {
 }
 
 export function isShabbatActive(profile: Profile | null, now = new Date()) {
-  if (!profile?.shabbat_enabled || !profile.time_zone || profile.city_latitude === null || profile.city_longitude === null) return false
+  if (!profile?.time_zone || profile.city_latitude === null || profile.city_longitude === null) return false
 
   const localNow = getDateTimeParts(now, profile.time_zone)
   const weekday = new Date(Date.UTC(localNow.year, localNow.month - 1, localNow.day)).getUTCDay()
