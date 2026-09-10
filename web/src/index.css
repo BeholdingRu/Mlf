@@ -2371,8 +2371,9 @@ nav {
 
 @media (prefers-reduced-motion: reduce) {
   .bible-growth-tree-art,
-  .bible-library-growth-vine,
-  .bible-grape-reveal {
+  .bible-vine-drawing-path,
+  .bible-vine-leaf-sprig-use,
+  .bible-vine-grape-reveal {
     transition: none;
   }
 }
@@ -2395,11 +2396,9 @@ nav {
   aspect-ratio: 1;
   overflow: visible;
   transform: translate(-50%, -50%);
-  clip-path: circle(var(--bible-vine-reveal-radius) at 50% 50%);
   fill: none;
   opacity: 0.2;
   pointer-events: none;
-  transition: clip-path 900ms ease;
 }
 
 :root[data-theme='dark'] .bible-library-growth-vine,
@@ -2422,6 +2421,11 @@ nav {
   opacity: 1;
 }
 
+.bible-vine-drawing-path {
+  stroke-dasharray: 1;
+  transition: stroke-dashoffset 900ms ease;
+}
+
 .bible-vine-tendrils {
   stroke-width: 1.7;
   opacity: 1;
@@ -2429,6 +2433,10 @@ nav {
 
 .bible-vine-leaves {
   opacity: 1;
+}
+
+.bible-vine-leaf-sprig-use {
+  transition: opacity 600ms ease;
 }
 
 .bible-vine-leaf-stem {
@@ -2452,8 +2460,8 @@ nav {
   opacity: 1;
 }
 
-.bible-grape-reveal {
-  transition: r 900ms ease;
+.bible-vine-grape-reveal {
+  transition: height 900ms ease;
 }
 
 .bible-vine-grape-stem {
