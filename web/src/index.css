@@ -1872,6 +1872,10 @@ nav {
   opacity: 0.6;
 }
 
+.chart-point-difference {
+  font-style: italic;
+}
+
 .chart-svg circle {
   cursor: pointer;
 }
@@ -1925,6 +1929,8 @@ nav {
 .chart-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -2022,6 +2028,18 @@ nav {
   gap: 24px;
 }
 
+.topbar.calories-topbar {
+  margin-bottom: 12px;
+}
+
+.calorie-accounting-view {
+  gap: 10px;
+}
+
+.calorie-accounting-view > .calories-tabs {
+  margin-bottom: 0;
+}
+
 .calories-tabs {
   display: flex;
   gap: 8px;
@@ -2093,6 +2111,13 @@ nav {
   gap: 12px;
 }
 
+.bible-reader-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .bible-return-button {
   flex: 0 0 auto;
   min-height: 40px;
@@ -2153,6 +2178,40 @@ nav {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.torah-playlist-info {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(390px, calc(100vw - 48px));
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.torah-playlist-info-wrap {
+  position: relative;
+  display: flex;
+}
+
+.torah-playlist-info a {
+  color: var(--moss-deep);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.torah-playlist-info a:hover {
+  color: var(--leaf);
 }
 
 .torah-portions-map {
@@ -3255,6 +3314,49 @@ nav {
   color: var(--ink);
 }
 
+.calories-summary-toggle {
+  width: 100%;
+  grid-template-columns: auto auto minmax(18px, 1fr);
+  align-items: center;
+  align-content: center;
+  gap: 6px;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.calories-summary-toggle > .label {
+  min-height: 0;
+  align-items: center;
+}
+
+.info-item.calories-summary-toggle > .label,
+.info-item.calories-summary-toggle > .value {
+  font-size: clamp(16px, 5vw, 20px);
+}
+
+.calories-summary-toggle:hover,
+.calories-summary-toggle[aria-expanded='true'] {
+  border-color: var(--moss);
+  background: var(--info-bg);
+}
+
+.calories-summary-toggle:focus-visible {
+  outline: 2px solid var(--leaf);
+  outline-offset: 2px;
+}
+
+.calories-summary-chevron {
+  justify-self: end;
+  min-width: 18px;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
 .consumption-summary {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) repeat(3, minmax(0, 1fr));
@@ -3724,11 +3826,6 @@ nav {
 .diary-exercises .food-info span {
   max-width: 100%;
   overflow-wrap: anywhere;
-}
-
-.food-form h3 {
-  font-size: 16px;
-  margin: 0;
 }
 
 .form-group {
@@ -5120,10 +5217,6 @@ nav {
     gap: 12px;
   }
 
-  .food-form h3 {
-    font-size: 14px;
-  }
-
   .form-group {
     gap: 4px;
   }
@@ -5473,11 +5566,6 @@ nav {
     font-size: 11px;
   }
 
-  .food-form h3 {
-    font-size: 13px;
-    margin: 0 0 8px;
-  }
-
   .form-group input {
     padding: 8px 10px;
     font-size: 13px;
@@ -5647,10 +5735,6 @@ nav {
   .food-form {
     padding: 10px;
     gap: 10px;
-  }
-
-  .food-form h3 {
-    font-size: 12px;
   }
 
   .form-group input {

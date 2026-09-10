@@ -97,7 +97,7 @@ export function CabinetPage() {
         hasIncompleteDailyTasks={hasIncompleteDailyTasks}
       />
       <main className="main">
-        <header className="topbar">
+        <header className={tab === 'calories' ? 'topbar calories-topbar' : 'topbar'}>
           {tab === 'path' ? (
             <div className="path-heading">
               <p className="path-heading-quote">

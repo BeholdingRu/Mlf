@@ -8,6 +8,7 @@ type CaloriesSubTab = 'consumption' | 'planner' | 'products'
 
 const CALORIES_SUB_TAB_STORAGE_KEY = 'mlf:calories-sub-tab'
 const FOOD_ADD_DRAFT_STORAGE_KEY = 'mlf:food-add-draft'
+const MOBILE_CALORIES_SUMMARY_QUERY = '(max-width: 768px)'
 
 type FoodAddDraft = {
   name: string
@@ -77,6 +78,10 @@ export function CaloriesView() {
   const [savingNorm, setSavingNorm] = useState(false)
   const [editingNorm, setEditingNorm] = useState(false)
   const [normError, setNormError] = useState<string | null>(null)
+  const [mobileCaloriesSummary, setMobileCaloriesSummary] = useState(
+    () => window.matchMedia(MOBILE_CALORIES_SUMMARY_QUERY).matches,
+  )
+  const [caloriesSummaryExpanded, setCaloriesSummaryExpanded] = useState(false)
   const dailyNormInputRef = useRef<HTMLInputElement>(null)
 
   const dailyNorm = profile?.daily_calories_norm ?? 0
@@ -101,6 +106,22 @@ export function CaloriesView() {
   useEffect(() => {
     window.sessionStorage.setItem(CALORIES_SUB_TAB_STORAGE_KEY, subTab)
   }, [subTab])
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(MOBILE_CALORIES_SUMMARY_QUERY)
+    const handleChange = (event: MediaQueryListEvent) => {
+      setMobileCaloriesSummary(event.matches)
+      if (event.matches) setCaloriesSummaryExpanded(false)
+    }
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    }
+
+    mediaQuery.addListener(handleChange)
+    return () => mediaQuery.removeListener(handleChange)
+  }, [])
 
   useEffect(() => {
     const isEmpty = !productName && !weightGrams && !caloriesPer100g && !proteinsPer100g
@@ -265,7 +286,7 @@ export function CaloriesView() {
     : savedProducts.filter((product) => product.category === savedProductGroup)
 
   return (
-    <div className="calories-view">
+    <div className="calories-view calorie-accounting-view">
       <nav className="calories-tabs">
         <button
           type="button"
@@ -294,7 +315,7 @@ export function CaloriesView() {
         <>
           <div className="calories-header">
             <div className="calories-info">
-              <div className="info-item calories-norm-card">
+              {(!mobileCaloriesSummary || caloriesSummaryExpanded) && <div className="info-item calories-norm-card">
                 <label className="label" htmlFor="daily-calories-norm">Дневная норма калорий:</label>
                 <div className="daily-norm-editor">
                   {editingNorm ? (
@@ -324,8 +345,8 @@ export function CaloriesView() {
                   </button>
                 </div>
                 {normError && <span className="daily-norm-error">{normError}</span>}
-              </div>
-              <div className="info-item consumption-card">
+              </div>}
+              {(!mobileCaloriesSummary || caloriesSummaryExpanded) && <div className="info-item consumption-card">
                 <div className="consumption-summary" aria-label="Потреблённые калории и сумма БЖУ">
                   <div className="consumption-summary-item calories">
                     <span>Потреблено</span>
@@ -344,15 +365,35 @@ export function CaloriesView() {
                     <strong>{totalNutrition.carbohydrates.toFixed(1)}</strong>
                   </div>
                 </div>
-              </div>
-              <div className="info-item remaining-card">
-                <span className={`label remaining ${remaining >= 0 ? 'positive' : 'negative'}`}>
-                  Осталось калорий:
-                </span>
-                <span className={`value ${remaining >= 0 ? 'positive' : 'negative'}`}>
-                  {remaining.toFixed(0)}
-                </span>
-              </div>
+              </div>}
+              {mobileCaloriesSummary ? (
+                <button
+                  type="button"
+                  className="info-item remaining-card calories-summary-toggle"
+                  aria-expanded={caloriesSummaryExpanded}
+                  aria-label={`Осталось калорий: ${remaining.toFixed(0)}. ${caloriesSummaryExpanded ? 'Свернуть' : 'Развернуть'} сводку`}
+                  onClick={() => setCaloriesSummaryExpanded((expanded) => !expanded)}
+                >
+                  <span className={`label remaining ${remaining >= 0 ? 'positive' : 'negative'}`}>
+                    Осталось калорий:
+                  </span>
+                  <span className={`value ${remaining >= 0 ? 'positive' : 'negative'}`}>
+                    {remaining.toFixed(0)}
+                  </span>
+                  <span className="calories-summary-chevron" aria-hidden="true">
+                    {caloriesSummaryExpanded ? '⌃' : '⌄'}
+                  </span>
+                </button>
+              ) : (
+                <div className="info-item remaining-card">
+                  <span className={`label remaining ${remaining >= 0 ? 'positive' : 'negative'}`}>
+                    Осталось калорий:
+                  </span>
+                  <span className={`value ${remaining >= 0 ? 'positive' : 'negative'}`}>
+                    {remaining.toFixed(0)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -363,9 +404,8 @@ export function CaloriesView() {
               void handleAddFood()
             }}
           >
-            <h3>Добавить продукт</h3>
             <fieldset className="nutrition-block">
-              <legend>Название продукта</legend>
+              <legend>Добавить продукт</legend>
               <div className="product-name-row">
                 <input
                   id="product-name"

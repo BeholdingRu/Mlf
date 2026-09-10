@@ -30,6 +30,22 @@ import { useAuth } from '../hooks/useAuth'
 import { DataContext, type DataContextValue } from './data-context'
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
+const DATA_LOAD_TIMEOUT_MS = 20_000
+
+async function withDataLoadTimeout<T>(request: Promise<T>): Promise<T> {
+  let timeoutId: number | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error('Не удалось загрузить данны. Проверьте подключение к интернету и обновите страницу.'))
+    }, DATA_LOAD_TIMEOUT_MS)
+  })
+
+  try {
+    return await Promise.race([request, timeout])
+  } finally {
+    if (timeoutId != null) window.clearTimeout(timeoutId)
+  }
+}
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -68,33 +84,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [isAdmin])
 
   const refresh = useCallback(async () => {
-    if (!userId) return
+    if (!userId) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const client = requireSupabase()
     const today = localISODate()
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, mealPlanRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes] = await Promise.all([
-      client.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      client.from('tasks').select('*').eq('user_id', userId).order('sort_order'),
-      client.from('task_completions').select('*').eq('user_id', userId),
-      client.from('weight_logs').select('*').eq('user_id', userId).order('logged_on', {
-        ascending: false,
-      }),
-      client.from('daily_food_logs').select('*').eq('user_id', userId).eq('logged_on', today),
-      client
-        .from('daily_food_logs')
-        .select('*')
-        .eq('user_id', userId)
-        .order('logged_on', { ascending: false })
-        .order('created_at'),
-      client.from('meal_plan_entries').select('*').eq('user_id', userId).order('planned_on').order('created_at'),
-      client.from('saved_products').select('*').eq('user_id', userId).order('name'),
-      client.from('saved_exercises').select('*').eq('user_id', userId).order('name'),
-      client.from('scheduled_exercises').select('*').eq('user_id', userId).order('planned_on').order('sort_order'),
-      client.from('path_day_confirmations').select('*').eq('user_id', userId),
-      client.from('course_lesson_completions').select('*').eq('user_id', userId),
-      client.from('mindfulness_categories').select('*').eq('user_id', userId).order('created_at'),
-      client.from('mindfulness_notes').select('*').eq('user_id', userId).order('updated_at', { ascending: false }),
-    ])
+    let responses
+    try {
+      responses = await withDataLoadTimeout(Promise.all([
+        client.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        client.from('tasks').select('*').eq('user_id', userId).order('sort_order'),
+        client.from('task_completions').select('*').eq('user_id', userId),
+        client.from('weight_logs').select('*').eq('user_id', userId).order('logged_on', {
+          ascending: false,
+        }),
+        client.from('daily_food_logs').select('*').eq('user_id', userId).eq('logged_on', today),
+        client
+          .from('daily_food_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .order('logged_on', { ascending: false })
+          .order('created_at'),
+        client.from('meal_plan_entries').select('*').eq('user_id', userId).order('planned_on').order('created_at'),
+        client.from('saved_products').select('*').eq('user_id', userId).order('name'),
+        client.from('saved_exercises').select('*').eq('user_id', userId).order('name'),
+        client.from('scheduled_exercises').select('*').eq('user_id', userId).order('planned_on').order('sort_order'),
+        client.from('path_day_confirmations').select('*').eq('user_id', userId),
+        client.from('course_lesson_completions').select('*').eq('user_id', userId),
+        client.from('mindfulness_categories').select('*').eq('user_id', userId).order('created_at'),
+        client.from('mindfulness_notes').select('*').eq('user_id', userId).order('updated_at', { ascending: false }),
+      ]))
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить данны кабинета')
+      setLoading(false)
+      return
+    }
+    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, mealPlanRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes] = responses
 
     const firstError =
       profileRes.error?.message ||

@@ -15,6 +15,7 @@ type WeightChartProps = {
   hideFullscreenButton?: boolean
   filterWeekday?: WeightChartWeekday
   initialWeekdayFilterEnabled?: boolean
+  initialMonthFilterEnabled?: boolean
 }
 
 type ChartPoint = {
@@ -25,8 +26,9 @@ type ChartPoint = {
 
 const CHART_LEFT = 52
 const CHART_RIGHT_PADDING = 52
-const CHART_HEIGHT = 200
-const FULLSCREEN_CHART_HEIGHT = 260
+const CHART_HEIGHT = 258
+const FULLSCREEN_CHART_HEIGHT = 344
+const CHART_GRID_SECTIONS = 6
 
 function selectEvenlySpacedLogs(logs: WeightLog[], maximum = 7) {
   if (logs.length <= maximum) return logs
@@ -58,8 +60,28 @@ function formatWeightDifference(value: number, previousValue?: number) {
   return `${sign}${difference.toFixed(1)} кг`
 }
 
+function getWeightGoalColor(value: number, desiredWeight: number | null) {
+  if (desiredWeight == null || desiredWeight <= 0) return 'var(--ink)'
+
+  const maximumDifference = desiredWeight * 0.5
+  const distance = Math.min(Math.abs(value - desiredWeight) / maximumDifference, 1)
+  const hue = Math.round(130 * (1 - distance))
+  const saturation = Math.round(55 + 15 * distance)
+  const lightness = Math.round(58 - 26 * distance)
+  return `hsl(${hue} ${saturation}% ${lightness}%)`
+}
+
 function isSelectedWeekday(iso: string, weekday: WeightChartWeekday) {
   return parseISODate(iso).getDay() === weekday
+}
+
+function selectMonthlyLogs(logs: WeightLog[]) {
+  const firstLogByMonth = new Map<string, WeightLog>()
+  for (const log of logs) {
+    const monthKey = log.logged_on.slice(0, 7)
+    if (!firstLogByMonth.has(monthKey)) firstLogByMonth.set(monthKey, log)
+  }
+  return [...firstLogByMonth.values()]
 }
 
 export function WeightChart({
@@ -71,9 +93,11 @@ export function WeightChart({
   hideFullscreenButton = false,
   filterWeekday = 1,
   initialWeekdayFilterEnabled = false,
+  initialMonthFilterEnabled = false,
 }: WeightChartProps) {
   const [fullscreen, setFullscreen] = useState(false)
   const [weekdayFilterEnabled, setWeekdayFilterEnabled] = useState(initialWeekdayFilterEnabled)
+  const [monthFilterEnabled, setMonthFilterEnabled] = useState(initialMonthFilterEnabled)
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null)
   const chartGraphRef = useRef<HTMLDivElement>(null)
   const selectedWeekday = WEIGHT_CHART_WEEKDAYS.find((option) => option.value === filterWeekday) ?? WEIGHT_CHART_WEEKDAYS[0]
@@ -86,25 +110,36 @@ export function WeightChart({
       }
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [forceAllPoints, logs, weekdayFilterEnabled, filterWeekday])
+  }, [forceAllPoints, logs, weekdayFilterEnabled, monthFilterEnabled, filterWeekday])
 
   if (!startDate) {
     return <div className="weight-chart-empty">Нет данных о весе</div>
   }
 
   const sorted = [...logs].sort((a, b) => a.logged_on.localeCompare(b.logged_on))
-  const filteredLogs = weekdayFilterEnabled
-    ? sorted.filter((log) => isSelectedWeekday(log.logged_on, filterWeekday))
-    : sorted
-  const includeStartPoint = startWeight != null && (!weekdayFilterEnabled || isSelectedWeekday(startDate, filterWeekday))
+  const filteredLogs = monthFilterEnabled
+    ? selectMonthlyLogs(sorted)
+    : weekdayFilterEnabled
+      ? sorted.filter((log) => isSelectedWeekday(log.logged_on, filterWeekday))
+      : sorted
+  const compactWeekdayView = weekdayFilterEnabled && !forceAllPoints && !fullscreen
+  const includeStartPoint = startWeight != null && !compactWeekdayView && (
+    monthFilterEnabled || !weekdayFilterEnabled || isSelectedWeekday(startDate, filterWeekday)
+  )
   const maximumLogPoints = Math.max(0, 7 - (includeStartPoint ? 1 : 0))
   const visibleLogs = forceAllPoints || fullscreen
     ? filteredLogs
-    : selectEvenlySpacedLogs(filteredLogs, maximumLogPoints)
+    : weekdayFilterEnabled
+      ? filteredLogs.slice(-7)
+      : selectEvenlySpacedLogs(filteredLogs, maximumLogPoints)
+  const previousHiddenLog = compactWeekdayView && filteredLogs.length > visibleLogs.length
+    ? filteredLogs[filteredLogs.length - visibleLogs.length - 1]
+    : null
   const firstDate = parseISODate(startDate)
   const lastDate = sorted.length > 0 ? parseISODate(sorted[sorted.length - 1].logged_on) : firstDate
   const totalDays = daysInclusive(firstDate, lastDate)
-  const allValues = includeStartPoint ? [startWeight, ...filteredLogs.map((log) => log.value)] : filteredLogs.map((log) => log.value)
+  const scaleLogs = compactWeekdayView ? visibleLogs : filteredLogs
+  const allValues = includeStartPoint ? [startWeight, ...scaleLogs.map((log) => log.value)] : scaleLogs.map((log) => log.value)
   const hasChartData = allValues.length > 0
 
   const minValue = hasChartData ? Math.min(...allValues) : 0
@@ -152,25 +187,50 @@ export function WeightChart({
         <div className="chart-info">
           <div className="chart-heading">
             <p className="chart-title">История веса</p>
-            {!hideFullscreenButton && (
+            {(!hideFullscreenButton || forceAllPoints) && (
               <div className="chart-actions">
-                <button type="button" className="chart-fullscreen-button" onClick={() => setFullscreen(true)}>Все записи</button>
+                {!hideFullscreenButton && (
+                  <button type="button" className="chart-fullscreen-button" onClick={() => setFullscreen(true)}>Все записи</button>
+                )}
                 <button
                   type="button"
                   className={weekdayFilterEnabled ? 'chart-filter-button active' : 'chart-filter-button'}
                   aria-pressed={weekdayFilterEnabled}
                   onClick={() => {
-                    setWeekdayFilterEnabled((enabled) => !enabled)
+                    const nextEnabled = !weekdayFilterEnabled
+                    setWeekdayFilterEnabled(nextEnabled)
+                    if (nextEnabled) {
+                      setMonthFilterEnabled(false)
+                    }
                     setHoveredPoint(null)
                   }}
                 >
                   Фильтр:{selectedWeekday.short.toUpperCase()}
                 </button>
+                {forceAllPoints && (
+                  <button
+                    type="button"
+                    className={monthFilterEnabled ? 'chart-filter-button active' : 'chart-filter-button'}
+                    aria-pressed={monthFilterEnabled}
+                    onClick={() => {
+                      const nextEnabled = !monthFilterEnabled
+                      setMonthFilterEnabled(nextEnabled)
+                      if (nextEnabled) setWeekdayFilterEnabled(false)
+                      setHoveredPoint(null)
+                    }}
+                  >
+                    Фильтр:месяц
+                  </button>
+                )}
               </div>
             )}
           </div>
           <p className="chart-meta">
-            {weekdayFilterEnabled ? `Записей ${selectedWeekday.recordsLabel}` : 'Всего записей'}: <strong>{filteredLogs.length}</strong> | Дней отслеживания: <strong>{totalDays}</strong>
+            {monthFilterEnabled
+              ? 'Записей по месяцам'
+              : weekdayFilterEnabled
+                ? `Записей ${selectedWeekday.recordsLabel}`
+                : 'Всего записей'}: <strong>{filteredLogs.length}</strong> | Дней отслеживания: <strong>{totalDays}</strong>
             {!fullscreen && renderedPoints.length < filteredLogs.length + (includeStartPoint ? 1 : 0) && ` | На графике: ${renderedPoints.length}`}
           </p>
         </div>
@@ -184,7 +244,7 @@ export function WeightChart({
             onMouseMove={handleChartMouseMove}
             onMouseLeave={() => setHoveredPoint(null)}
           >
-            {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+            {Array.from({ length: CHART_GRID_SECTIONS + 1 }, (_, index) => index / CHART_GRID_SECTIONS).map((ratio) => {
               const y = chartTop + ratio * graphHeight
               const value = maxValue - ratio * range
               return (
@@ -233,8 +293,15 @@ export function WeightChart({
               return (
                 <g key={`label-${point.label}-${point.date}`}>
                   <text className="chart-point-details" x={x} y={y - 22} textAnchor="middle" fill="var(--ink)">
-                    <tspan x={x}>{point.value.toFixed(1)} кг</tspan>
-                    <tspan x={x} dy="12">{formatWeightDifference(point.value, renderedPoints[index - 1]?.value)}</tspan>
+                    <tspan className="chart-point-weight" x={x} fill={getWeightGoalColor(point.value, desiredWeight)}>
+                      {point.value.toFixed(1)} кг
+                    </tspan>
+                    <tspan className="chart-point-difference" x={x} dy="12">
+                      {formatWeightDifference(
+                        point.value,
+                        index === 0 ? previousHiddenLog?.value : renderedPoints[index - 1]?.value,
+                      )}
+                    </tspan>
                   </text>
                   <text className="chart-point-details chart-point-date" x={x} y={y + 14} textAnchor="middle" fill="var(--ink)">
                     <tspan x={x}>{formatDayAndMonth(point.date)}</tspan>
@@ -246,7 +313,13 @@ export function WeightChart({
 
             <line x1={CHART_LEFT} y1={chartHeight - chartBottom} x2={chartRight} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
             <line x1={CHART_LEFT} y1={chartTop} x2={CHART_LEFT} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
-          </svg> : <p className="weight-chart-filter-empty">Нет записей о весе за {selectedWeekday.emptyLabel}</p>}
+          </svg> : <p className="weight-chart-filter-empty">
+            {monthFilterEnabled
+              ? 'Нет записей о весе по месяцам'
+              : weekdayFilterEnabled
+                ? `Нет записей о весе за ${selectedWeekday.emptyLabel}`
+                : 'Нет записей о весе'}
+          </p>}
           {hoveredPoint && (
             <div className="chart-tooltip" role="status">
               <strong>{hoveredPoint.value.toFixed(1)} кг</strong>
@@ -286,6 +359,7 @@ export function WeightChart({
                 hideFullscreenButton
                 filterWeekday={filterWeekday}
                 initialWeekdayFilterEnabled={weekdayFilterEnabled}
+                initialMonthFilterEnabled={monthFilterEnabled}
               />
             </div>
           </div>

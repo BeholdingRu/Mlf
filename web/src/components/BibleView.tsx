@@ -29,6 +29,7 @@ const NEW_TESTAMENT: BibleBook[] = [
 ].map(([name, chapters], index) => ({ order: index + 40, name: name as string, chapters: chapters as number }))
 
 const BIBLE_NAVIGATION_STORAGE_KEY = 'mlf:bible-navigation'
+const TORAH_RUSSIAN_PLAYLIST_URL = 'https://youtube.com/playlist?list=PLV034aDASG5T4OizaEyJyzlZV_K8tGZnv&si=1oZmv97ixhOJszK9'
 const BIBLE_BOOKS = [...OLD_TESTAMENT, ...NEW_TESTAMENT]
 const chapterCache = new Map<string, BibleVerse[]>()
 const pendingChapters = new Map<string, Promise<BibleVerse[]>>()
@@ -71,6 +72,7 @@ export function BibleView() {
   const [verses, setVerses] = useState<BibleVerse[]>([])
   const [error, setError] = useState<string | null>(null)
   const [chapterListOpen, setChapterListOpen] = useState(false)
+  const [playlistInfoOpen, setPlaylistInfoOpen] = useState(false)
   const [highlightedPortion, setHighlightedPortion] = useState<TorahPortion | null>(null)
   const [loadedTorahPortions, setLoadedTorahPortions] = useState<{
     bookOrder: number
@@ -161,6 +163,7 @@ export function BibleView() {
     setBook(nextBook)
     setChapter(null)
     setChapterListOpen(false)
+    setPlaylistInfoOpen(false)
     setVerses([])
     setError(null)
   }
@@ -169,6 +172,7 @@ export function BibleView() {
     setBook(null)
     setChapter(null)
     setChapterListOpen(false)
+    setPlaylistInfoOpen(false)
     setVerses([])
     setError(null)
     window.sessionStorage.removeItem(BIBLE_NAVIGATION_STORAGE_KEY)
@@ -198,7 +202,29 @@ export function BibleView() {
       {book && (
         <div className="bible-reader">
           <div className="bible-reader-heading">
-            <h2>{book.name}</h2>
+            <div className="bible-reader-title">
+              <h2>{book.name}</h2>
+              {includeTorahPortions && book.order <= 5 && (
+                <div className="torah-playlist-info-wrap">
+                  <button
+                    type="button"
+                    className="info-button"
+                    aria-label="Информация о недельных главах"
+                    aria-expanded={playlistInfoOpen}
+                    aria-controls="torah-playlist-info"
+                    onClick={() => setPlaylistInfoOpen((open) => !open)}
+                  >
+                    i
+                  </button>
+                  {playlistInfoOpen && (
+                    <p id="torah-playlist-info" className="torah-playlist-info">
+                      <a href={TORAH_RUSSIAN_PLAYLIST_URL} target="_blank" rel="noreferrer">здесь</a>{' '}
+                      можно посмотреть все недельные главы на русском
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
             <button type="button" className="bible-return-button" onClick={returnToLibrary}>Все книги</button>
           </div>
           <div className={chapter && !chapterListOpen ? 'bible-chapters chapter-selected' : 'bible-chapters'} aria-label={`Главы книги «${book.name}»`}>
