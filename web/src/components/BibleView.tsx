@@ -45,6 +45,23 @@ function getRequestedNavigation(navigationRequest?: BibleNavigationTarget | null
   return { book: requestedChapter ? requestedBook : null, chapter: requestedChapter, verse: requestedVerse }
 }
 
+function scrollBibleTarget(target: HTMLElement, block: 'start' | 'center') {
+  const scrollContainer = target.closest<HTMLElement>('.main')
+  if (!scrollContainer) {
+    target.scrollIntoView({ block })
+    return
+  }
+
+  const containerRect = scrollContainer.getBoundingClientRect()
+  const targetRect = target.getBoundingClientRect()
+  const targetTop = scrollContainer.scrollTop + targetRect.top - containerRect.top
+  const nextTop = block === 'center'
+    ? targetTop - (scrollContainer.clientHeight - targetRect.height) / 2
+    : targetTop
+
+  scrollContainer.scrollTo({ top: Math.max(0, nextTop), behavior: 'auto' })
+}
+
 export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavigationTarget | null }) {
   const {
     addBibleBookmark,
@@ -296,9 +313,9 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
         ? document.getElementById(`bible-verse-${book.order}-${chapter}-${requestedVerse}`)
         : null
       if (verseElement) {
-        verseElement.scrollIntoView({ block: 'center' })
-      } else {
-        chapterHeadingRef.current?.scrollIntoView({ block: 'start' })
+        scrollBibleTarget(verseElement, 'center')
+      } else if (chapterHeadingRef.current) {
+        scrollBibleTarget(chapterHeadingRef.current, 'start')
       }
     })
     return () => window.cancelAnimationFrame(frame)

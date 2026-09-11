@@ -589,13 +589,19 @@ input:not([type]) {
 }
 
 .cabinet {
-  min-height: 100vh;
+  min-height: calc(100vh / var(--font-scale));
+  height: calc(100vh / var(--font-scale));
+  height: calc(100dvh / var(--font-scale));
+  overflow: hidden;
   display: grid;
   grid-template-columns: 280px 1fr;
 }
 
 .sidebar {
   position: relative;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   padding: 20px 16px;
   display: flex;
   flex-direction: column;
@@ -722,7 +728,40 @@ nav {
 
 .main {
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
   padding: 24px 32px 48px;
+}
+
+.sunset-countdown {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.sunset-countdown strong {
+  color: #d4a72c;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.sunset-countdown-only {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .topbar {
@@ -4251,6 +4290,24 @@ nav {
   white-space: nowrap;
 }
 
+.diary-test-date {
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(210px, 280px) auto minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  margin: 0;
+}
+
+.diary-test-date label {
+  white-space: nowrap;
+}
+
+.diary-test-time-toggle.active {
+  border-color: var(--moss);
+  background: var(--done);
+  color: var(--done-ink);
+}
+
 .calendar-day.selected .calendar-sunset {
   border-color: currentColor;
   background: color-mix(in srgb, var(--on-accent) 22%, transparent);
@@ -5125,9 +5182,16 @@ nav {
 @media (max-width: 1024px) {
   .cabinet {
     grid-template-columns: 1fr;
+    min-height: 100vh;
+    height: auto;
+    overflow: visible;
   }
 
   .sidebar {
+    position: relative;
+    height: auto;
+    overflow: visible;
+    overscroll-behavior: auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
     padding: 16px 12px;
@@ -5210,6 +5274,7 @@ nav {
   .sidebar {
     --mobile-weight-control-height: 60px;
     position: relative;
+    z-index: 10;
     padding: 0;
     gap: 0;
     flex: 0 0 auto;
@@ -5713,6 +5778,15 @@ nav {
 
   .diary-view {
     grid-template-columns: 1fr;
+  }
+
+  .diary-test-date {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .diary-test-date label {
+    white-space: normal;
   }
 
   .meal-planner-selection {

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { localISODate } from '../lib/dates'
 import { useData } from '../hooks/useData'
-import { isShabbatActive } from '../lib/shabbat'
+import { ADMIN_TEST_TIME_CHANGE_EVENT, getAdminTestTime } from '../lib/admin-test-time'
+import { getFridaySunsetCountdownSeconds, isShabbatActive } from '../lib/shabbat'
 import type { WeightLog } from '../lib/types'
 
 export function WeightWidget() {
-  const { profile, weightLogs, logTodayWeight } = useData()
+  const { adminMode, profile, weightLogs, logTodayWeight } = useData()
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -13,9 +14,15 @@ export function WeightWidget() {
   const [currentTime, setCurrentTime] = useState(() => new Date())
 
   useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000)
-    return () => window.clearInterval(timer)
-  }, [])
+    const updateTime = () => setCurrentTime(adminMode ? getAdminTestTime(profile?.time_zone) ?? new Date() : new Date())
+    updateTime()
+    const timer = window.setInterval(updateTime, 10_000)
+    window.addEventListener(ADMIN_TEST_TIME_CHANGE_EVENT, updateTime)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener(ADMIN_TEST_TIME_CHANGE_EVENT, updateTime)
+    }
+  }, [adminMode, profile?.time_zone])
 
   if (!profile?.weight_enabled) return null
 
@@ -26,6 +33,7 @@ export function WeightWidget() {
     null,
   )?.value ?? null
   const shabbatActive = isShabbatActive(profile, currentTime)
+  const sunsetCountdown = getFridaySunsetCountdownSeconds(profile, currentTime)
 
   async function submit() {
     const parsed = Number(value.replace(',', '.'))
@@ -59,6 +67,11 @@ export function WeightWidget() {
       >
         {shabbatActive ? (
           <span className="weight-values shabbat-message">не дремлет и не спит хранящий Израиля</span>
+        ) : sunsetCountdown !== null ? (
+          <span className="sunset-countdown sunset-countdown-only" aria-label={`До захода солнца ${formatCountdown(sunsetCountdown)}`}>
+            <span>До захода солнца</span>
+            <strong>{formatCountdown(sunsetCountdown)}</strong>
+          </span>
         ) : (
           <>
             <span className="weight-label">Текущий вес</span>
@@ -96,4 +109,11 @@ export function WeightWidget() {
 function formatNum(value: number | null | undefined) {
   if (value == null) return '—'
   return Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
+}
+
+function formatCountdown(totalSeconds: number) {
+  const roundedSeconds = Math.ceil(totalSeconds / 10) * 10
+  const minutes = Math.floor(roundedSeconds / 60)
+  const seconds = roundedSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }

@@ -16,6 +16,7 @@ import { isShabbatActive } from '../lib/shabbat'
 import { localISODate } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { getNextBibleLocation, type BibleNavigationTarget } from '../lib/bible-books'
+import { ADMIN_TEST_TIME_CHANGE_EVENT, getAdminTestTime } from '../lib/admin-test-time'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
 const CABINET_TABS: CabinetTab[] = ['daily', 'calories', 'training', 'media', 'path', 'all', 'diary']
@@ -28,7 +29,7 @@ function getSavedCabinetTab(): CabinetTab {
 }
 
 export function CabinetPage() {
-  const { loading, error, profile, tasks, completions, scheduledExercises } = useData()
+  const { adminMode, loading, error, profile, tasks, completions, scheduledExercises } = useData()
   const viewport = useViewport()
   const [tab, setTab] = useState<CabinetTab>(getSavedCabinetTab)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -66,9 +67,15 @@ export function CabinetPage() {
   }, [profile, currentTime])
 
   useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000)
-    return () => window.clearInterval(timer)
-  }, [])
+    const updateTime = () => setCurrentTime(adminMode ? getAdminTestTime(profile?.time_zone) ?? new Date() : new Date())
+    updateTime()
+    const timer = window.setInterval(updateTime, 5_000)
+    window.addEventListener(ADMIN_TEST_TIME_CHANGE_EVENT, updateTime)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener(ADMIN_TEST_TIME_CHANGE_EVENT, updateTime)
+    }
+  }, [adminMode, profile?.time_zone])
 
   useEffect(() => {
     window.sessionStorage.setItem(CABINET_TAB_STORAGE_KEY, tab)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { WeightWidget } from './WeightWidget'
 import type { CabinetTab } from '../lib/types'
 
@@ -32,6 +32,7 @@ export function Sidebar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(
     () => window.sessionStorage.getItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY) === 'true',
   )
+  const sidebarRef = useRef<HTMLElement>(null)
   const currentTab = NAV.find((item) => item.id === tab) ?? NAV[0]
   const needsAttention = (item: CabinetTab) => (
     (item === 'daily' && hasIncompleteDailyTasks)
@@ -42,8 +43,25 @@ export function Sidebar({
     window.sessionStorage.setItem(MOBILE_SIDEBAR_OPEN_STORAGE_KEY, String(mobileMenuOpen))
   }, [mobileMenuOpen])
 
+  useEffect(() => {
+    const sidebar = sidebarRef.current
+    if (!sidebar) return
+
+    const keepDesktopSidebarFixed = (event: WheelEvent) => {
+      if (!window.matchMedia('(min-width: 1025px)').matches) return
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    sidebar.addEventListener('wheel', keepDesktopSidebarFixed, { passive: false })
+    return () => sidebar.removeEventListener('wheel', keepDesktopSidebarFixed)
+  }, [])
+
   return (
-    <aside className={`sidebar${mobileMenuOpen ? ' mobile-menu-open' : ''}`}>
+    <aside
+      ref={sidebarRef}
+      className={`sidebar${mobileMenuOpen ? ' mobile-menu-open' : ''}`}
+    >
       <button
         type="button"
         className="mobile-sidebar-toggle"

@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useData } from '../hooks/useData'
+import {
+  dateTimeInputInTimeZone,
+  getAdminTestTime,
+  getSavedAdminTestDateTime,
+  isAdminTestTimeRunning,
+  saveAdminTestDateTime,
+  startAdminTestTime,
+} from '../lib/admin-test-time'
 import { localISODate, parseISODate } from '../lib/dates'
 import { getSunsetTime } from '../lib/sunset'
 
@@ -21,7 +29,11 @@ const MONTHS = [
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 export function DiaryView() {
-  const { foodHistoryLogs, weightLogs, scheduledExercises, profile } = useData()
+  const { adminMode, foodHistoryLogs, weightLogs, scheduledExercises, profile } = useData()
+  const [testDateTime, setTestDateTime] = useState(
+    () => getSavedAdminTestDateTime() || dateTimeInputInTimeZone(new Date(), profile?.time_zone),
+  )
+  const [testTimeRunning, setTestTimeRunning] = useState(isAdminTestTimeRunning)
   const datesWithRecords = useMemo(
     () => new Set([...foodHistoryLogs, ...weightLogs].map((record) => record.logged_on)),
     [foodHistoryLogs, weightLogs],
@@ -38,9 +50,11 @@ export function DiaryView() {
   const [visibleMonth, setVisibleMonth] = useState<Date | null>(null)
   const [showProducts, setShowProducts] = useState(false)
   const [showExercises, setShowExercises] = useState(false)
-  const activeSelectedDate = selectedDate ?? latestDate
+  const testDate = testDateTime.slice(0, 10)
+  const activeSelectedDate = selectedDate ?? (adminMode && testDate ? testDate : latestDate)
   const activeMonth = visibleMonth ?? (() => {
-    const date = latestDate ? parseISODate(latestDate) : new Date()
+    const initialDate = adminMode && testDate ? testDate : latestDate
+    const date = initialDate ? parseISODate(initialDate) : new Date()
     return new Date(date.getFullYear(), date.getMonth(), 1)
   })()
 
@@ -79,7 +93,7 @@ export function DiaryView() {
   const daysInMonth = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate()
   const emptyDays = Array.from({ length: firstWeekday })
   const monthDays = Array.from({ length: daysInMonth }, (_, index) => index + 1)
-  const today = localISODate()
+  const today = adminMode && testDate ? testDate : localISODate()
 
   const previousMonth = () => {
     setVisibleMonth(new Date(activeMonth.getFullYear(), activeMonth.getMonth() - 1, 1))
@@ -104,6 +118,55 @@ export function DiaryView() {
 
   return (
     <section className="diary-view">
+      {adminMode && (
+        <div className="withdrawal-test-date diary-test-date">
+          <label htmlFor="diary-test-date-time">Тестовая дата и время</label>
+          <input
+            id="diary-test-date-time"
+            type="datetime-local"
+            value={testDateTime}
+            onChange={(event) => {
+              const nextValue = event.target.value
+              setTestDateTime(nextValue)
+              setTestTimeRunning(false)
+              saveAdminTestDateTime(nextValue)
+              if (nextValue) {
+                const nextDate = parseISODate(nextValue.slice(0, 10))
+                setVisibleMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1))
+                setSelectedDate(nextValue.slice(0, 10))
+              }
+            }}
+          />
+          <button
+            type="button"
+            className={`ghost compact diary-test-time-toggle${testTimeRunning ? ' active' : ''}`}
+            onClick={() => {
+              if (testTimeRunning) {
+                const frozenTime = getAdminTestTime(profile?.time_zone)
+                const frozenValue = frozenTime
+                  ? dateTimeInputInTimeZone(frozenTime, profile?.time_zone)
+                  : testDateTime
+                setTestDateTime(frozenValue)
+                saveAdminTestDateTime(frozenValue)
+                setTestTimeRunning(false)
+                if (frozenValue) {
+                  const frozenDate = parseISODate(frozenValue.slice(0, 10))
+                  setVisibleMonth(new Date(frozenDate.getFullYear(), frozenDate.getMonth(), 1))
+                  setSelectedDate(frozenValue.slice(0, 10))
+                }
+                return
+              }
+              startAdminTestTime(testDateTime)
+              setTestTimeRunning(true)
+            }}
+            disabled={!testDateTime}
+            aria-pressed={testTimeRunning}
+          >
+            время on
+          </button>
+          <span className="hint">Локально симулирует дату и время без сохранения в БД.</span>
+        </div>
+      )}
       <div className="diary-calendar">
         <div className="calendar-head">
           <button type="button" className="calendar-nav" onClick={previousMonth} aria-label="Предыдущий месяц">
