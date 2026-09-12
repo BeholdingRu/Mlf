@@ -77,6 +77,10 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const today = localISODate()
   const [testDate, setTestDate] = useState(() => window.sessionStorage.getItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY) ?? today)
   const testToday = adminMode && testDate ? testDate : today
+  const taskGroups = [
+    { id: 'regular', tasks: tasks.filter((task) => !task.withdrawal_syndrome) },
+    { id: 'withdrawal', tasks: tasks.filter((task) => task.withdrawal_syndrome) },
+  ].filter((group) => group.tasks.length > 0)
 
   useEffect(() => {
     window.sessionStorage.setItem(DAILY_TASKS_SUB_TAB_STORAGE_KEY, subTab)
@@ -159,7 +163,10 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
               </label>
             )}
             <ul className="task-list">
-              {tasks.map((task) => {
+              {taskGroups.map((group) => (
+                <li key={group.id} className="task-group">
+                  <ul className="task-group-list">
+                  {group.tasks.map((task) => {
               const withdrawalPhase = getWithdrawalPhase(
                 task.withdrawal_syndrome,
                 task.withdrawal_started_on,
@@ -267,7 +274,10 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                   />
                 </li>
               )
-            })}
+                  })}
+                  </ul>
+                </li>
+              ))}
             </ul>
           </>
         ) : (

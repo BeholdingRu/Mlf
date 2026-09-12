@@ -2175,6 +2175,26 @@ nav {
   gap: 12px;
 }
 
+.task-group {
+  list-style: none;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 2px);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+
+.task-group + .task-group {
+  margin-top: 8px;
+}
+
+.task-group-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .bible-bookmarks-heading > .bookmark-icon {
   width: 28px;
   height: 28px;
