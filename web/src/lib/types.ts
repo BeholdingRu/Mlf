@@ -19,6 +19,7 @@ export type Profile = {
   annual_cycle_enabled: boolean
   last_bible_book_order: number | null
   last_bible_chapter: number | null
+  bible_chapter_positions: Record<string, number>
 }
 
 export type BibleVerse = {

@@ -2776,6 +2776,27 @@ nav {
   transform: translateY(-1px);
 }
 
+.bible-chapter.last-opened {
+  position: relative;
+  border-color: var(--leaf);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--leaf) 68%, transparent);
+}
+
+.bible-chapter.last-opened::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--leaf);
+}
+
+.bible-chapter.last-opened.active::after {
+  background: var(--on-accent);
+}
+
 .bible-book:focus-visible,
 .bible-chapter:focus-visible {
   outline: 2px solid var(--leaf);
@@ -2930,11 +2951,26 @@ nav {
   gap: 16px;
 }
 
+.bible-chapter-title {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
 .bible-chapter-heading h3 {
   margin: 0;
   color: var(--ink);
   font-family: var(--serif);
   font-size: 20px;
+}
+
+.bible-reading-remaining {
+  color: var(--moss-deep);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .bible-chapter-navigation {

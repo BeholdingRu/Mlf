@@ -10,7 +10,7 @@ import {
 import { EXTERNAL_BIBLE_TRANSLATIONS, openBibleTranslation } from '../lib/bible-translations'
 import { BIBLE_GROWTH_STAGE_STEPS, BIBLE_GROWTH_TOTAL_STEPS } from '../lib/bible-growth'
 import { daysInclusive, isoDateInTimeZone, millisecondsUntilNextDayInTimeZone, parseISODate } from '../lib/dates'
-import type { BibleBookmark, BibleVerse, TorahPortion } from '../lib/types'
+import type { BibleBookmark, BibleVerse, Profile, TorahPortion } from '../lib/types'
 import { BibleGrowthVine } from './BibleGrowthVine'
 
 const TORAH_RUSSIAN_PLAYLIST_URL = 'https://youtube.com/playlist?list=PLV034aDASG5T4OizaEyJyzlZV_K8tGZnv&si=1oZmv97ixhOJszK9'
@@ -117,6 +117,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
       .filter((bookmark) => bookmark.book_order === book?.order && bookmark.chapter === chapter)
       .map((bookmark) => [bookmark.verse, bookmark]),
   )
+  const remainingChaptersToday = Math.max(0, 5 - bibleTreeProgress.chaptersToday)
   const actualVisibleTreeSteps = Math.min(
     BIBLE_GROWTH_TOTAL_STEPS,
     bibleTreeProgress.progressSteps + (bibleTreeProgress.chaptersToday >= 5 ? 1 : 0),
@@ -492,6 +493,8 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
           </div>
           <div className={chapter && !chapterListOpen ? 'bible-chapters chapter-selected' : 'bible-chapters'} aria-label={`Главы книги «${book.name}»`}>
             {Array.from({ length: book.chapters }, (_, index) => index + 1).map((number) => {
+              const lastOpenedChapter = getLastOpenedChapter(profile, book)
+              const isLastOpened = number === lastOpenedChapter
               const highlighted = Boolean(
                 highlightedPortion
                 && number >= highlightedPortion.start_chapter
@@ -500,6 +503,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
               const classes = [
                 'bible-chapter',
                 chapter === number ? 'active' : '',
+                isLastOpened ? 'last-opened' : '',
                 highlighted ? 'portion-highlighted' : '',
               ].filter(Boolean).join(' ')
               return (
@@ -510,6 +514,8 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
                   style={highlighted ? getPortionColorStyle(highlightedPortion?.portion_number) : undefined}
                   onClick={() => selectChapter(number, false)}
                   aria-expanded={chapter === number ? chapterListOpen : undefined}
+                  aria-label={isLastOpened ? `Глава ${number}, последняя открытая в этой книге` : `Глава ${number}`}
+                  title={isLastOpened ? 'Последняя открытая глава' : undefined}
                 >
                   {number}
                 </button>
@@ -546,7 +552,14 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
           {chapter && (
             <div className="bible-chapter-text" aria-live="polite">
               <div ref={chapterHeadingRef} className="bible-chapter-heading">
-                <h3>{book.name}, глава {chapter}</h3>
+                <div className="bible-chapter-title">
+                  <h3>{book.name}, глава {chapter}</h3>
+                  {remainingChaptersToday > 0 && (
+                    <span className="bible-reading-remaining">
+                      {formatRemainingChapters(remainingChaptersToday)}
+                    </span>
+                  )}
+                </div>
                 <ChapterNavigation book={book} chapter={chapter} onSelect={selectChapter} />
               </div>
               {bookmarkError && <p className="banner error">{bookmarkError}</p>}
@@ -719,4 +732,30 @@ function BibleBookGroup({
       </div>
     </section>
   )
+}
+
+function getLastOpenedChapter(profile: Profile | null, book: BibleBook) {
+  const savedForBook = Number(profile?.bible_chapter_positions?.[String(book.order)])
+  if (Number.isInteger(savedForBook) && savedForBook >= 1 && savedForBook <= book.chapters) {
+    return savedForBook
+  }
+
+  return profile?.last_bible_book_order === book.order
+    && profile.last_bible_chapter
+    && profile.last_bible_chapter <= book.chapters
+    ? profile.last_bible_chapter
+    : null
+}
+
+function formatRemainingChapters(count: number) {
+  const remainder100 = count % 100
+  const remainder10 = count % 10
+  const word = remainder100 >= 11 && remainder100 <= 14
+    ? 'глав'
+    : remainder10 === 1
+      ? 'глава'
+      : remainder10 >= 2 && remainder10 <= 4
+        ? 'главы'
+        : 'глав'
+  return `Осталось ${count} ${word}`
 }

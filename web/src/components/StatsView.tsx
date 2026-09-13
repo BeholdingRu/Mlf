@@ -69,6 +69,10 @@ export function StatsView() {
   const chartWeightLogs = adminMode
     ? [...weightLogs.filter((log) => !testDates.has(log.logged_on)), ...testWeightLogs]
     : weightLogs
+  const taskGroups = [
+    { id: 'regular', tasks: tasks.filter((task) => !task.withdrawal_syndrome) },
+    { id: 'withdrawal', tasks: tasks.filter((task) => task.withdrawal_syndrome) },
+  ].filter((group) => group.tasks.length > 0)
 
   useEffect(() => {
     window.sessionStorage.setItem(STATS_SUB_TAB_STORAGE_KEY, subTab)
@@ -246,45 +250,51 @@ export function StatsView() {
             <div className="empty">Нет задач для статистики.</div>
           ) : (
             <ul className="task-list">
-              {tasks.map((task) => {
-                const withdrawalPhase = getWithdrawalPhase(
-                  task.withdrawal_syndrome,
-                  task.withdrawal_started_on,
-                  task.withdrawal_restart_on,
-                  localISODate(),
-                )
-                if (withdrawalPhase) {
-                  const habit = percent(withdrawalPhase.remainingDays, withdrawalPhase.durationDays)
-                  return (
-                    <li key={task.id} className={`task-row stat withdrawal-${withdrawalPhase.tone}`}>
-                      <div className="task-body">
-                        <strong>{task.title}</strong>
-                        <span className="hint">
-                          {withdrawalPhase.preparing ? 'Перезапуск запланирован на завтра' : 'Отсчёт фазы выполняется автоматически'}
-                        </span>
-                      </div>
-                      <HabitBar
-                        value={habit}
-                        label={withdrawalPhase.label}
-                        valueLabel={withdrawalPhase.preparing ? null : withdrawalPhase.clean ? `${withdrawalPhase.freedomDays} дней свободы` : `осталось ${withdrawalPhase.remainingDays} дн.`}
-                        phaseInfo={withdrawalPhase.info}
-                        hideTrack={withdrawalPhase.clean}
-                      />
-                    </li>
-                  )
-                }
+              {taskGroups.map((group) => (
+                <li key={group.id} className="task-group">
+                  <ul className="task-group-list">
+                    {group.tasks.map((task) => {
+                      const withdrawalPhase = getWithdrawalPhase(
+                        task.withdrawal_syndrome,
+                        task.withdrawal_started_on,
+                        task.withdrawal_restart_on,
+                        localISODate(),
+                      )
+                      if (withdrawalPhase) {
+                        const habit = percent(withdrawalPhase.remainingDays, withdrawalPhase.durationDays)
+                        return (
+                          <li key={task.id} className={`task-row stat withdrawal-${withdrawalPhase.tone}`}>
+                            <div className="task-body">
+                              <strong>{task.title}</strong>
+                              <span className="hint">
+                                {withdrawalPhase.preparing ? 'Перезапуск запланирован на завтра' : 'Отсчёт фазы выполняется автоматически'}
+                              </span>
+                            </div>
+                            <HabitBar
+                              value={habit}
+                              label={withdrawalPhase.label}
+                              valueLabel={withdrawalPhase.preparing ? null : withdrawalPhase.clean ? `${withdrawalPhase.freedomDays} дней свободы` : `осталось ${withdrawalPhase.remainingDays} дн.`}
+                              phaseInfo={withdrawalPhase.info}
+                              hideTrack={withdrawalPhase.clean}
+                            />
+                          </li>
+                        )
+                      }
 
-                const count = completions.filter((completion) => completion.task_id === task.id).length
-                return (
-                  <li key={task.id} className="task-row stat">
-                    <div className="task-body">
-                      <strong>{task.title}</strong>
-                      <span className="hint">{completedDaysText(count)}</span>
-                    </div>
-                    <HabitBar value={percent(count, task.habit_days)} label="формирование привычки" />
-                  </li>
-                )
-              })}
+                      const count = completions.filter((completion) => completion.task_id === task.id).length
+                      return (
+                        <li key={task.id} className="task-row stat">
+                          <div className="task-body">
+                            <strong>{task.title}</strong>
+                            <span className="hint">{completedDaysText(count)}</span>
+                          </div>
+                          <HabitBar value={percent(count, task.habit_days)} label="формирование привычки" />
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </li>
+              ))}
             </ul>
           )}
         </>

@@ -574,17 +574,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
       async saveBibleReadingPosition(bookOrder, chapter) {
         if (!user || !profile) return
-        const { data, error: updError } = await requireSupabase()
-          .from('profiles')
-          .update({
-            last_bible_book_order: bookOrder,
-            last_bible_chapter: chapter,
-          })
-          .eq('id', user.id)
-          .select('*')
-          .single()
+        const client = requireSupabase()
+        const { data, error: updError } = await client.rpc('save_bible_reading_position', {
+          p_book_order: bookOrder,
+          p_chapter: chapter,
+        })
+        if (updError?.code === 'PGRST202' || updError?.code === '42883') {
+          const fallback = await client
+            .from('profiles')
+            .update({
+              last_bible_book_order: bookOrder,
+              last_bible_chapter: chapter,
+            })
+            .eq('id', user.id)
+            .select('*')
+            .single()
+          if (fallback.error) throw fallback.error
+          setProfile(fallback.data as Profile)
+          return
+        }
         if (updError) throw updError
-        setProfile(data as Profile)
+        const updatedProfile = Array.isArray(data) ? data[0] : data
+        setProfile(updatedProfile as Profile)
       },
       async recordBibleChapterRead(bookOrder, chapter) {
         if (!user) return null
