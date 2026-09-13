@@ -46,7 +46,10 @@ function getRequestedNavigation(navigationRequest?: BibleNavigationTarget | null
 }
 
 function scrollBibleTarget(target: HTMLElement, block: 'start' | 'center') {
-  const scrollContainer = target.closest<HTMLElement>('.main')
+  const reader = target.closest<HTMLElement>('.bible-reader')
+  const scrollContainer = reader && ['auto', 'scroll'].includes(window.getComputedStyle(reader).overflowY)
+    ? reader
+    : target.closest<HTMLElement>('.main')
   if (!scrollContainer) {
     target.scrollIntoView({ block })
     return
@@ -436,7 +439,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   }
 
   return (
-    <section className="bible-view">
+    <section className={chapter ? 'bible-view chapter-reading' : 'bible-view'}>
       {adminMode && (
         <label className="withdrawal-test-date bible-tree-test-date">
           Тестовая дата

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '../hooks/useData'
 import { localISODate, parseISODate } from '../lib/dates'
 import type { ExerciseCategory, ExerciseType, SavedExercise, ScheduledExercise } from '../lib/types'
+import { ExerciseStatistics } from './ExerciseStatistics'
 
 type TrainingSubTab = 'workouts' | 'schedule' | 'exercises'
 
@@ -56,6 +57,10 @@ const MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 ]
+const MONTHS_GENITIVE = [
+  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+]
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 export function TrainingView() {
@@ -88,11 +93,15 @@ export function TrainingView() {
     return new Date(today.getFullYear(), today.getMonth(), 1)
   })
   const [plannedCategory, setPlannedCategory] = useState<ExerciseCategory | null>(null)
+  const [scheduleStatisticsOpen, setScheduleStatisticsOpen] = useState(false)
+  const [scheduleCommonBlockOpen, setScheduleCommonBlockOpen] = useState(false)
 
   const exercises = selectedCategory
     ? savedExercises.filter((exercise) => exercise.category === selectedCategory)
     : []
   const today = localISODate()
+  const currentMonthStart = `${today.slice(0, 7)}-01`
+  const currentMonthIndex = Number(today.slice(5, 7)) - 1
   const todayExercises = scheduledExercises
     .filter((exercise) => exercise.planned_on === today)
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -344,6 +353,14 @@ export function TrainingView() {
               })}
             </div>
             <p className="calendar-hint">Выделенные дни содержат запланированные тренировки.</p>
+            <button
+              type="button"
+              className="primary compact training-statistics-toggle"
+              aria-expanded={scheduleStatisticsOpen}
+              onClick={() => setScheduleStatisticsOpen((open) => !open)}
+            >
+              Статистика
+            </button>
           </div>
 
           <div className="planner-content">
@@ -351,7 +368,18 @@ export function TrainingView() {
               <h2>{selectedDateLabel}</h2>
               <p>Выберите группу мышц, затем добавьте сохранённые упражнения в план.</p>
             </header>
-            <div className="exercise-groups planner-groups">
+            <button
+              type="button"
+              className={`primary compact schedule-common-block-toggle${scheduleCommonBlockOpen ? ' active' : ''}`}
+              aria-expanded={scheduleCommonBlockOpen}
+              aria-controls="schedule-common-block"
+              onClick={() => setScheduleCommonBlockOpen((open) => !open)}
+            >
+              Общий блок
+            </button>
+            {scheduleCommonBlockOpen && (
+              <div id="schedule-common-block" className="schedule-common-block">
+                <div className="exercise-groups planner-groups">
               {EXERCISE_GROUPS.map((group) => (
                 <button
                   key={group}
@@ -362,9 +390,9 @@ export function TrainingView() {
                   {group}
                 </button>
               ))}
-            </div>
-            {plannedCategory && (
-              <div className="saved-exercises">
+                </div>
+                {plannedCategory && (
+                  <div className="saved-exercises">
                 <h3>Упражнения: {plannedCategory}</h3>
                 {exercisesForPlannedCategory.length === 0 ? (
                   <p className="empty">В этой категории пока нет сохранённых упражнений</p>
@@ -384,9 +412,9 @@ export function TrainingView() {
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-            <div className="food-list planned-exercises">
+                  </div>
+                )}
+                <div className="food-list planned-exercises">
               <h3>Запланированные упражнения</h3>
               {plannedExercises.length === 0 ? (
                 <p className="empty">Упражнения ещё не добавлены</p>
@@ -446,8 +474,18 @@ export function TrainingView() {
                   ))}
                 </ul>
               )}
-            </div>
+                </div>
+              </div>
+            )}
           </div>
+          {scheduleStatisticsOpen && (
+            <ExerciseStatistics
+              exercises={scheduledExercises}
+              from={currentMonthStart}
+              to={today}
+              periodLabel={`с 1 ${MONTHS_GENITIVE[currentMonthIndex]} по сегодня`}
+            />
+          )}
         </section>
       )}
       {subTab === 'exercises' && (

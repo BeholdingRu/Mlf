@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '../hooks/useData'
 import { ProductsView } from './ProductsView'
 import { MealPlannerView } from './MealPlannerView'
@@ -72,6 +72,7 @@ export function CaloriesView() {
   const [productCategory, setProductCategory] = useState<ProductCategory>(foodAddDraft?.category ?? DEFAULT_PRODUCT_CATEGORY)
   const [savedProductGroup, setSavedProductGroup] = useState<ProductCategory | 'favorites' | ''>('')
   const [savedProductMenuOpen, setSavedProductMenuOpen] = useState(false)
+  const [productSuggestionsOpen, setProductSuggestionsOpen] = useState(false)
   const [dailyNormInput, setDailyNormInput] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [favoriteFoodId, setFavoriteFoodId] = useState<string | null>(null)
@@ -102,6 +103,13 @@ export function CaloriesView() {
   }, { proteins: 0, fats: 0, carbohydrates: 0 })
 
   const remaining = dailyNorm - totalConsumed
+  const productSuggestions = useMemo(() => {
+    const query = productName.trim().toLocaleLowerCase('ru-RU')
+    if (!query) return []
+    return savedProducts
+      .filter((product) => product.name.trim().toLocaleLowerCase('ru-RU').includes(query))
+      .slice(0, 6)
+  }, [productName, savedProducts])
 
   useEffect(() => {
     window.sessionStorage.setItem(CALORIES_SUB_TAB_STORAGE_KEY, subTab)
@@ -279,6 +287,7 @@ export function CaloriesView() {
     setCarbohydratesPer100g(String(product.carbohydrates_per_100g))
     setProductCategory(product.category)
     setSavedProductMenuOpen(false)
+    setProductSuggestionsOpen(false)
   }
 
   const groupedSavedProducts = savedProductGroup === 'favorites'
@@ -407,14 +416,47 @@ export function CaloriesView() {
             <fieldset className="nutrition-block">
               <legend>Добавить продукт</legend>
               <div className="product-name-row">
-                <input
-                  id="product-name"
-                  type="text"
-                  value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
-                  placeholder="Введите название продукта"
-                  disabled={submitting}
-                />
+                <div
+                  className="product-name-autocomplete"
+                  onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget)) setProductSuggestionsOpen(false)
+                  }}
+                >
+                  <input
+                    id="product-name"
+                    type="text"
+                    value={productName}
+                    onChange={(event) => {
+                      setProductName(event.target.value)
+                      setProductSuggestionsOpen(true)
+                    }}
+                    onFocus={() => setProductSuggestionsOpen(true)}
+                    placeholder="Введите название продукта"
+                    disabled={submitting}
+                    autoComplete="off"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={productSuggestionsOpen && productSuggestions.length > 0}
+                    aria-controls="product-name-suggestions"
+                  />
+                  {productSuggestionsOpen && productSuggestions.length > 0 && (
+                    <div id="product-name-suggestions" className="product-name-suggestions" role="listbox">
+                      {productSuggestions.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          className="product-name-suggestion"
+                          role="option"
+                          aria-selected={false}
+                          onClick={() => selectSavedProduct(product.id)}
+                        >
+                          <strong>{product.name}</strong>
+                          <span>{product.calories_per_100g} ккал · Б {product.proteins_per_100g} · Ж {product.fats_per_100g} · У {product.carbohydrates_per_100g}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="saved-products-picker">
                   <button
                     type="button"

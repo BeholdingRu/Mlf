@@ -10,6 +10,7 @@ import {
 } from '../lib/admin-test-time'
 import { localISODate, parseISODate } from '../lib/dates'
 import { getSunsetTime } from '../lib/sunset'
+import { ExerciseStatistics } from './ExerciseStatistics'
 
 const MONTHS = [
   'Январь',
@@ -50,6 +51,7 @@ export function DiaryView() {
   const [visibleMonth, setVisibleMonth] = useState<Date | null>(null)
   const [showProducts, setShowProducts] = useState(false)
   const [showExercises, setShowExercises] = useState(false)
+  const [showTrainingStatistics, setShowTrainingStatistics] = useState(false)
   const testDate = testDateTime.slice(0, 10)
   const activeSelectedDate = selectedDate ?? (adminMode && testDate ? testDate : latestDate)
   const activeMonth = visibleMonth ?? (() => {
@@ -93,6 +95,8 @@ export function DiaryView() {
   const daysInMonth = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate()
   const emptyDays = Array.from({ length: firstWeekday })
   const monthDays = Array.from({ length: daysInMonth }, (_, index) => index + 1)
+  const statisticsMonthStart = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), 1))
+  const statisticsMonthEnd = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), daysInMonth))
   const today = adminMode && testDate ? testDate : localISODate()
 
   const previousMonth = () => {
@@ -293,16 +297,26 @@ export function DiaryView() {
                       : 'Не запланировано'}
                 </p>
               </div>
-              {plannedExercises.length > 0 && (
+              <div className="diary-section-actions">
+                {plannedExercises.length > 0 && (
+                  <button
+                    type="button"
+                    className="primary compact"
+                    onClick={() => setShowExercises(!showExercises)}
+                    aria-expanded={showExercises}
+                  >
+                    {showExercises ? 'Скрыть упражнения' : 'Выполненные упражнения'}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="primary compact"
-                  onClick={() => setShowExercises(!showExercises)}
-                  aria-expanded={showExercises}
+                  onClick={() => setShowTrainingStatistics((open) => !open)}
+                  aria-expanded={showTrainingStatistics}
                 >
-                  {showExercises ? 'Скрыть упражнения' : 'Выполненные упражнения'}
+                  Статистика
                 </button>
-              )}
+              </div>
             </div>
             {showExercises && (
               <>
@@ -342,6 +356,14 @@ export function DiaryView() {
                   </ul>
                 )}
               </>
+            )}
+            {showTrainingStatistics && (
+              <ExerciseStatistics
+                exercises={scheduledExercises}
+                from={statisticsMonthStart}
+                to={statisticsMonthEnd}
+                periodLabel={`${MONTHS[activeMonth.getMonth()].toLocaleLowerCase('ru-RU')} ${activeMonth.getFullYear()}`}
+              />
             )}
           </section>
         </div>
