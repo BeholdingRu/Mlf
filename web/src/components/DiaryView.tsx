@@ -30,7 +30,7 @@ const MONTHS = [
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 export function DiaryView() {
-  const { adminMode, foodHistoryLogs, weightLogs, scheduledExercises, profile } = useData()
+  const { adminMode, foodHistoryLogs, weightLogs, scheduledExercises, profile, updateFoodLogProductName } = useData()
   const [testDateTime, setTestDateTime] = useState(
     () => getSavedAdminTestDateTime() || dateTimeInputInTimeZone(new Date(), profile?.time_zone),
   )
@@ -38,6 +38,14 @@ export function DiaryView() {
   const datesWithRecords = useMemo(
     () => new Set([...foodHistoryLogs, ...weightLogs].map((record) => record.logged_on)),
     [foodHistoryLogs, weightLogs],
+  )
+  const datesWithInfinityProduct = useMemo(
+    () => new Set(
+      foodHistoryLogs
+        .filter((food) => food.product_name.trim().toLocaleLowerCase('ru-RU') === 'бесконечность')
+        .map((food) => food.logged_on),
+    ),
+    [foodHistoryLogs],
   )
   const datesWithTraining = useMemo(
     () => new Set(scheduledExercises.map((exercise) => exercise.planned_on)),
@@ -52,6 +60,10 @@ export function DiaryView() {
   const [showProducts, setShowProducts] = useState(false)
   const [showExercises, setShowExercises] = useState(false)
   const [showTrainingStatistics, setShowTrainingStatistics] = useState(false)
+  const [editingFoodId, setEditingFoodId] = useState<string | null>(null)
+  const [editingFoodName, setEditingFoodName] = useState('')
+  const [foodNameEditBusy, setFoodNameEditBusy] = useState(false)
+  const [foodNameEditError, setFoodNameEditError] = useState<string | null>(null)
   const testDate = testDateTime.slice(0, 10)
   const activeSelectedDate = selectedDate ?? (adminMode && testDate ? testDate : latestDate)
   const activeMonth = visibleMonth ?? (() => {
@@ -110,6 +122,34 @@ export function DiaryView() {
   const selectDay = (day: number) => {
     const date = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day)
     setSelectedDate(localISODate(date))
+    setEditingFoodId(null)
+    setFoodNameEditError(null)
+  }
+
+  const startEditingFoodName = (id: string, productName: string) => {
+    setEditingFoodId(id)
+    setEditingFoodName(productName)
+    setFoodNameEditError(null)
+  }
+
+  const saveFoodName = async () => {
+    const productName = editingFoodName.trim()
+    if (!editingFoodId || !productName || foodNameEditBusy) {
+      if (!productName) setFoodNameEditError('Введите название продукта')
+      return
+    }
+
+    setFoodNameEditBusy(true)
+    setFoodNameEditError(null)
+    try {
+      await updateFoodLogProductName(editingFoodId, productName)
+      setEditingFoodId(null)
+      setEditingFoodName('')
+    } catch (editError) {
+      setFoodNameEditError(editError instanceof Error ? editError.message : 'Не удалось изменить название продукта')
+    } finally {
+      setFoodNameEditBusy(false)
+    }
   }
 
   const selectedLabel = activeSelectedDate
@@ -201,6 +241,7 @@ export function DiaryView() {
             const classes = [
               'calendar-day',
               datesWithRecords.has(iso) ? 'has-food' : '',
+              datesWithInfinityProduct.has(iso) ? 'has-infinity-product' : '',
               datesWithTraining.has(iso) ? 'has-training' : '',
               activeSelectedDate === iso ? 'selected' : '',
               today === iso ? 'today' : '',
@@ -216,7 +257,7 @@ export function DiaryView() {
             )
           })}
         </div>
-        <p className="calendar-hint">Зелёные дни содержат записи о питании или весе, жёлтая рамка — запланированные тренировки.</p>
+        <p className="calendar-hint">Зелёные дни содержат записи о питании или весе, жёлтая рамка — запланированные тренировки, чёрная штриховка — продукт «Бесконечность».</p>
       </div>
 
       <div className="food-list diary-food-list">
@@ -262,7 +303,52 @@ export function DiaryView() {
                     return (
                       <li key={food.id} className="food-item">
                         <div className="food-details">
-                          <div className="food-name">{food.product_name}</div>
+                          {adminMode && editingFoodId === food.id ? (
+                            <form
+                              className="diary-food-name-editor"
+                              onSubmit={(event) => {
+                                event.preventDefault()
+                                void saveFoodName()
+                              }}
+                            >
+                              <input
+                                value={editingFoodName}
+                                onChange={(event) => setEditingFoodName(event.target.value)}
+                                aria-label="Название потреблённого продукта"
+                                autoFocus
+                              />
+                              <button type="submit" className="primary compact" disabled={foodNameEditBusy}>Сохранить</button>
+                              <button
+                                type="button"
+                                className="ghost compact"
+                                disabled={foodNameEditBusy}
+                                onClick={() => {
+                                  setEditingFoodId(null)
+                                  setFoodNameEditError(null)
+                                }}
+                              >
+                                Отмена
+                              </button>
+                            </form>
+                          ) : (
+                            <div className="diary-food-name-row">
+                              <div className="food-name">{food.product_name}</div>
+                              {adminMode && (
+                                <button
+                                  type="button"
+                                  className="diary-food-edit-button"
+                                  onClick={() => startEditingFoodName(food.id, food.product_name)}
+                                  aria-label={`Изменить название продукта «${food.product_name}»`}
+                                  title="Изменить название"
+                                >
+                                  ✎
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {adminMode && editingFoodId === food.id && foodNameEditError && (
+                            <p className="diary-food-name-error">{foodNameEditError}</p>
+                          )}
                           <div className="food-info">
                             <span>{food.weight_grams}г</span>
                             <span>•</span>

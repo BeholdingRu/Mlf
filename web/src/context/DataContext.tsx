@@ -802,6 +802,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setFoodLogs((prev) => [...prev, data as FoodLog])
         setFoodHistoryLogs((prev) => [...prev, data as FoodLog])
       },
+      async updateFoodLogProductName(id, productName) {
+        if (!user || !isAdmin || !adminMode) {
+          throw new Error('Редактирование доступно только в режиме администратора')
+        }
+        const { data, error: updError } = await requireSupabase()
+          .from('daily_food_logs')
+          .update({ product_name: productName })
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        const updatedFood = data as FoodLog
+        setFoodLogs((previous) => previous.map((food) => food.id === id ? updatedFood : food))
+        setFoodHistoryLogs((previous) => previous.map((food) => food.id === id ? updatedFood : food))
+      },
       async deleteFoodLog(id) {
         const { error: delError } = await requireSupabase()
           .from('daily_food_logs')

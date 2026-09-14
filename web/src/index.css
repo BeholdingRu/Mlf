@@ -4479,6 +4479,41 @@ nav {
   font-weight: 700;
 }
 
+.calendar-day.has-infinity-product {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.calendar-day.has-infinity-product::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 1px;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, transparent 0 31%, #050505 31% 36%, transparent 36% 64%, #050505 64% 69%, transparent 69% 100%),
+    linear-gradient(0deg, transparent 0 31%, #8f111b 31% 36%, transparent 36% 64%, #8f111b 64% 69%, transparent 69% 100%);
+  box-shadow: inset 0 0 0 3px #050505, inset 0 0 0 4px #8f111b;
+  pointer-events: none;
+}
+
+.calendar-day.has-infinity-product > * {
+  position: relative;
+  z-index: 1;
+}
+
+.calendar-day.has-infinity-product > span:first-child {
+  padding: 2px 4px;
+  border-radius: 5px;
+  background: var(--done);
+}
+
+.calendar-day.has-infinity-product.selected > span:first-child,
+.calendar-day.has-infinity-product.selected .calendar-sunset {
+  background: var(--moss);
+}
+
 .diary-calendar .calendar-day.has-training {
   border-color: var(--training-marker);
 }
@@ -5096,6 +5131,65 @@ nav {
 .chart-legend p {
   margin: 0;
   color: var(--muted);
+}
+
+.diary-food-name-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.diary-food-name-row .food-name {
+  margin-bottom: 4px;
+}
+
+.diary-food-edit-button {
+  flex: 0 0 auto;
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  color: var(--moss-deep);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.diary-food-edit-button:hover {
+  color: var(--leaf);
+}
+
+.diary-food-name-editor {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto auto;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.diary-food-name-editor input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.diary-food-name-error {
+  margin: 0 0 6px;
+  color: var(--warn);
+  font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .diary-food-name-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .diary-food-name-editor input {
+    grid-column: 1 / -1;
+  }
 }
 
 .chart-legend strong {
