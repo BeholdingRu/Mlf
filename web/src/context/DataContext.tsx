@@ -802,6 +802,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setFoodLogs((prev) => [...prev, data as FoodLog])
         setFoodHistoryLogs((prev) => [...prev, data as FoodLog])
       },
+      async logFoodOnDate(loggedOn, productName, weightGrams, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
+        if (!user || !isAdmin || !adminMode) {
+          throw new Error('Добавление доступно только в режиме администратора')
+        }
+        if (loggedOn >= localISODate()) {
+          throw new Error('Выберите прошедшую календарную дату')
+        }
+        const { data, error: insError } = await requireSupabase()
+          .from('daily_food_logs')
+          .insert({
+            user_id: user.id,
+            logged_on: loggedOn,
+            product_name: productName,
+            weight_grams: weightGrams,
+            calories_per_100g: caloriesPer100g,
+            proteins_per_100g: proteinsPer100g,
+            fats_per_100g: fatsPer100g,
+            carbohydrates_per_100g: carbohydratesPer100g,
+          })
+          .select('*')
+          .single()
+        if (insError) throw insError
+        setFoodHistoryLogs((previous) => [...previous, data as FoodLog])
+      },
       async updateFoodLogProductName(id, productName) {
         if (!user || !isAdmin || !adminMode) {
           throw new Error('Редактирование доступно только в режиме администратора')
@@ -819,10 +843,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setFoodHistoryLogs((previous) => previous.map((food) => food.id === id ? updatedFood : food))
       },
       async deleteFoodLog(id) {
+        if (!user) return
         const { error: delError } = await requireSupabase()
           .from('daily_food_logs')
           .delete()
           .eq('id', id)
+          .eq('user_id', user.id)
         if (delError) throw delError
         setFoodLogs((prev) => prev.filter((f) => f.id !== id))
         setFoodHistoryLogs((prev) => prev.filter((f) => f.id !== id))

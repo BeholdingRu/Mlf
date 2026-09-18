@@ -4,6 +4,7 @@ import { WeightChart } from './WeightChart'
 import { useData } from '../hooks/useData'
 import { localISODate, percent } from '../lib/dates'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
+import { getRegularTaskProgress } from '../lib/task-progress'
 import type { WeightLog } from '../lib/types'
 import {
   WEIGHT_CHART_WEEKDAYS,
@@ -281,14 +282,22 @@ export function StatsView() {
                         )
                       }
 
-                      const count = completions.filter((completion) => completion.task_id === task.id).length
+                      const { progressDays, successfulDays, missedDays } = getRegularTaskProgress(
+                        task,
+                        completions,
+                        undefined,
+                        profile?.time_zone,
+                      )
                       return (
                         <li key={task.id} className="task-row stat">
                           <div className="task-body">
                             <strong>{task.title}</strong>
-                            <span className="hint">{completedDaysText(count)}</span>
+                            <div className="task-stat-counters">
+                              <span className="task-stat-counter completed">{completedDaysText(successfulDays)}</span>
+                              <span className="task-stat-counter missed">{missedDaysText(missedDays)}</span>
+                            </div>
                           </div>
-                          <HabitBar value={percent(count, task.habit_days)} label="формирование привычки" />
+                          <HabitBar value={percent(progressDays, task.habit_days)} label="формирование привычки" />
                         </li>
                       )
                     })}
@@ -385,4 +394,9 @@ function daysWord(n: number) {
 function completedDaysText(count: number) {
   const singular = count % 10 === 1 && count % 100 !== 11
   return `${count} ${daysWord(count)} ${singular ? 'завершён' : 'завершено'} успешно`
+}
+
+function missedDaysText(count: number) {
+  const singular = count % 10 === 1 && count % 100 !== 11
+  return `${count} ${daysWord(count)} ${singular ? 'пропущен' : 'пропущено'}`
 }

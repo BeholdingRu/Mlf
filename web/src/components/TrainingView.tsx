@@ -10,9 +10,11 @@ const TRAINING_SUB_TAB_STORAGE_KEY = 'mlf:training-sub-tab'
 const EXERCISE_DRAFT_STORAGE_KEY = 'mlf:exercise-draft'
 const TRAINING_SUB_TABS: TrainingSubTab[] = ['workouts', 'schedule', 'exercises']
 
-function getSavedTrainingSubTab(): TrainingSubTab {
+function getSavedTrainingSubTab(hasTodayExercises: boolean): TrainingSubTab {
   const savedTab = window.sessionStorage.getItem(TRAINING_SUB_TAB_STORAGE_KEY)
-  return TRAINING_SUB_TABS.includes(savedTab as TrainingSubTab) ? savedTab as TrainingSubTab : 'workouts'
+  return TRAINING_SUB_TABS.includes(savedTab as TrainingSubTab)
+    ? savedTab as TrainingSubTab
+    : hasTodayExercises ? 'workouts' : 'schedule'
 }
 
 const EXERCISE_GROUPS: ExerciseCategory[] = ['Спина', 'Грудь', 'Плечи', 'Руки', 'Ноги', 'Кор']
@@ -75,8 +77,10 @@ export function TrainingView() {
     moveScheduledExercise,
     updateScheduledExercise,
   } = useData()
+  const today = localISODate()
+  const hasTodayExercises = scheduledExercises.some((exercise) => exercise.planned_on === today)
   const [exerciseDraft] = useState<ExerciseDraft | null>(getSavedExerciseDraft)
-  const [subTab, setSubTab] = useState<TrainingSubTab>(getSavedTrainingSubTab)
+  const [subTab, setSubTab] = useState<TrainingSubTab>(() => getSavedTrainingSubTab(hasTodayExercises))
   const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | null>(exerciseDraft?.category ?? null)
   const [name, setName] = useState(exerciseDraft?.name ?? '')
   const [exerciseType, setExerciseType] = useState<ExerciseType>(exerciseDraft?.exerciseType ?? EXERCISE_TYPES[0])
@@ -99,12 +103,20 @@ export function TrainingView() {
   const exercises = selectedCategory
     ? savedExercises.filter((exercise) => exercise.category === selectedCategory)
     : []
-  const today = localISODate()
   const currentMonthStart = `${today.slice(0, 7)}-01`
   const currentMonthIndex = Number(today.slice(5, 7)) - 1
   const todayExercises = scheduledExercises
     .filter((exercise) => exercise.planned_on === today)
     .sort((a, b) => a.sort_order - b.sort_order)
+  const primarySubTabs: Array<{ id: 'workouts' | 'schedule'; label: string }> = todayExercises.length > 0
+    ? [
+        { id: 'workouts', label: 'Тренировки' },
+        { id: 'schedule', label: 'Запланировать тренировку' },
+      ]
+    : [
+        { id: 'schedule', label: 'Запланировать тренировку' },
+        { id: 'workouts', label: 'Тренировки' },
+      ]
   const plannedExercises = scheduledExercises
     .filter((exercise) => exercise.planned_on === plannedDate)
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -257,20 +269,16 @@ export function TrainingView() {
   return (
     <div className="calories-view">
       <nav className="calories-tabs" aria-label="Разделы тренировок">
-        <button
-          type="button"
-          className={subTab === 'workouts' ? 'calories-tab active' : 'calories-tab'}
-          onClick={() => setSubTab('workouts')}
-        >
-          Тренировки
-        </button>
-        <button
-          type="button"
-          className={subTab === 'schedule' ? 'calories-tab active' : 'calories-tab'}
-          onClick={() => setSubTab('schedule')}
-        >
-          Запланировать тренировку
-        </button>
+        {primarySubTabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={subTab === tab.id ? 'calories-tab active' : 'calories-tab'}
+            onClick={() => setSubTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
         <button
           type="button"
           className={subTab === 'exercises' ? 'calories-tab active' : 'calories-tab'}

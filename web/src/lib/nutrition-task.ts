@@ -1,7 +1,11 @@
 import type { Task } from './types'
 
-const nutritionTaskTitle = 'Телостроительство:Питание'
+const nutritionTaskTitle = 'телостроительство:питание'
 
 export function isNutritionTask(task: Task) {
-  return task.title.trim() === nutritionTaskTitle
+  const normalizedTitle = task.title
+    .trim()
+    .toLocaleLowerCase('ru-RU')
+    .replace(/\s*:\s*/g, ':')
+  return normalizedTitle === nutritionTaskTitle
 }

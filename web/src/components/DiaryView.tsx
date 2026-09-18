@@ -9,7 +9,9 @@ import {
   startAdminTestTime,
 } from '../lib/admin-test-time'
 import { localISODate, parseISODate } from '../lib/dates'
+import { isNutritionTask } from '../lib/nutrition-task'
 import { getSunsetTime } from '../lib/sunset'
+import { getRegularTaskProgress } from '../lib/task-progress'
 import { ExerciseStatistics } from './ExerciseStatistics'
 
 const MONTHS = [
@@ -30,7 +32,20 @@ const MONTHS = [
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
 export function DiaryView() {
-  const { adminMode, foodHistoryLogs, weightLogs, scheduledExercises, profile, updateFoodLogProductName } = useData()
+  const {
+    adminMode,
+    tasks,
+    completions,
+    foodHistoryLogs,
+    weightLogs,
+    scheduledExercises,
+    savedProducts,
+    profile,
+    logFoodOnDate,
+    updateFoodLogProductName,
+    deleteFoodLog,
+  } = useData()
+  const actualToday = localISODate()
   const [testDateTime, setTestDateTime] = useState(
     () => getSavedAdminTestDateTime() || dateTimeInputInTimeZone(new Date(), profile?.time_zone),
   )
@@ -39,13 +54,13 @@ export function DiaryView() {
     () => new Set([...foodHistoryLogs, ...weightLogs].map((record) => record.logged_on)),
     [foodHistoryLogs, weightLogs],
   )
-  const datesWithInfinityProduct = useMemo(
+  const datesWithMissedTasks = useMemo(
     () => new Set(
-      foodHistoryLogs
-        .filter((food) => food.product_name.trim().toLocaleLowerCase('ru-RU') === 'бесконечность')
-        .map((food) => food.logged_on),
+      tasks
+        .filter(isNutritionTask)
+        .flatMap((task) => getRegularTaskProgress(task, completions, actualToday, profile?.time_zone).missedDates),
     ),
-    [foodHistoryLogs],
+    [actualToday, completions, profile?.time_zone, tasks],
   )
   const datesWithTraining = useMemo(
     () => new Set(scheduledExercises.map((exercise) => exercise.planned_on)),
@@ -64,6 +79,18 @@ export function DiaryView() {
   const [editingFoodName, setEditingFoodName] = useState('')
   const [foodNameEditBusy, setFoodNameEditBusy] = useState(false)
   const [foodNameEditError, setFoodNameEditError] = useState<string | null>(null)
+  const [deletingFoodId, setDeletingFoodId] = useState<string | null>(null)
+  const [deleteFoodError, setDeleteFoodError] = useState<string | null>(null)
+  const [adminFoodFormOpen, setAdminFoodFormOpen] = useState(false)
+  const [adminSavedProductId, setAdminSavedProductId] = useState('')
+  const [adminFoodName, setAdminFoodName] = useState('')
+  const [adminFoodWeight, setAdminFoodWeight] = useState('')
+  const [adminFoodCalories, setAdminFoodCalories] = useState('')
+  const [adminFoodProteins, setAdminFoodProteins] = useState('')
+  const [adminFoodFats, setAdminFoodFats] = useState('')
+  const [adminFoodCarbohydrates, setAdminFoodCarbohydrates] = useState('')
+  const [adminFoodBusy, setAdminFoodBusy] = useState(false)
+  const [adminFoodError, setAdminFoodError] = useState<string | null>(null)
   const testDate = testDateTime.slice(0, 10)
   const activeSelectedDate = selectedDate ?? (adminMode && testDate ? testDate : latestDate)
   const activeMonth = visibleMonth ?? (() => {
@@ -124,6 +151,70 @@ export function DiaryView() {
     setSelectedDate(localISODate(date))
     setEditingFoodId(null)
     setFoodNameEditError(null)
+    setAdminFoodFormOpen(false)
+    setAdminFoodError(null)
+  }
+
+  const selectAdminSavedProduct = (productId: string) => {
+    setAdminSavedProductId(productId)
+    setAdminFoodError(null)
+    const product = savedProducts.find((item) => item.id === productId)
+    if (!product) return
+    setAdminFoodName(product.name)
+    setAdminFoodCalories(String(product.calories_per_100g))
+    setAdminFoodProteins(String(product.proteins_per_100g))
+    setAdminFoodFats(String(product.fats_per_100g))
+    setAdminFoodCarbohydrates(String(product.carbohydrates_per_100g))
+  }
+
+  const resetAdminFoodForm = () => {
+    setAdminSavedProductId('')
+    setAdminFoodName('')
+    setAdminFoodWeight('')
+    setAdminFoodCalories('')
+    setAdminFoodProteins('')
+    setAdminFoodFats('')
+    setAdminFoodCarbohydrates('')
+    setAdminFoodError(null)
+  }
+
+  const addFoodToSelectedDate = async () => {
+    if (!activeSelectedDate || activeSelectedDate >= actualToday || adminFoodBusy) return
+    const values = [adminFoodWeight, adminFoodCalories, adminFoodProteins, adminFoodFats, adminFoodCarbohydrates]
+      .map((value) => Number(value.replace(',', '.')))
+    const [weight, calories, proteins, fats, carbohydrates] = values
+    if (
+      !adminFoodName.trim()
+      || !Number.isFinite(weight) || weight <= 0
+      || !Number.isFinite(calories) || calories < 0
+      || !Number.isFinite(proteins) || proteins < 0
+      || !Number.isFinite(fats) || fats < 0
+      || !Number.isFinite(carbohydrates) || carbohydrates < 0
+    ) {
+      setAdminFoodError('Заполните название, вес и все значения КБЖУ')
+      return
+    }
+
+    setAdminFoodBusy(true)
+    setAdminFoodError(null)
+    try {
+      await logFoodOnDate(
+        activeSelectedDate,
+        adminFoodName.trim(),
+        weight,
+        calories,
+        proteins,
+        fats,
+        carbohydrates,
+      )
+      resetAdminFoodForm()
+      setAdminFoodFormOpen(false)
+      setShowProducts(true)
+    } catch (addError) {
+      setAdminFoodError(addError instanceof Error ? addError.message : 'Не удалось добавить продукт')
+    } finally {
+      setAdminFoodBusy(false)
+    }
   }
 
   const startEditingFoodName = (id: string, productName: string) => {
@@ -149,6 +240,25 @@ export function DiaryView() {
       setFoodNameEditError(editError instanceof Error ? editError.message : 'Не удалось изменить название продукта')
     } finally {
       setFoodNameEditBusy(false)
+    }
+  }
+
+  const deleteFoodFromSelectedDate = async (id: string, productName: string) => {
+    if (!adminMode || !activeSelectedDate || activeSelectedDate >= actualToday || deletingFoodId) return
+    if (!window.confirm(`Удалить «${productName}» из продуктов за ${selectedLabel}?`)) return
+
+    setDeletingFoodId(id)
+    setDeleteFoodError(null)
+    try {
+      await deleteFoodLog(id)
+      if (editingFoodId === id) {
+        setEditingFoodId(null)
+        setEditingFoodName('')
+      }
+    } catch (deleteError) {
+      setDeleteFoodError(deleteError instanceof Error ? deleteError.message : 'Не удалось удалить продукт')
+    } finally {
+      setDeletingFoodId(null)
     }
   }
 
@@ -241,7 +351,7 @@ export function DiaryView() {
             const classes = [
               'calendar-day',
               datesWithRecords.has(iso) ? 'has-food' : '',
-              datesWithInfinityProduct.has(iso) ? 'has-infinity-product' : '',
+              datesWithMissedTasks.has(iso) ? 'has-missed-task' : '',
               datesWithTraining.has(iso) ? 'has-training' : '',
               activeSelectedDate === iso ? 'selected' : '',
               today === iso ? 'today' : '',
@@ -257,7 +367,6 @@ export function DiaryView() {
             )
           })}
         </div>
-        <p className="calendar-hint">Зелёные дни содержат записи о питании или весе, жёлтая рамка — запланированные тренировки, чёрная штриховка — продукт «Бесконечность».</p>
       </div>
 
       <div className="food-list diary-food-list">
@@ -278,17 +387,90 @@ export function DiaryView() {
                 <h3 id="diary-products-heading">Питание</h3>
                 <p>{selectedLogs.length ? `Всего: ${totalCalories.toFixed(0)} ккал` : 'Продукты не добавлялись'}</p>
               </div>
-              {selectedLogs.length > 0 && (
-                <button
-                  type="button"
-                  className="primary compact"
-                  onClick={() => setShowProducts(!showProducts)}
-                  aria-expanded={showProducts}
-                >
-                  {showProducts ? 'Скрыть продукты' : 'Потреблённые продукты'}
-                </button>
-              )}
+              <div className="diary-section-actions">
+                {adminMode && activeSelectedDate && activeSelectedDate < actualToday && (
+                  <button
+                    type="button"
+                    className="primary compact"
+                    onClick={() => {
+                      setAdminFoodFormOpen((open) => !open)
+                      setAdminFoodError(null)
+                    }}
+                    aria-expanded={adminFoodFormOpen}
+                  >
+                    Добавить продукт
+                  </button>
+                )}
+                {selectedLogs.length > 0 && (
+                  <button
+                    type="button"
+                    className="primary compact"
+                    onClick={() => setShowProducts(!showProducts)}
+                    aria-expanded={showProducts}
+                  >
+                    {showProducts ? 'Скрыть продукты' : 'Потреблённые продукты'}
+                  </button>
+                )}
+              </div>
             </div>
+            {adminMode && adminFoodFormOpen && activeSelectedDate && activeSelectedDate < actualToday && (
+              <form
+                className="diary-admin-food-form"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void addFoodToSelectedDate()
+                }}
+              >
+                <label className="diary-admin-food-saved">
+                  Сохранённый продукт
+                  <select value={adminSavedProductId} onChange={(event) => selectAdminSavedProduct(event.target.value)} disabled={adminFoodBusy}>
+                    <option value="">Ввести вручную</option>
+                    {[...savedProducts]
+                      .sort((a, b) => a.name.localeCompare(b.name, 'ru-RU'))
+                      .map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Название
+                  <input value={adminFoodName} onChange={(event) => setAdminFoodName(event.target.value)} disabled={adminFoodBusy} />
+                </label>
+                <label>
+                  Вес, г
+                  <input type="number" min="0.1" step="0.1" inputMode="decimal" value={adminFoodWeight} onChange={(event) => setAdminFoodWeight(event.target.value)} disabled={adminFoodBusy} />
+                </label>
+                <label>
+                  Ккал / 100 г
+                  <input type="number" min="0" step="0.1" inputMode="decimal" value={adminFoodCalories} onChange={(event) => setAdminFoodCalories(event.target.value)} disabled={adminFoodBusy} />
+                </label>
+                <label>
+                  Белки / 100 г
+                  <input type="number" min="0" step="0.1" inputMode="decimal" value={adminFoodProteins} onChange={(event) => setAdminFoodProteins(event.target.value)} disabled={adminFoodBusy} />
+                </label>
+                <label>
+                  Жиры / 100 г
+                  <input type="number" min="0" step="0.1" inputMode="decimal" value={adminFoodFats} onChange={(event) => setAdminFoodFats(event.target.value)} disabled={adminFoodBusy} />
+                </label>
+                <label>
+                  Углеводы / 100 г
+                  <input type="number" min="0" step="0.1" inputMode="decimal" value={adminFoodCarbohydrates} onChange={(event) => setAdminFoodCarbohydrates(event.target.value)} disabled={adminFoodBusy} />
+                </label>
+                <div className="diary-admin-food-actions">
+                  <button type="submit" className="primary compact" disabled={adminFoodBusy}>Сохранить</button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    disabled={adminFoodBusy}
+                    onClick={() => {
+                      resetAdminFoodForm()
+                      setAdminFoodFormOpen(false)
+                    }}
+                  >
+                    Отмена
+                  </button>
+                </div>
+                {adminFoodError && <p className="diary-food-name-error">{adminFoodError}</p>}
+              </form>
+            )}
             {showProducts && (
               <>
                 <p className="diary-nutrition-total">
@@ -363,10 +545,23 @@ export function DiaryView() {
                             <span>У {(nutritionMultiplier * food.carbohydrates_per_100g).toFixed(1)} г</span>
                           </div>
                         </div>
+                        {adminMode && activeSelectedDate && activeSelectedDate < actualToday && (
+                          <button
+                            type="button"
+                            className="delete-button"
+                            onClick={() => void deleteFoodFromSelectedDate(food.id, food.product_name)}
+                            disabled={deletingFoodId !== null}
+                            aria-label={`Удалить продукт «${food.product_name}»`}
+                            title="Удалить"
+                          >
+                            ×
+                          </button>
+                        )}
                       </li>
                     )
                   })}
                 </ul>
+                {deleteFoodError && <p className="diary-food-name-error">{deleteFoodError}</p>}
               </>
             )}
           </section>

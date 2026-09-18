@@ -3,6 +3,7 @@ import { HabitBar } from './HabitBar'
 import { useData } from '../hooks/useData'
 import { daysInclusive, localISODate, parseISODate, percent } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
+import { getRegularTaskProgressDays } from '../lib/task-progress'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
 import { isBibleReadingTaskTitle } from '../lib/bible-books'
 
@@ -176,7 +177,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
               const doneToday = completions.some(
                 (c) => c.task_id === task.id && c.completed_on === today,
               )
-              const actualTotalDays = completions.filter((c) => c.task_id === task.id).length
+              const actualTotalDays = getRegularTaskProgressDays(task, completions, today, profile?.time_zone)
               const totalDays = adminMode && !task.withdrawal_syndrome
                 ? getVirtualCompletionDays(task.created_at, testToday)
                 : actualTotalDays
