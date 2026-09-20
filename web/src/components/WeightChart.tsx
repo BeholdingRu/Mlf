@@ -167,6 +167,10 @@ export function WeightChart({
   const chartTop = 58
   const chartBottom = 34
   const graphHeight = chartHeight - chartTop - chartBottom
+  const gridRatios = Array.from(
+    { length: CHART_GRID_SECTIONS + 1 },
+    (_, index) => index / CHART_GRID_SECTIONS,
+  )
 
   let progressPercent: number | null = null
   if (startWeight != null && desiredWeight != null && currentWeight != null) {
@@ -259,21 +263,54 @@ export function WeightChart({
         </div>
 
         <div ref={chartGraphRef} className="chart-graph">
-          {hasChartData ? <svg
-            className="chart-svg"
-            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-            preserveAspectRatio="xMinYMid meet"
-            style={forceAllPoints ? { width: `${chartWidth}px`, height: `${chartHeight}px` } : undefined}
-            onMouseMove={handleChartMouseMove}
-            onMouseLeave={() => setHoveredPoint(null)}
-          >
-            {Array.from({ length: CHART_GRID_SECTIONS + 1 }, (_, index) => index / CHART_GRID_SECTIONS).map((ratio) => {
+          {hasChartData ? (
+            <div
+              className={forceAllPoints ? 'chart-canvas fullscreen' : 'chart-canvas'}
+              style={forceAllPoints ? { width: `${chartWidth}px`, height: `${chartHeight}px` } : undefined}
+            >
+              {forceAllPoints && (
+                <svg
+                  className="chart-y-axis-sticky"
+                  viewBox={`0 0 ${CHART_LEFT} ${chartHeight}`}
+                  style={{ width: `${CHART_LEFT}px`, height: `${chartHeight}px` }}
+                  aria-hidden="true"
+                >
+                  {gridRatios.map((ratio) => {
+                    const y = chartTop + ratio * graphHeight
+                    const value = maxValue - ratio * range
+                    return (
+                      <text key={`sticky-grid-${ratio}`} x="35" y={y + 3.6} textAnchor="end" fontSize="13.2" fill="var(--muted)">
+                        {value.toFixed(1)}
+                      </text>
+                    )
+                  })}
+                  <line
+                    x1={CHART_LEFT - 0.5}
+                    y1={chartTop}
+                    x2={CHART_LEFT - 0.5}
+                    y2={chartHeight - chartBottom}
+                    stroke="var(--line)"
+                    strokeWidth="1"
+                  />
+                </svg>
+              )}
+              <svg
+                className="chart-svg"
+                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                preserveAspectRatio="xMinYMid meet"
+                style={forceAllPoints ? { width: `${chartWidth}px`, height: `${chartHeight}px` } : undefined}
+                onMouseMove={handleChartMouseMove}
+                onMouseLeave={() => setHoveredPoint(null)}
+              >
+            {gridRatios.map((ratio, index) => {
               const y = chartTop + ratio * graphHeight
               const value = maxValue - ratio * range
               return (
                 <g key={`grid-${ratio}`}>
                   <line x1={CHART_LEFT} y1={y} x2={chartRight} y2={y} stroke="var(--line)" strokeWidth="0.5" strokeDasharray="2,2" />
-                  <text x="35" y={y + 3} textAnchor="end" fontSize="11" fill="var(--muted)">{value.toFixed(1)}</text>
+                  {!forceAllPoints && (index === 0 || index === CHART_GRID_SECTIONS) && (
+                    <text x="35" y={y + 3.6} textAnchor="end" fontSize="13.2" fill="var(--muted)">{value.toFixed(1)}</text>
+                  )}
                 </g>
               )
             })}
@@ -315,28 +352,32 @@ export function WeightChart({
               const { x, y } = pointPosition(point, index)
               return (
                 <g key={`label-${point.label}-${point.date}`}>
-                  <text className="chart-point-details" x={x} y={y - 22} textAnchor="middle" fill="var(--ink)">
+                  <text className="chart-point-details" x={x} y={y - 26.4} textAnchor="middle" fill="var(--ink)">
                     <tspan className="chart-point-weight" x={x} fill={getWeightGoalColor(point.value, desiredWeight)}>
                       {point.value.toFixed(1)} кг
                     </tspan>
-                    <tspan className="chart-point-difference" x={x} dy="12">
+                    <tspan className="chart-point-difference" x={x} dy="14.4">
                       {formatWeightDifference(
                         point.value,
                         index === 0 ? previousHiddenLog?.value : renderedPoints[index - 1]?.value,
                       )}
                     </tspan>
                   </text>
-                  <text className="chart-point-details chart-point-date" x={x} y={y + 14} textAnchor="middle" fill="var(--ink)">
+                  <text className="chart-point-details chart-point-date" x={x} y={y + 16.8} textAnchor="middle" fill="var(--ink)">
                     <tspan x={x}>{formatDayAndMonth(point.date)}</tspan>
-                    <tspan x={x} dy="11">{parseISODate(point.date).getFullYear()}</tspan>
+                    <tspan x={x} dy="13.2">{parseISODate(point.date).getFullYear()}</tspan>
                   </text>
                 </g>
               )
             })}
 
             <line x1={CHART_LEFT} y1={chartHeight - chartBottom} x2={chartRight} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
-            <line x1={CHART_LEFT} y1={chartTop} x2={CHART_LEFT} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
-          </svg> : <p className="weight-chart-filter-empty">
+            {!forceAllPoints && (
+              <line x1={CHART_LEFT} y1={chartTop} x2={CHART_LEFT} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
+            )}
+              </svg>
+            </div>
+          ) : <p className="weight-chart-filter-empty">
             {monthFilterEnabled
               ? 'Нет записей о весе по месяцам'
               : weekdayFilterEnabled

@@ -2028,11 +2028,11 @@ nav {
 .chart-title {
   font-weight: 600;
   margin: 0 0 6px;
-  font-size: 14px;
+  font-size: 16.8px;
 }
 
 .chart-meta {
-  font-size: 13px;
+  font-size: 15.6px;
   color: var(--muted);
   margin: 0;
 }
@@ -2049,10 +2049,24 @@ nav {
   overflow-x: auto;
 }
 
+.chart-canvas.fullscreen {
+  position: relative;
+  margin: 6px 0;
+}
+
+.chart-y-axis-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: block;
+  background: var(--surface);
+  pointer-events: none;
+}
+
 .chart-point-details {
   fill: var(--ink);
   font-family: var(--sans);
-  font-size: 9px;
+  font-size: 10.8px;
   font-weight: 600;
   pointer-events: none;
   visibility: visible;
@@ -2089,14 +2103,14 @@ nav {
   background: var(--surface);
   box-shadow: var(--shadow);
   color: var(--ink);
-  font-size: 18px;
+  font-size: 21.6px;
   text-align: center;
   transform: translateX(-50%);
   pointer-events: none;
 }
 
 .chart-tooltip span {
-  font-size: 15px;
+  font-size: 18px;
 }
 
 .chart-fullscreen-button,
@@ -2107,7 +2121,7 @@ nav {
   background: var(--surface-muted);
   color: var(--moss-deep);
   font: inherit;
-  font-size: 13px;
+  font-size: 15.6px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -2146,6 +2160,7 @@ nav {
   min-height: 190px;
   margin: 12px 0;
   color: var(--muted);
+  font-size: 1.2em;
   text-align: center;
 }
 
@@ -2174,8 +2189,10 @@ nav {
 }
 
 .weight-chart.fullscreen .chart-svg {
+  position: absolute;
+  inset: 0;
   min-height: 0;
-  margin: 6px 0;
+  margin: 0;
 }
 
 .weight-chart.fullscreen .chart-info {
@@ -2192,7 +2209,7 @@ nav {
 }
 
 .chart-fullscreen-content .chart-point-details {
-  font-size: 11px;
+  font-size: 13.2px;
 }
 
 .chart-close-button {
@@ -5419,7 +5436,7 @@ nav {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
-  font-size: 13px;
+  font-size: 15.6px;
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
@@ -5573,7 +5590,7 @@ nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 13px;
+  font-size: 15.6px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -6245,12 +6262,12 @@ nav {
   }
 
   .chart-title {
-    font-size: 13px;
+    font-size: 15.6px;
     margin: 0 0 4px;
   }
 
   .chart-meta {
-    font-size: 11px;
+    font-size: 13.2px;
   }
 
   .chart-svg {
@@ -6261,7 +6278,7 @@ nav {
   .chart-legend {
     grid-template-columns: 1fr;
     gap: 8px;
-    font-size: 12px;
+    font-size: 14.4px;
     padding-top: 10px;
   }
 
@@ -6990,7 +7007,7 @@ nav {
 
   .chart-legend {
     gap: 6px;
-    font-size: 11px;
+    font-size: 13.2px;
   }
 
   .progress-bar-container {
@@ -7150,11 +7167,11 @@ nav {
   }
 
   .chart-title {
-    font-size: 12px;
+    font-size: 14.4px;
   }
 
   .chart-meta {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .chart-svg {
@@ -7164,7 +7181,7 @@ nav {
 
   .chart-legend {
     gap: 5px;
-    font-size: 10px;
+    font-size: 12px;
     padding-top: 8px;
   }
 
