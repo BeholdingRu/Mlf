@@ -2247,6 +2247,91 @@ nav {
   font-size: 13px;
 }
 
+.bible-bookmark-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+}
+
+.bible-bookmark-filters > button {
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bible-bookmark-filters > button.active {
+  border-color: var(--moss);
+  background: var(--moss-deep);
+  color: var(--surface);
+}
+
+.bible-bookmark-filter-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.bible-bookmark-filter-colors button,
+.bible-bookmark-color-palette button {
+  position: relative;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid color-mix(in srgb, var(--bookmark-option-color) 70%, var(--line));
+  border-radius: 50%;
+  background: var(--bookmark-option-color);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent);
+  cursor: pointer;
+}
+
+.bible-bookmark-filter-colors button.active,
+.bible-bookmark-color-palette button.selected {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--moss);
+}
+
+.bible-bookmark-filter-colors button:focus-visible,
+.bible-bookmark-color-palette button:focus-visible {
+  outline: 2px solid var(--moss-deep);
+  outline-offset: 3px;
+}
+
+.bible-bookmark-filter-colors button:disabled {
+  cursor: default;
+  filter: grayscale(0.72);
+  opacity: 0.3;
+}
+
+.bible-bookmark-filter-colors button span {
+  display: grid;
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .bible-bookmarks-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -2371,22 +2456,27 @@ nav {
 }
 
 .bible-bookmark-edit-color {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  gap: 9px;
   color: var(--ink);
   font-size: 14px;
   font-weight: 600;
 }
 
-.bible-bookmark-edit-color input[type='color'] {
-  width: 54px;
-  height: 38px;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-muted);
+.bible-bookmark-color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bible-bookmark-color-palette.compact {
+  max-width: 190px;
+  gap: 6px;
+}
+
+.bible-bookmark-color-palette.compact button {
+  width: 26px;
+  height: 26px;
 }
 
 .bible-view {
@@ -2942,17 +3032,8 @@ nav {
 }
 
 .verse-bookmark-color-field {
-  grid-template-columns: 1fr auto;
-  align-items: center;
-}
-
-.verse-bookmark-color-field input[type='color'] {
-  width: 46px;
-  height: 34px;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--surface-muted);
+  display: grid;
+  gap: 6px;
 }
 
 .verse-bookmark-form-actions {

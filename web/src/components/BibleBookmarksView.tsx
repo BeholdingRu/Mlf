@@ -2,7 +2,13 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { useData } from '../hooks/useData'
 import { BIBLE_BOOKS, type BibleNavigationTarget } from '../lib/bible-books'
 import { EXTERNAL_BIBLE_TRANSLATIONS, openBibleTranslation } from '../lib/bible-translations'
+import {
+  BIBLE_BOOKMARK_COLORS,
+  DEFAULT_BIBLE_BOOKMARK_COLOR,
+  normalizeBibleBookmarkColor,
+} from '../lib/bible-bookmark-colors'
 import type { BibleBookmark } from '../lib/types'
+import { BibleBookmarkColorPalette } from './BibleBookmarkColorPalette'
 
 export function BookmarkIcon({ filled = false }: { filled?: boolean }) {
   return (
@@ -23,7 +29,8 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingBookmark, setEditingBookmark] = useState<BibleBookmark | null>(null)
   const [editTitle, setEditTitle] = useState('')
-  const [editColor, setEditColor] = useState('#fff2a8')
+  const [editColor, setEditColor] = useState(DEFAULT_BIBLE_BOOKMARK_COLOR)
+  const [colorFilter, setColorFilter] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expandedBookmarkId, setExpandedBookmarkId] = useState<string | null>(null)
@@ -86,7 +93,7 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
   function startEditing(bookmark: BibleBookmark) {
     setEditingBookmark(bookmark)
     setEditTitle(bookmark.title)
-    setEditColor(bookmark.color)
+    setEditColor(normalizeBibleBookmarkColor(bookmark.color))
     setError(null)
   }
 
@@ -117,6 +124,16 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
     }
   }
 
+  const filteredBookmarks = colorFilter
+    ? bibleBookmarks.filter((bookmark) => normalizeBibleBookmarkColor(bookmark.color) === colorFilter)
+    : bibleBookmarks
+  const bookmarkColorCounts = new Map(
+    BIBLE_BOOKMARK_COLORS.map((color) => [
+      color.value,
+      bibleBookmarks.filter((bookmark) => normalizeBibleBookmarkColor(bookmark.color) === color.value).length,
+    ]),
+  )
+
   return (
     <section className="bible-bookmarks-view">
       <div className="bible-bookmarks-heading">
@@ -127,20 +144,58 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
         </div>
       </div>
 
+      {bibleBookmarks.length > 0 && (
+        <div className="bible-bookmark-filters" aria-label="Фильтр закладок по цвету">
+          <button
+            type="button"
+            className={colorFilter === null ? 'active' : ''}
+            aria-pressed={colorFilter === null}
+            onClick={() => setColorFilter(null)}
+          >
+            Все
+          </button>
+          <div className="bible-bookmark-filter-colors">
+            {BIBLE_BOOKMARK_COLORS.map((color) => {
+              const count = bookmarkColorCounts.get(color.value) ?? 0
+              return (
+                <button
+                  key={color.value}
+                  type="button"
+                  className={colorFilter === color.value ? 'active' : ''}
+                  style={{ '--bookmark-option-color': color.value } as CSSProperties}
+                  aria-label={`${color.label}: ${count}`}
+                  aria-pressed={colorFilter === color.value}
+                  title={`${color.label}: ${count}`}
+                  disabled={count === 0}
+                  onClick={() => {
+                    setColorFilter((current) => current === color.value ? null : color.value)
+                    setExpandedBookmarkId(null)
+                    setActiveTranslationBookmarkId(null)
+                  }}
+                >
+                  <span>{count}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {error && <p className="banner error">{error}</p>}
       {bibleBookmarks.length === 0 ? (
         <p className="empty">В Библии пока нет закладок.</p>
       ) : (
         <div className="bible-bookmarks-list">
-          {bibleBookmarks.map((bookmark) => {
+          {filteredBookmarks.map((bookmark) => {
             const book = BIBLE_BOOKS.find((item) => item.order === bookmark.book_order)
             const reference = `${book?.name ?? `Книга ${bookmark.book_order}`} ${bookmark.chapter}:${bookmark.verse}`
             const isExpanded = expandedBookmarkId === bookmark.id
+            const displayColor = normalizeBibleBookmarkColor(bookmark.color)
             return (
               <article
                 key={bookmark.id}
                 className="bible-bookmark-card"
-                style={{ '--bookmark-color': bookmark.color } as CSSProperties}
+                style={{ '--bookmark-color': displayColor } as CSSProperties}
               >
                 <button
                   type="button"
@@ -235,6 +290,9 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
               </article>
             )
           })}
+          {filteredBookmarks.length === 0 && (
+            <p className="empty">Закладок выбранного цвета нет.</p>
+          )}
         </div>
       )}
 
@@ -259,16 +317,14 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
                 onChange={(event) => setEditTitle(event.target.value)}
               />
             </label>
-            <label className="bible-bookmark-edit-color">
+            <div className="bible-bookmark-edit-color">
               <span>Цвет закладки</span>
-              <input
-                type="color"
+              <BibleBookmarkColorPalette
                 value={editColor}
+                onChange={setEditColor}
                 disabled={saving}
-                aria-label="Цвет закладки"
-                onChange={(event) => setEditColor(event.target.value)}
               />
-            </label>
+            </div>
             <div className="modal-actions">
               <button type="submit" className="save-button" disabled={saving || !editTitle.trim()}>
                 {saving ? 'Сохранение…' : 'Сохранить'}

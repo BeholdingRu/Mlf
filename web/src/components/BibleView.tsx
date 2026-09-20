@@ -9,12 +9,13 @@ import {
 } from '../lib/bible-books'
 import { EXTERNAL_BIBLE_TRANSLATIONS, openBibleTranslation } from '../lib/bible-translations'
 import { BIBLE_GROWTH_STAGE_STEPS, BIBLE_GROWTH_TOTAL_STEPS } from '../lib/bible-growth'
+import { DEFAULT_BIBLE_BOOKMARK_COLOR, normalizeBibleBookmarkColor } from '../lib/bible-bookmark-colors'
 import { daysInclusive, isoDateInTimeZone, millisecondsUntilNextDayInTimeZone, parseISODate } from '../lib/dates'
 import type { BibleBookmark, BibleVerse, Profile, TorahPortion } from '../lib/types'
+import { BibleBookmarkColorPalette } from './BibleBookmarkColorPalette'
 import { BibleGrowthVine } from './BibleGrowthVine'
 
 const TORAH_RUSSIAN_PLAYLIST_URL = 'https://youtube.com/playlist?list=PLV034aDASG5T4OizaEyJyzlZV_K8tGZnv&si=1oZmv97ixhOJszK9'
-const DEFAULT_BOOKMARK_COLOR = '#fff2a8'
 const BIBLE_TREE_TEST_DATE_STORAGE_KEY = 'mlf:bible-tree-test-date'
 const chapterCache = new Map<string, BibleVerse[]>()
 const pendingChapters = new Map<string, Promise<BibleVerse[]>>()
@@ -92,7 +93,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   const [activeVerseMenu, setActiveVerseMenu] = useState<number | null>(null)
   const [bookmarkFormVerse, setBookmarkFormVerse] = useState<number | null>(null)
   const [bookmarkTitle, setBookmarkTitle] = useState('')
-  const [bookmarkColor, setBookmarkColor] = useState(DEFAULT_BOOKMARK_COLOR)
+  const [bookmarkColor, setBookmarkColor] = useState(DEFAULT_BIBLE_BOOKMARK_COLOR)
   const [bookmarkBusy, setBookmarkBusy] = useState(false)
   const [bookmarkError, setBookmarkError] = useState<string | null>(null)
   const [testDate, setTestDate] = useState(() => window.sessionStorage.getItem(BIBLE_TREE_TEST_DATE_STORAGE_KEY) ?? today)
@@ -396,13 +397,13 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
     if (!book || !chapter) return
     setBookmarkFormVerse(verse)
     setBookmarkTitle(`${book.name} ${chapter}:${verse}`)
-    setBookmarkColor(DEFAULT_BOOKMARK_COLOR)
+    setBookmarkColor(DEFAULT_BIBLE_BOOKMARK_COLOR)
   }
 
   function startBookmarkEditing(bookmark: BibleBookmark) {
     setBookmarkFormVerse(bookmark.verse)
     setBookmarkTitle(bookmark.title)
-    setBookmarkColor(bookmark.color)
+    setBookmarkColor(normalizeBibleBookmarkColor(bookmark.color))
   }
 
   async function saveBookmark(verse: number, existingBookmark?: BibleBookmark) {
@@ -586,7 +587,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
                         <p
                           id={`bible-verse-${book.order}-${chapter}-${verse.verse}`}
                           className={bookmark ? 'bible-verse bookmarked' : 'bible-verse'}
-                          style={bookmark ? { '--bookmark-color': bookmark.color } as CSSProperties : undefined}
+                          style={bookmark ? { '--bookmark-color': normalizeBibleBookmarkColor(bookmark.color) } as CSSProperties : undefined}
                         >
                           <span className="verse-action-control">
                             <button
@@ -618,16 +619,15 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
                                         }}
                                       />
                                     </label>
-                                    <label className="verse-bookmark-color-field">
+                                    <span className="verse-bookmark-color-field">
                                       <span>Цвет</span>
-                                      <input
-                                        type="color"
+                                      <BibleBookmarkColorPalette
                                         value={bookmarkColor}
+                                        onChange={setBookmarkColor}
                                         disabled={bookmarkBusy}
-                                        aria-label="Цвет закладки"
-                                        onChange={(event) => setBookmarkColor(event.target.value)}
+                                        compact
                                       />
-                                    </label>
+                                    </span>
                                     <span className="verse-bookmark-form-actions">
                                       <button type="button" disabled={bookmarkBusy || !bookmarkTitle.trim()} onClick={() => void saveBookmark(verse.verse, bookmark)}>
                                         {bookmarkBusy ? 'Сохранение…' : 'Сохранить'}
