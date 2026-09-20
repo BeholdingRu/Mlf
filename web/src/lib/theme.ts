@@ -1,8 +1,11 @@
 export const themes = [
   { id: 'green', name: 'Зелёная', colors: ['#f3efe4', '#3f6b45', '#6ea36a'] },
   { id: 'dark', name: 'Тёмная', colors: ['#151a1e', '#5eead4', '#94a3b8'] },
-  { id: 'dark-blue', name: 'Тёмно-синяя', colors: ['#0f172a', '#3b82f6', '#60a5fa'] },
-  { id: 'dark-purple', name: 'Тёмно-фиолетовая', colors: ['#1e1b2e', '#a78bfa', '#c4b5fd'] },
+  { id: 'dark-blue', name: 'Тёмно-бордовая', colors: ['#1b1115', '#d65a78', '#f0a0b4'] },
+  { id: 'dark-purple', name: 'Тёмно-янтарная', colors: ['#18140d', '#d3953e', '#f0c36a'] },
+  { id: 'dark-nord', name: 'Мокко', colors: ['#1e1e2e', '#cba6f7', '#94e2d5'] },
+  { id: 'dark-dracula', name: 'Ночной Токио', colors: ['#1a1b26', '#7aa2f7', '#bb9af7'] },
+  { id: 'dark-gruvbox', name: 'Ретро', colors: ['#1d2021', '#fabd2f', '#8ec07c'] },
 ] as const
 
 export type ThemeId = (typeof themes)[number]['id']

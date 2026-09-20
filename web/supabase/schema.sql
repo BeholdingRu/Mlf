@@ -35,6 +35,8 @@ create table if not exists public.profiles (
   last_bible_chapter smallint check (last_bible_chapter >= 1),
   bible_chapter_positions jsonb not null default '{}'::jsonb
     check (jsonb_typeof(bible_chapter_positions) = 'object'),
+  bible_bookmark_color_labels jsonb not null default '{}'::jsonb
+    check (jsonb_typeof(bible_bookmark_color_labels) = 'object'),
   created_at timestamptz not null default now()
 );
 

@@ -20,6 +20,7 @@ export type Profile = {
   last_bible_book_order: number | null
   last_bible_chapter: number | null
   bible_chapter_positions: Record<string, number>
+  bible_bookmark_color_labels: Record<string, string>
 }
 
 export type BibleVerse = {

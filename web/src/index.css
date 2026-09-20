@@ -66,62 +66,152 @@
 
 :root[data-theme='dark-blue'] {
   color-scheme: dark;
-  --ink: #e0e7ff;
-  --muted: #94a3b8;
-  --paper: #0f172a;
-  --panel: #1e293b;
-  --line: #334155;
-  --moss: #3b82f6;
-  --moss-deep: #60a5fa;
-  --leaf: #2563eb;
-  --done: #1e3a5f;
-  --done-ink: #bfdbfe;
-  --warn: #fb7185;
-  --warn-bg: #4c1d24;
-  --info-bg: #1e3a5f;
-  --training-marker: #614718;
+  --ink: #f8e8ed;
+  --muted: #c0a0aa;
+  --paper: #1b1115;
+  --panel: #2b1a21;
+  --line: #52303c;
+  --moss: #d65a78;
+  --moss-deep: #f0a0b4;
+  --leaf: #b83d5e;
+  --done: #482331;
+  --done-ink: #ffc2d0;
+  --warn: #ffb36b;
+  --warn-bg: #502a20;
+  --info-bg: #3d2630;
+  --training-marker: #6a4a1c;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  --body-glow: #1e3a5f;
-  --body-top: #0c1220;
-  --sidebar: #0c1220;
-  --surface: #1e293b;
-  --surface-muted: #293548;
-  --surface-disabled: #334155;
-  --track: #475569;
-  --progress-track: #475569;
-  --done-line: #1e40af;
+  --body-glow: #421c2b;
+  --body-top: #170d11;
+  --sidebar: #130b0e;
+  --surface: #2a1b20;
+  --surface-muted: #352329;
+  --surface-disabled: #442c34;
+  --track: #5a3844;
+  --progress-track: #5a3844;
+  --done-line: #8f3450;
   --on-accent: #ffffff;
   --overlay: rgba(0, 0, 0, 0.7);
 }
 
 :root[data-theme='dark-purple'] {
   color-scheme: dark;
-  --ink: #e9d5ff;
-  --muted: #a8a0b8;
-  --paper: #1e1b2e;
-  --panel: #2a2438;
-  --line: #3d3551;
-  --moss: #a78bfa;
-  --moss-deep: #c4b5fd;
-  --leaf: #8b5cf6;
-  --done: #3d2b5f;
-  --done-ink: #ddd6fe;
-  --warn: #fb7185;
-  --warn-bg: #4c1d24;
-  --info-bg: #3d2b5f;
-  --training-marker: #654c1e;
+  --ink: #f6ead2;
+  --muted: #b9aa8f;
+  --paper: #18140d;
+  --panel: #292116;
+  --line: #51432d;
+  --moss: #d3953e;
+  --moss-deep: #f0c36a;
+  --leaf: #b77720;
+  --done: #45351c;
+  --done-ink: #ffe2a3;
+  --warn: #ef8f72;
+  --warn-bg: #4b271d;
+  --info-bg: #3b301f;
+  --training-marker: #73521b;
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-  --body-glow: #2e1f47;
-  --body-top: #181525;
-  --sidebar: #181525;
-  --surface: #2a2438;
-  --surface-muted: #352d45;
-  --surface-disabled: #3d3551;
-  --track: #4a4560;
-  --progress-track: #4a4560;
-  --done-line: #6d28d9;
-  --on-accent: #ffffff;
+  --body-glow: #3c2b13;
+  --body-top: #131008;
+  --sidebar: #110e08;
+  --surface: #282116;
+  --surface-muted: #342b1d;
+  --surface-disabled: #423724;
+  --track: #58482e;
+  --progress-track: #58482e;
+  --done-line: #8c6425;
+  --on-accent: #21170a;
   --overlay: rgba(0, 0, 0, 0.7);
+}
+
+:root[data-theme='dark-nord'] {
+  color-scheme: dark;
+  --ink: #cdd6f4;
+  --muted: #a6adc8;
+  --paper: #1e1e2e;
+  --panel: #252538;
+  --line: #45475a;
+  --moss: #cba6f7;
+  --moss-deep: #f5c2e7;
+  --leaf: #94e2d5;
+  --done: #29433a;
+  --done-ink: #a6e3a1;
+  --warn: #f38ba8;
+  --warn-bg: #482938;
+  --info-bg: #313244;
+  --training-marker: #6a5730;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.42);
+  --body-glow: #32294a;
+  --body-top: #181825;
+  --sidebar: #11111b;
+  --surface: #28283d;
+  --surface-muted: #313244;
+  --surface-disabled: #3b3d50;
+  --track: #45475a;
+  --progress-track: #45475a;
+  --done-line: #56835a;
+  --on-accent: #1e1e2e;
+  --overlay: rgba(0, 0, 0, 0.72);
+}
+
+:root[data-theme='dark-dracula'] {
+  color-scheme: dark;
+  --ink: #c0caf5;
+  --muted: #a9b1d6;
+  --paper: #1a1b26;
+  --panel: #24283b;
+  --line: #414868;
+  --moss: #7aa2f7;
+  --moss-deep: #bb9af7;
+  --leaf: #7dcfff;
+  --done: #304532;
+  --done-ink: #9ece6a;
+  --warn: #f7768e;
+  --warn-bg: #4b2935;
+  --info-bg: #292e42;
+  --training-marker: #695128;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.42);
+  --body-glow: #28345a;
+  --body-top: #16161e;
+  --sidebar: #13131a;
+  --surface: #24283b;
+  --surface-muted: #292e42;
+  --surface-disabled: #343a55;
+  --track: #414868;
+  --progress-track: #414868;
+  --done-line: #537a43;
+  --on-accent: #16161e;
+  --overlay: rgba(0, 0, 0, 0.72);
+}
+
+:root[data-theme='dark-gruvbox'] {
+  color-scheme: dark;
+  --ink: #ebdbb2;
+  --muted: #bdae93;
+  --paper: #1d2021;
+  --panel: #282828;
+  --line: #504945;
+  --moss: #fabd2f;
+  --moss-deep: #fecc66;
+  --leaf: #8ec07c;
+  --done: #39432f;
+  --done-ink: #c8ca54;
+  --warn: #fb6a57;
+  --warn-bg: #4a2824;
+  --info-bg: #3c3836;
+  --training-marker: #665320;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.42);
+  --body-glow: #3c3829;
+  --body-top: #17191a;
+  --sidebar: #181a1b;
+  --surface: #282828;
+  --surface-muted: #32302f;
+  --surface-disabled: #3c3836;
+  --track: #504945;
+  --progress-track: #504945;
+  --done-line: #73752b;
+  --on-accent: #282828;
+  --overlay: rgba(0, 0, 0, 0.72);
 }
 
 :root[data-theme='shabbat-dawn'] {
@@ -2249,8 +2339,12 @@ nav {
 
 .bible-bookmark-filters {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  max-width: 780px;
+  box-sizing: border-box;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -2276,9 +2370,15 @@ nav {
   color: var(--surface);
 }
 
+.bible-bookmark-filters > .bible-bookmark-filter-all {
+  align-self: flex-start;
+}
+
 .bible-bookmark-filter-colors {
   display: flex;
+  flex: 1 1 620px;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 7px;
 }
 
@@ -2300,6 +2400,11 @@ nav {
 .bible-bookmark-color-palette button.selected {
   border-color: var(--ink);
   box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--moss);
+}
+
+.bible-bookmark-filter-colors button.editing {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--warn);
 }
 
 .bible-bookmark-filter-colors button:focus-visible,
@@ -2330,6 +2435,67 @@ nav {
   font-size: 9px;
   font-weight: 800;
   line-height: 1;
+}
+
+.bible-bookmark-filters > .bible-bookmark-filter-edit {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  min-height: 34px;
+  margin-left: auto;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 17px;
+}
+
+.bible-bookmark-color-name-form {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.bible-bookmark-color-name-form input {
+  flex: 1 1 260px;
+  min-width: 150px;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.bible-bookmark-color-name-form > .hint {
+  margin: 0;
+}
+
+.bible-bookmark-color-name-preview {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 2px solid color-mix(in srgb, var(--bookmark-option-color) 70%, var(--line));
+  border-radius: 50%;
+  background: var(--bookmark-option-color);
+}
+
+@media (max-width: 600px) {
+  .bible-bookmark-color-name-form {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .bible-bookmark-color-name-form input {
+    flex-basis: calc(100% - 38px);
+  }
+
+  .bible-bookmark-color-name-form button {
+    flex: 1 1 120px;
+  }
 }
 
 .bible-bookmarks-list {
@@ -2998,6 +3164,26 @@ nav {
 
 .verse-actions-menu button:hover {
   background: var(--info-bg);
+}
+
+.verse-actions-menu .bible-bookmark-color-palette button {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border: 2px solid color-mix(in srgb, var(--bookmark-option-color) 70%, var(--line));
+  border-radius: 50%;
+  background: var(--bookmark-option-color);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.verse-actions-menu .bible-bookmark-color-palette button:hover {
+  background: var(--bookmark-option-color);
+}
+
+.verse-actions-menu .bible-bookmark-color-palette button.selected {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--moss);
 }
 
 .verse-actions-menu .verse-bookmark-delete-action {

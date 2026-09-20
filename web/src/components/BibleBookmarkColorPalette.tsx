@@ -7,6 +7,7 @@ type BibleBookmarkColorPaletteProps = {
   disabled?: boolean
   compact?: boolean
   ariaLabel?: string
+  colorLabels?: Record<string, string>
 }
 
 export function BibleBookmarkColorPalette({
@@ -15,6 +16,7 @@ export function BibleBookmarkColorPalette({
   disabled = false,
   compact = false,
   ariaLabel = 'Цвет закладки',
+  colorLabels,
 }: BibleBookmarkColorPaletteProps) {
   return (
     <span
@@ -22,20 +24,23 @@ export function BibleBookmarkColorPalette({
       role="radiogroup"
       aria-label={ariaLabel}
     >
-      {BIBLE_BOOKMARK_COLORS.map((color) => (
-        <button
-          key={color.value}
-          type="button"
-          className={value === color.value ? 'selected' : ''}
-          style={{ '--bookmark-option-color': color.value } as CSSProperties}
-          role="radio"
-          aria-checked={value === color.value}
-          aria-label={color.label}
-          title={color.label}
-          disabled={disabled}
-          onClick={() => onChange(color.value)}
-        />
-      ))}
+      {BIBLE_BOOKMARK_COLORS.map((color) => {
+        const displayName = colorLabels?.[color.value]?.trim() || color.label
+        return (
+          <button
+            key={color.value}
+            type="button"
+            className={value === color.value ? 'selected' : ''}
+            style={{ '--bookmark-option-color': color.value } as CSSProperties}
+            role="radio"
+            aria-checked={value === color.value}
+            aria-label={displayName}
+            title={displayName}
+            disabled={disabled}
+            onClick={() => onChange(color.value)}
+          />
+        )
+      })}
     </span>
   )
 }

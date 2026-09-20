@@ -25,12 +25,23 @@ export function BookmarkIcon({ filled = false }: { filled?: boolean }) {
 }
 
 export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigationTarget) => void }) {
-  const { bibleBookmarks, deleteBibleBookmark, getBibleChapter, updateBibleBookmark } = useData()
+  const {
+    bibleBookmarks,
+    deleteBibleBookmark,
+    getBibleChapter,
+    profile,
+    saveBibleBookmarkColorLabel,
+    updateBibleBookmark,
+  } = useData()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [editingBookmark, setEditingBookmark] = useState<BibleBookmark | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editColor, setEditColor] = useState(DEFAULT_BIBLE_BOOKMARK_COLOR)
   const [colorFilter, setColorFilter] = useState<string | null>(null)
+  const [colorNamesEditing, setColorNamesEditing] = useState(false)
+  const [editingColorName, setEditingColorName] = useState<string | null>(null)
+  const [colorName, setColorName] = useState('')
+  const [colorNameSaving, setColorNameSaving] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expandedBookmarkId, setExpandedBookmarkId] = useState<string | null>(null)
@@ -124,6 +135,32 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
     }
   }
 
+  function getColorName(color: typeof BIBLE_BOOKMARK_COLORS[number]) {
+    return profile?.bible_bookmark_color_labels?.[color.value]?.trim() || color.label
+  }
+
+  function selectColorName(color: typeof BIBLE_BOOKMARK_COLORS[number]) {
+    setEditingColorName(color.value)
+    setColorName(getColorName(color))
+    setError(null)
+  }
+
+  async function saveColorName(label: string) {
+    if (!editingColorName || colorNameSaving || (!label.trim() && !profile?.bible_bookmark_color_labels?.[editingColorName])) return
+    setColorNameSaving(true)
+    setError(null)
+    try {
+      await saveBibleBookmarkColorLabel(editingColorName, label)
+      setEditingColorName(null)
+      setColorName('')
+      setColorNamesEditing(false)
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить название цвета')
+    } finally {
+      setColorNameSaving(false)
+    }
+  }
+
   const filteredBookmarks = colorFilter
     ? bibleBookmarks.filter((bookmark) => normalizeBibleBookmarkColor(bookmark.color) === colorFilter)
     : bibleBookmarks
@@ -148,7 +185,7 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
         <div className="bible-bookmark-filters" aria-label="Фильтр закладок по цвету">
           <button
             type="button"
-            className={colorFilter === null ? 'active' : ''}
+            className={`bible-bookmark-filter-all${colorFilter === null ? ' active' : ''}`}
             aria-pressed={colorFilter === null}
             onClick={() => setColorFilter(null)}
           >
@@ -157,17 +194,22 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
           <div className="bible-bookmark-filter-colors">
             {BIBLE_BOOKMARK_COLORS.map((color) => {
               const count = bookmarkColorCounts.get(color.value) ?? 0
+              const displayName = getColorName(color)
               return (
                 <button
                   key={color.value}
                   type="button"
-                  className={colorFilter === color.value ? 'active' : ''}
+                  className={`${colorFilter === color.value ? 'active' : ''}${editingColorName === color.value ? ' editing' : ''}`}
                   style={{ '--bookmark-option-color': color.value } as CSSProperties}
-                  aria-label={`${color.label}: ${count}`}
-                  aria-pressed={colorFilter === color.value}
-                  title={`${color.label}: ${count}`}
-                  disabled={count === 0}
+                  aria-label={colorNamesEditing ? `Изменить название цвета «${displayName}»` : `${displayName}: ${count}`}
+                  aria-pressed={colorNamesEditing ? editingColorName === color.value : colorFilter === color.value}
+                  title={colorNamesEditing ? `Изменить название: ${displayName}` : `${displayName}: ${count}`}
+                  disabled={!colorNamesEditing && count === 0}
                   onClick={() => {
+                    if (colorNamesEditing) {
+                      selectColorName(color)
+                      return
+                    }
                     setColorFilter((current) => current === color.value ? null : color.value)
                     setExpandedBookmarkId(null)
                     setActiveTranslationBookmarkId(null)
@@ -178,6 +220,60 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
               )
             })}
           </div>
+          <button
+            type="button"
+            className={`bible-bookmark-filter-edit${colorNamesEditing ? ' active' : ''}`}
+            aria-label="Редактировать названия цветов"
+            title="Редактировать названия цветов"
+            aria-pressed={colorNamesEditing}
+            onClick={() => {
+              setColorNamesEditing((current) => !current)
+              setEditingColorName(null)
+              setColorName('')
+              setError(null)
+            }}
+          >
+            ✎
+          </button>
+          {colorNamesEditing && (
+            <form
+              className="bible-bookmark-color-name-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void saveColorName(colorName)
+              }}
+            >
+              {editingColorName ? (
+                <>
+                  <span
+                    className="bible-bookmark-color-name-preview"
+                    style={{ '--bookmark-option-color': editingColorName } as CSSProperties}
+                    aria-hidden="true"
+                  />
+                  <input
+                    type="text"
+                    value={colorName}
+                    maxLength={40}
+                    disabled={colorNameSaving}
+                    aria-label="Название цвета"
+                    placeholder="Название цвета"
+                    autoFocus
+                    onChange={(event) => setColorName(event.target.value)}
+                  />
+                  <button type="submit" className="primary compact" disabled={colorNameSaving || !colorName.trim()}>
+                    Сохранить
+                  </button>
+                  {profile?.bible_bookmark_color_labels?.[editingColorName] && (
+                    <button type="button" className="ghost compact" disabled={colorNameSaving} onClick={() => void saveColorName('')}>
+                      Сбросить
+                    </button>
+                  )}
+                </>
+              ) : (
+                <span className="hint">Выберите цвет, название которого хотите изменить.</span>
+              )}
+            </form>
+          )}
         </div>
       )}
 
@@ -323,6 +419,7 @@ export function BibleBookmarksView({ onOpen }: { onOpen: (target: BibleNavigatio
                 value={editColor}
                 onChange={setEditColor}
                 disabled={saving}
+                colorLabels={profile?.bible_bookmark_color_labels}
               />
             </div>
             <div className="modal-actions">

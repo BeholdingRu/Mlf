@@ -626,6 +626,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
                                         onChange={setBookmarkColor}
                                         disabled={bookmarkBusy}
                                         compact
+                                        colorLabels={profile?.bible_bookmark_color_labels}
                                       />
                                     </span>
                                     <span className="verse-bookmark-form-actions">

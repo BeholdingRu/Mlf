@@ -658,6 +658,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (deleteError) throw deleteError
         setBibleBookmarks((previous) => previous.filter((bookmark) => bookmark.id !== id))
       },
+      async saveBibleBookmarkColorLabel(color, label) {
+        if (!user || !profile) return
+        const nextLabels = { ...(profile.bible_bookmark_color_labels ?? {}) }
+        const normalizedLabel = label.trim()
+        if (normalizedLabel) nextLabels[color] = normalizedLabel
+        else delete nextLabels[color]
+
+        const { data, error: updateError } = await requireSupabase()
+          .from('profiles')
+          .update({ bible_bookmark_color_labels: nextLabels })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updateError) throw updateError
+        setProfile(data as Profile)
+      },
       async getBibleChapter(bookOrder, chapter, includeTorahPortions = false) {
         const { data, error: selectError } = await requireSupabase()
           .from(includeTorahPortions ? 'bible_verses_with_torah_markers' : 'bible_verses')
