@@ -7005,13 +7005,37 @@ nav {
     margin: 10px 0;
   }
 
-  .chart-legend {
-    gap: 6px;
-    font-size: 13.2px;
+  .weight-chart:not(.fullscreen) .chart-svg {
+    min-height: 190px;
   }
 
-  .progress-bar-container {
-    margin-top: 10px;
+  .weight-chart:not(.fullscreen) .chart-point-details {
+    font-size: 13px;
+  }
+
+  .weight-chart:not(.fullscreen) .chart-svg circle {
+    r: 4px;
+  }
+
+  .weight-chart:not(.fullscreen) .chart-legend {
+    gap: 3px;
+    padding-top: 6px;
+    font-size: 10.5px;
+  }
+
+  .weight-chart:not(.fullscreen) .progress-bar-container {
+    margin-top: 6px;
+    padding: 0 2px;
+  }
+
+  .weight-chart:not(.fullscreen) .weight-progress {
+    height: 20px;
+    border-radius: 10px;
+  }
+
+  .weight-chart:not(.fullscreen) .weight-progress-percent,
+  .weight-chart:not(.fullscreen) .weight-progress-goal {
+    font-size: 11px;
   }
 }
 

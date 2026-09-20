@@ -67,11 +67,11 @@ function normalizeBibleTreeProgress(data: unknown): BibleTreeProgress {
   }
 }
 
-async function withDataLoadTimeout<T>(request: Promise<T>): Promise<T> {
+async function withDataLoadTimeout<T>(request: PromiseLike<T>): Promise<T> {
   let timeoutId: number | undefined
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = window.setTimeout(() => {
-      reject(new Error('Не удалось загрузить данны. Проверьте подключение к интернету и обновите страницу.'))
+      reject(new Error('Не удалось загрузить данные. Проверьте подключение к интернету и обновите страницу.'))
     }, DATA_LOAD_TIMEOUT_MS)
   })
 
@@ -188,14 +188,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     let nextProfile = profileRes.data as Profile | null
     if (!nextProfile) {
-      const inserted = await client
-        .from('profiles')
-        .upsert({
-          id: userId,
-          email: userEmail,
-        })
-        .select('*')
-        .single()
+      const inserted = await withDataLoadTimeout(
+        client
+          .from('profiles')
+          .upsert({
+            id: userId,
+            email: userEmail,
+          })
+          .select('*')
+          .single(),
+      )
       if (inserted.error) {
         setError(inserted.error.message)
         setLoading(false)
@@ -237,24 +239,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setMindfulnessCategories((mindfulnessCategoriesRes.data ?? []) as MindfulnessCategory[])
     setMindfulnessNotes((mindfulnessNotesRes.data ?? []) as MindfulnessNote[])
     setBibleBookmarks((bibleBookmarksRes.data ?? []) as BibleBookmark[])
-    const bibleTreeResult = await client.rpc('refresh_bible_tree_progress')
-    if (bibleTreeResult.error) {
-      if (!isBibleTreeFeatureMissing(bibleTreeResult.error)) {
-        setError(bibleTreeResult.error.message)
-        setLoading(false)
-        return
-      }
-      setBibleTreeProgress(EMPTY_BIBLE_TREE_PROGRESS)
-    } else {
-      setBibleTreeProgress(normalizeBibleTreeProgress(bibleTreeResult.data))
-    }
     setSavedProducts(normalizedSavedProducts)
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
-    const { data: adminStatus } = await client.rpc('is_admin')
-    setIsAdmin(adminStatus === true)
     setError(null)
     setLoading(false)
+
+    try {
+      const [bibleTreeResult, adminResult] = await withDataLoadTimeout(Promise.all([
+        client.rpc('refresh_bible_tree_progress'),
+        client.rpc('is_admin'),
+      ]))
+
+      if (bibleTreeResult.error) {
+        if (!isBibleTreeFeatureMissing(bibleTreeResult.error)) {
+          setError(bibleTreeResult.error.message)
+        }
+        setBibleTreeProgress(EMPTY_BIBLE_TREE_PROGRESS)
+      } else {
+        setBibleTreeProgress(normalizeBibleTreeProgress(bibleTreeResult.data))
+      }
+
+      setIsAdmin(adminResult.error == null && adminResult.data === true)
+    } catch (supplementaryLoadError) {
+      setBibleTreeProgress(EMPTY_BIBLE_TREE_PROGRESS)
+      setIsAdmin(false)
+      setError(
+        supplementaryLoadError instanceof Error
+          ? supplementaryLoadError.message
+          : 'Не удалось загрузить дополнительные данные кабинета',
+      )
+    }
   }, [userEmail, userId])
 
   useEffect(() => {

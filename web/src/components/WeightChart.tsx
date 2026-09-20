@@ -5,6 +5,7 @@ import {
   WEIGHT_CHART_WEEKDAYS,
   type WeightChartWeekday,
 } from '../lib/weight-chart-weekdays'
+import { useViewport } from '../hooks/useViewport'
 
 type WeightChartProps = {
   logs: WeightLog[]
@@ -102,6 +103,8 @@ export function WeightChart({
   const [monthFilterEnabled, setMonthFilterEnabled] = useState(initialMonthFilterEnabled)
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null)
   const chartGraphRef = useRef<HTMLDivElement>(null)
+  const { width: viewportWidth } = useViewport()
+  const compactMobileChart = viewportWidth > 0 && viewportWidth <= 600
   const selectedWeekday = WEIGHT_CHART_WEEKDAYS.find((option) => option.value === filterWeekday) ?? WEIGHT_CHART_WEEKDAYS[0]
 
   useEffect(() => {
@@ -161,8 +164,16 @@ export function WeightChart({
   const chartPoints = visibleLogs.map((log) => ({ date: log.logged_on, value: log.value, label: 'Вес' }))
   const startPoint = includeStartPoint ? { date: startDate, value: startWeight, label: 'Стартовый вес' } : null
   const renderedPoints = startPoint ? [startPoint, ...chartPoints] : chartPoints
-  const chartWidth = forceAllPoints ? Math.max(900, renderedPoints.length * 104) : 600
-  const chartHeight = forceAllPoints ? FULLSCREEN_CHART_HEIGHT : CHART_HEIGHT
+  const chartWidth = forceAllPoints
+    ? Math.max(900, renderedPoints.length * 104)
+    : compactMobileChart
+      ? 440
+      : 600
+  const chartHeight = forceAllPoints
+    ? FULLSCREEN_CHART_HEIGHT
+    : compactMobileChart
+      ? 300
+      : CHART_HEIGHT
   const chartRight = chartWidth - CHART_RIGHT_PADDING
   const chartTop = 58
   const chartBottom = 34
