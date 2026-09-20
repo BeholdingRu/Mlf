@@ -252,7 +252,8 @@ export function WeightChart({
               ? 'Записей по месяцам'
               : weekdayFilterEnabled
                 ? `Записей ${selectedWeekday.recordsLabel}`
-                : 'Всего записей'}: <strong>{filteredLogs.length}</strong> | Дней отслеживания: <strong>{totalDays}</strong>
+                : 'Дней зафиксировано'}: <strong>{filteredLogs.length}</strong>
+            {forceAllPoints && <> | Прошло дней с первой записи: <strong>{totalDays}</strong></>}
             {!fullscreen && renderedPoints.length < filteredLogs.length + (includeStartPoint ? 1 : 0) && ` | На графике: ${renderedPoints.length}`}
           </p>
         </div>
