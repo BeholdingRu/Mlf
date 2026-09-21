@@ -2668,6 +2668,30 @@ nav {
   max-width: 1100px;
 }
 
+.cabinet:has(.bible-view.chapter-reading)::before {
+  content: '';
+  position: fixed;
+  z-index: 15;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.84);
+  pointer-events: none;
+}
+
+.bible-view.chapter-reading .bible-chapter-text {
+  position: relative;
+  z-index: 16;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 10px var(--surface),
+    0 18px 60px rgba(0, 0, 0, 0.32);
+}
+
+.bible-view.chapter-reading .bible-return-button {
+  position: relative;
+  z-index: 16;
+  filter: brightness(0.5);
+}
+
 .bible-library {
   --bible-tree-top: color-mix(in srgb, var(--leaf) 78%, var(--moss-deep));
   --bible-tree-bottom: color-mix(in srgb, var(--moss-deep) 82%, var(--ink));
