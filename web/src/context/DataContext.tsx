@@ -294,71 +294,89 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timeout)
   }, [refresh, userId])
 
-  useEffect(() => {
-    if (!user || !profile?.weight_enabled || profile.daily_calories_norm == null) return
+  const reconcileNutritionTaskDate = useCallback(async (
+    loggedOn: string,
+    historyLogs = foodHistoryLogs,
+  ) => {
+    if (
+      !user
+      || !profile?.weight_enabled
+      || profile.daily_calories_norm == null
+      || loggedOn >= localISODate()
+    ) return
 
-    const userId = user.id
     const nutritionTasks = tasks.filter(isNutritionTask)
     if (!nutritionTasks.length) return
 
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const previousDate = localISODate(yesterday)
-    const totalCalories = foodHistoryLogs
-      .filter((log) => log.logged_on === previousDate)
+    const totalCalories = historyLogs
+      .filter((log) => log.logged_on === loggedOn)
       .reduce((sum, log) => sum + (log.weight_grams / 100) * log.calories_per_100g, 0)
+    const client = requireSupabase()
 
-    if (totalCalories > profile.daily_calories_norm) return
+    try {
+      if (totalCalories <= profile.daily_calories_norm) {
+        const results = await Promise.all(
+          nutritionTasks.map((task) =>
+            client
+              .from('task_completions')
+              .upsert(
+                {
+                  task_id: task.id,
+                  user_id: user.id,
+                  completed_on: loggedOn,
+                },
+                { onConflict: 'task_id,completed_on' },
+              )
+              .select('*')
+              .single(),
+          ),
+        )
+        const failedResult = results.find((result) => result.error)
+        if (failedResult?.error) throw failedResult.error
 
-    const incompleteTasks = nutritionTasks.filter(
-      (task) => !completions.some(
-        (completion) => completion.task_id === task.id && completion.completed_on === previousDate,
-      ),
-    )
-    if (!incompleteTasks.length) return
-
-    let cancelled = false
-
-    async function completeNutritionTasks() {
-      const client = requireSupabase()
-      const results = await Promise.all(
-        incompleteTasks.map((task) =>
-          client
-            .from('task_completions')
-            .upsert(
-              {
-                task_id: task.id,
-                user_id: userId,
-                completed_on: previousDate,
-              },
-              { onConflict: 'task_id,completed_on' },
-            )
-            .select('*')
-            .single(),
-        ),
-      )
-
-      const failedResult = results.find((result) => result.error)
-      if (failedResult?.error) {
-        if (!cancelled) setError(failedResult.error.message)
+        const automaticCompletions = results.map((result) => result.data as TaskCompletion)
+        const automaticTaskIds = new Set(automaticCompletions.map((completion) => completion.task_id))
+        setCompletions((previous) => [
+          ...previous.filter((completion) => !(
+            automaticTaskIds.has(completion.task_id)
+            && completion.completed_on === loggedOn
+          )),
+          ...automaticCompletions,
+        ])
         return
       }
-      if (cancelled) return
 
-      const automaticCompletions = results.map((result) => result.data as TaskCompletion)
-      setCompletions((previous) => [
-        ...previous.filter(
-          (completion) => !automaticCompletions.some((automatic) => automatic.id === completion.id),
-        ),
-        ...automaticCompletions,
-      ])
-    }
+      const nutritionTaskIds = nutritionTasks.map((task) => task.id)
+      const { error: deleteError } = await client
+        .from('task_completions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('completed_on', loggedOn)
+        .in('task_id', nutritionTaskIds)
+      if (deleteError) throw deleteError
 
-    void completeNutritionTasks()
-    return () => {
-      cancelled = true
+      const nutritionTaskIdSet = new Set(nutritionTaskIds)
+      setCompletions((previous) => previous.filter((completion) => !(
+        nutritionTaskIdSet.has(completion.task_id)
+        && completion.completed_on === loggedOn
+      )))
+    } catch (reconcileError) {
+      setError(
+        reconcileError instanceof Error
+          ? reconcileError.message
+          : 'Не удалось пересчитать статистику задачи питания',
+      )
     }
-  }, [user, profile, tasks, completions, foodHistoryLogs])
+  }, [foodHistoryLogs, profile, tasks, user])
+
+  useEffect(() => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const timer = window.setTimeout(() => {
+      void reconcileNutritionTaskDate(localISODate(yesterday))
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [reconcileNutritionTaskDate])
 
   const value = useMemo<DataContextValue>(
     () => ({
@@ -851,11 +869,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
             proteins_per_100g: proteinsPer100g,
             fats_per_100g: fatsPer100g,
             carbohydrates_per_100g: carbohydratesPer100g,
-          })
+        })
           .select('*')
           .single()
         if (insError) throw insError
-        setFoodHistoryLogs((previous) => [...previous, data as FoodLog])
+        const insertedFood = data as FoodLog
+        const nextHistoryLogs = [...foodHistoryLogs, insertedFood]
+        setFoodHistoryLogs(nextHistoryLogs)
+        await reconcileNutritionTaskDate(loggedOn, nextHistoryLogs)
       },
       async updateFoodLogProductName(id, productName) {
         if (!user || !isAdmin || !adminMode) {
@@ -870,11 +891,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (updError) throw updError
         const updatedFood = data as FoodLog
+        const nextHistoryLogs = foodHistoryLogs.map((food) => food.id === id ? updatedFood : food)
         setFoodLogs((previous) => previous.map((food) => food.id === id ? updatedFood : food))
-        setFoodHistoryLogs((previous) => previous.map((food) => food.id === id ? updatedFood : food))
+        setFoodHistoryLogs(nextHistoryLogs)
+        await reconcileNutritionTaskDate(updatedFood.logged_on, nextHistoryLogs)
       },
       async deleteFoodLog(id) {
         if (!user) return
+        const deletedFood = foodHistoryLogs.find((food) => food.id === id)
         const { error: delError } = await requireSupabase()
           .from('daily_food_logs')
           .delete()
@@ -882,7 +906,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .eq('user_id', user.id)
         if (delError) throw delError
         setFoodLogs((prev) => prev.filter((f) => f.id !== id))
-        setFoodHistoryLogs((prev) => prev.filter((f) => f.id !== id))
+        const nextHistoryLogs = foodHistoryLogs.filter((food) => food.id !== id)
+        setFoodHistoryLogs(nextHistoryLogs)
+        if (deletedFood) {
+          await reconcileNutritionTaskDate(deletedFood.logged_on, nextHistoryLogs)
+        }
       },
       async addMealPlanEntry(mealType, productName, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
         if (!user) return
@@ -1106,6 +1134,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       adminMode,
       setAdminMode,
       refresh,
+      reconcileNutritionTaskDate,
       user,
     ],
   )
