@@ -32,7 +32,32 @@ const MONTHS = [
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
-type StatisticsTargetForm = Record<keyof DiaryStatisticsTargets, string>
+type StatisticsNumericTargetKey =
+  | 'carbohydrates'
+  | 'weight7Days'
+  | 'weight14Days'
+  | 'weight28Days'
+
+type StatisticsTargetForm = Record<StatisticsNumericTargetKey, string> & {
+  calculateMacroCalories: boolean
+}
+
+type MacroProductFilter = 'proteins' | 'fats' | 'carbohydrates'
+
+type MacroCalculatorSettings = {
+  fatCaloriesPercent: number
+  proteinWeightMultiplier: number
+}
+
+type MacroCalculatorSettingsForm = {
+  fatCaloriesPercent: string
+  proteinWeightMultiplier: string
+}
+
+const DEFAULT_MACRO_CALCULATOR_SETTINGS: MacroCalculatorSettings = {
+  fatCaloriesPercent: 30,
+  proteinWeightMultiplier: 1.4,
+}
 
 export function DiaryView() {
   const {
@@ -81,8 +106,16 @@ export function DiaryView() {
   const [showNutritionPeriod, setShowNutritionPeriod] = useState(false)
   const [showStatisticsSettings, setShowStatisticsSettings] = useState(false)
   const [showWeightTargetInfo, setShowWeightTargetInfo] = useState(false)
+  const [activeMacroProductFilter, setActiveMacroProductFilter] = useState<MacroProductFilter | null>(null)
+  const [macroProductSortDirection, setMacroProductSortDirection] = useState<'desc' | 'asc'>('desc')
   const [statisticsTargetForm, setStatisticsTargetForm] = useState<StatisticsTargetForm>(
     () => statisticsTargetsToForm(profile?.diary_statistics_targets),
+  )
+  const [macroCalculatorSettings, setMacroCalculatorSettings] = useState(
+    () => macroCalculatorSettingsFromTargets(profile?.diary_statistics_targets),
+  )
+  const [macroCalculatorSettingsForm, setMacroCalculatorSettingsForm] = useState<MacroCalculatorSettingsForm>(
+    () => macroCalculatorSettingsToForm(macroCalculatorSettingsFromTargets(profile?.diary_statistics_targets)),
   )
   const [statisticsSettingsBusy, setStatisticsSettingsBusy] = useState(false)
   const [statisticsSettingsError, setStatisticsSettingsError] = useState<string | null>(null)
@@ -111,6 +144,45 @@ export function DiaryView() {
   const [adminFoodBusy, setAdminFoodBusy] = useState(false)
   const [adminFoodError, setAdminFoodError] = useState<string | null>(null)
   const statisticsTargets = profile?.diary_statistics_targets ?? {}
+  const calculatedProteinTarget = typeof profile?.desired_weight === 'number' && profile.desired_weight > 0
+    ? profile.desired_weight * macroCalculatorSettings.proteinWeightMultiplier
+    : undefined
+  const calculatedFatTarget = typeof profile?.daily_calories_norm === 'number' && profile.daily_calories_norm > 0
+    ? (profile.daily_calories_norm * (macroCalculatorSettings.fatCaloriesPercent / 100)) / 9
+    : undefined
+  const defaultCarbohydrateTarget = typeof profile?.daily_calories_norm === 'number'
+    && profile.daily_calories_norm > 0
+    && calculatedProteinTarget !== undefined
+    && calculatedFatTarget !== undefined
+    ? (profile.daily_calories_norm - calculatedProteinTarget * 4 - calculatedFatTarget * 9) / 4
+    : undefined
+  const calculatedCarbohydrateTarget = hasTarget(statisticsTargets.carbohydrates)
+    ? statisticsTargets.carbohydrates
+    : typeof defaultCarbohydrateTarget === 'number' && defaultCarbohydrateTarget > 0
+      ? defaultCarbohydrateTarget
+      : undefined
+  const filteredSavedProducts = useMemo(
+    () => activeMacroProductFilter
+      ? savedProducts
+          .filter((product) => getSavedProductMacro(product, activeMacroProductFilter) > 0)
+          .sort((first, second) => {
+            const difference = getSavedProductMacro(second, activeMacroProductFilter)
+              - getSavedProductMacro(first, activeMacroProductFilter)
+            return (macroProductSortDirection === 'desc' ? difference : -difference)
+              || first.name.localeCompare(second.name, 'ru-RU')
+          })
+      : [],
+    [activeMacroProductFilter, macroProductSortDirection, savedProducts],
+  )
+
+  const toggleMacroProductFilter = (filter: MacroProductFilter) => {
+    if (activeMacroProductFilter === filter) {
+      setActiveMacroProductFilter(null)
+      return
+    }
+    setMacroProductSortDirection('desc')
+    setActiveMacroProductFilter(filter)
+  }
 
   const testDate = testDateTime.slice(0, 10)
   const activeSelectedDate = selectedDate ?? (adminMode && testDate ? testDate : latestDate)
@@ -385,11 +457,8 @@ export function DiaryView() {
     event.preventDefault()
     if (statisticsSettingsBusy) return
 
-    const parsedTargets: Record<keyof DiaryStatisticsTargets, number | undefined> = {
-      proteins: parseTargetNumber(statisticsTargetForm.proteins),
-      fats: parseTargetNumber(statisticsTargetForm.fats),
+    const parsedTargets: Record<StatisticsNumericTargetKey, number | undefined> = {
       carbohydrates: parseTargetNumber(statisticsTargetForm.carbohydrates),
-      weightDay: parseWeightTarget(statisticsTargetForm.weightDay),
       weight7Days: parseWeightTarget(statisticsTargetForm.weight7Days),
       weight14Days: parseWeightTarget(statisticsTargetForm.weight14Days),
       weight28Days: parseWeightTarget(statisticsTargetForm.weight28Days),
@@ -398,23 +467,47 @@ export function DiaryView() {
       setStatisticsSettingsError('Введите корректные числовые значения')
       return
     }
-    if (
-      [parsedTargets.proteins, parsedTargets.fats, parsedTargets.carbohydrates]
-        .some((value) => value !== undefined && value < 0)
-    ) {
-      setStatisticsSettingsError('Желаемые значения КБЖУ не могут быть отрицательными')
+    if (parsedTargets.carbohydrates !== undefined && parsedTargets.carbohydrates < 0) {
+      setStatisticsSettingsError('Цель углеводов не может быть отрицательной')
       return
     }
 
-    const targets = Object.fromEntries(
-      Object.entries(parsedTargets).filter((entry): entry is [string, number] => entry[1] !== undefined),
-    ) as DiaryStatisticsTargets
+    const nextMacroCalculatorSettings = {
+      fatCaloriesPercent: parseTargetNumber(macroCalculatorSettingsForm.fatCaloriesPercent),
+      proteinWeightMultiplier: parseTargetNumber(macroCalculatorSettingsForm.proteinWeightMultiplier),
+    }
+    if (
+      nextMacroCalculatorSettings.fatCaloriesPercent === undefined
+      || !Number.isFinite(nextMacroCalculatorSettings.fatCaloriesPercent)
+      || nextMacroCalculatorSettings.fatCaloriesPercent < 0
+      || nextMacroCalculatorSettings.fatCaloriesPercent > 100
+    ) {
+      setStatisticsSettingsError('Процент калорий для жиров должен быть от 0 до 100')
+      return
+    }
+    if (
+      nextMacroCalculatorSettings.proteinWeightMultiplier === undefined
+      || !Number.isFinite(nextMacroCalculatorSettings.proteinWeightMultiplier)
+      || nextMacroCalculatorSettings.proteinWeightMultiplier < 0
+    ) {
+      setStatisticsSettingsError('Множитель белков должен быть неотрицательным числом')
+      return
+    }
+
+    const targets = {
+      ...Object.fromEntries(
+        Object.entries(parsedTargets).filter((entry): entry is [string, number] => entry[1] !== undefined),
+      ),
+      calculateMacroCalories: statisticsTargetForm.calculateMacroCalories,
+      fatCaloriesPercent: nextMacroCalculatorSettings.fatCaloriesPercent,
+      proteinWeightMultiplier: nextMacroCalculatorSettings.proteinWeightMultiplier,
+    } as DiaryStatisticsTargets
 
     setStatisticsSettingsBusy(true)
     setStatisticsSettingsError(null)
     try {
       await saveDiaryStatisticsTargets(targets)
-      setShowStatisticsSettings(false)
+      setMacroCalculatorSettings(nextMacroCalculatorSettings as MacroCalculatorSettings)
     } catch (settingsError) {
       setStatisticsSettingsError(
         settingsError instanceof Error
@@ -426,7 +519,7 @@ export function DiaryView() {
     }
   }
 
-  const updateStatisticsTarget = (key: keyof DiaryStatisticsTargets, value: string) => {
+  const updateStatisticsTarget = (key: StatisticsNumericTargetKey, value: string) => {
     setStatisticsTargetForm((current) => ({ ...current, [key]: value }))
     setStatisticsSettingsError(null)
   }
@@ -757,7 +850,8 @@ export function DiaryView() {
           </section>
 
           {showNutritionStatistics && (
-            <section className="diary-nutrition-statistics" aria-labelledby="diary-nutrition-statistics-heading">
+            <div className="diary-nutrition-statistics-layout">
+              <section className="diary-nutrition-statistics" aria-labelledby="diary-nutrition-statistics-heading">
               <div className="diary-nutrition-statistics-head">
                 <div>
                   <h3 id="diary-nutrition-statistics-heading">Статистика за период</h3>
@@ -787,6 +881,9 @@ export function DiaryView() {
                       setShowStatisticsSettings((open) => {
                         if (!open) {
                           setStatisticsTargetForm(statisticsTargetsToForm(profile?.diary_statistics_targets))
+                          setMacroCalculatorSettingsForm(macroCalculatorSettingsToForm(
+                            macroCalculatorSettingsFromTargets(profile?.diary_statistics_targets),
+                          ))
                           setStatisticsSettingsError(null)
                         }
                         return !open
@@ -804,25 +901,81 @@ export function DiaryView() {
               {showStatisticsSettings && (
                 <form id="diary-statistics-settings" className="diary-statistics-settings" onSubmit={saveStatisticsSettings}>
                   <fieldset>
-                    <legend>Желаемые БЖУ за сутки</legend>
+                    <legend>Цель БЖУ за сутки</legend>
+                    <p>По умолчанию: жиры — 30% нормы калорий, белки — желаемый вес × 1,4.</p>
                     <div className="diary-statistics-settings-grid diary-statistics-nutrition-targets">
                       <label>
-                        Белки, г
-                        <input type="number" min="0" step="0.1" inputMode="decimal" value={statisticsTargetForm.proteins} onChange={(event) => updateStatisticsTarget('proteins', event.target.value)} disabled={statisticsSettingsBusy} />
+                        Грамм белка на кг тела от желаемой цели
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          inputMode="decimal"
+                          value={macroCalculatorSettingsForm.proteinWeightMultiplier}
+                          onChange={(event) => {
+                            setMacroCalculatorSettingsForm((current) => ({
+                              ...current,
+                              proteinWeightMultiplier: event.target.value,
+                            }))
+                            setStatisticsSettingsError(null)
+                          }}
+                          disabled={statisticsSettingsBusy}
+                        />
                       </label>
                       <label>
-                        Жиры, г
-                        <input type="number" min="0" step="0.1" inputMode="decimal" value={statisticsTargetForm.fats} onChange={(event) => updateStatisticsTarget('fats', event.target.value)} disabled={statisticsSettingsBusy} />
+                        Жиры, % от нормы калорий
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          inputMode="decimal"
+                          value={macroCalculatorSettingsForm.fatCaloriesPercent}
+                          onChange={(event) => {
+                            setMacroCalculatorSettingsForm((current) => ({
+                              ...current,
+                              fatCaloriesPercent: event.target.value,
+                            }))
+                            setStatisticsSettingsError(null)
+                          }}
+                          disabled={statisticsSettingsBusy}
+                        />
                       </label>
                       <label>
                         Углеводы, г
-                        <input type="number" min="0" step="0.1" inputMode="decimal" value={statisticsTargetForm.carbohydrates} onChange={(event) => updateStatisticsTarget('carbohydrates', event.target.value)} disabled={statisticsSettingsBusy} />
+                        <input
+                          className="diary-statistics-carbohydrate-input"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          inputMode="decimal"
+                          placeholder="Норма калорий -жиры и -белки (по дефолту)"
+                          title={'По умолчанию расчет происходит: "норма калорий" минус цель по белкам и жирам'}
+                          value={statisticsTargetForm.carbohydrates}
+                          onChange={(event) => updateStatisticsTarget('carbohydrates', event.target.value)}
+                          disabled={statisticsSettingsBusy}
+                        />
                       </label>
                     </div>
+                    <label className="diary-statistics-flag">
+                      <input
+                        type="checkbox"
+                        checked={statisticsTargetForm.calculateMacroCalories}
+                        onChange={(event) => {
+                          setStatisticsTargetForm((current) => ({
+                            ...current,
+                            calculateMacroCalories: event.target.checked,
+                          }))
+                          setStatisticsSettingsError(null)
+                        }}
+                        disabled={statisticsSettingsBusy}
+                      />
+                      <span>Расчет калорий для Б/Ж/У</span>
+                    </label>
                   </fieldset>
                   <fieldset>
                     <legend>
-                      Желаемое изменение веса
+                      Цель коррекции веса за период
                       <button
                         type="button"
                         className="diary-statistics-info-button"
@@ -843,10 +996,6 @@ export function DiaryView() {
                     )}
                     <div className="diary-statistics-settings-grid">
                       <label>
-                        За сутки, кг
-                        <input type="text" inputMode="text" pattern="[+\-]?[0-9]*[.,]?[0-9]*" placeholder="Например, 0,1 или +0,1" value={statisticsTargetForm.weightDay} onChange={(event) => updateStatisticsTarget('weightDay', event.target.value)} disabled={statisticsSettingsBusy} />
-                      </label>
-                      <label>
                         За 7 суток, кг
                         <input type="text" inputMode="text" pattern="[+\-]?[0-9]*[.,]?[0-9]*" placeholder="Например, 1 или +1" value={statisticsTargetForm.weight7Days} onChange={(event) => updateStatisticsTarget('weight7Days', event.target.value)} disabled={statisticsSettingsBusy} />
                       </label>
@@ -865,10 +1014,11 @@ export function DiaryView() {
                     <button type="submit" className="primary compact" disabled={statisticsSettingsBusy}>Сохранить</button>
                     <button
                       type="button"
-                      className="ghost compact"
+                      className="primary compact"
                       disabled={statisticsSettingsBusy}
                       onClick={() => {
                         setStatisticsTargetForm(statisticsTargetsToForm(profile?.diary_statistics_targets))
+                        setMacroCalculatorSettingsForm(macroCalculatorSettingsToForm(macroCalculatorSettings))
                         setStatisticsSettingsError(null)
                         setShowStatisticsSettings(false)
                       }}
@@ -920,19 +1070,64 @@ export function DiaryView() {
                 <>
                   <div className="diary-nutrition-statistics-grid">
                     {[
-                      { label: 'Калории', actual: nutritionPeriodStatistics.calories, target: undefined, unit: 'ккал', digits: 0 },
-                      { label: 'Белки', actual: nutritionPeriodStatistics.proteins, target: statisticsTargets.proteins, unit: 'г', digits: 1 },
-                      { label: 'Жиры', actual: nutritionPeriodStatistics.fats, target: statisticsTargets.fats, unit: 'г', digits: 1 },
-                      { label: 'Углеводы', actual: nutritionPeriodStatistics.carbohydrates, target: statisticsTargets.carbohydrates, unit: 'г', digits: 1 },
+                      { label: 'Калории', actual: nutritionPeriodStatistics.calories, target: profile?.daily_calories_norm ?? undefined, unit: 'ккал', digits: 0, calorieMultiplier: undefined, productFilter: undefined },
+                      { label: 'Белки', actual: nutritionPeriodStatistics.proteins, target: calculatedProteinTarget, unit: 'г', digits: 1, calorieMultiplier: 4, productFilter: 'proteins' as const },
+                      { label: 'Жиры', actual: nutritionPeriodStatistics.fats, target: calculatedFatTarget, unit: 'г', digits: 1, calorieMultiplier: 9, productFilter: 'fats' as const },
+                      { label: 'Углеводы', actual: nutritionPeriodStatistics.carbohydrates, target: calculatedCarbohydrateTarget, unit: 'г', digits: 1, calorieMultiplier: 4, productFilter: 'carbohydrates' as const },
                     ].map((item) => (
                       <div key={item.label}>
-                        <span>{item.label}</span>
-                        <strong>{formatStatisticValue(item.actual, item.digits)} {item.unit}</strong>
-                        {hasTarget(item.target) && (
-                          <small className="diary-statistics-comparison">
-                            Цель: {formatStatisticValue(item.target, item.digits)} {item.unit}
-                            <span>Разница: {formatSignedStatistic(item.actual - item.target, item.digits)} {item.unit}</span>
-                          </small>
+                        <StatisticValueComparison
+                          label={item.label}
+                          actual={item.actual}
+                          actualText={`${formatStatisticValue(item.actual, item.digits)} ${item.unit}`}
+                          target={item.target}
+                          targetText={hasTarget(item.target)
+                            ? `${formatStatisticValue(item.target, item.digits)} ${item.unit}`
+                            : undefined}
+                          targetColor={hasTarget(item.target)
+                            ? getDeviationColor(item.actual, item.target)
+                            : undefined}
+                          actualSecondaryText={statisticsTargets.calculateMacroCalories && item.calorieMultiplier
+                            ? `${formatStatisticValue(item.actual * item.calorieMultiplier, 1)} ккал`
+                            : undefined}
+                          targetSecondaryText={statisticsTargets.calculateMacroCalories && item.calorieMultiplier && hasTarget(item.target)
+                            ? `${formatStatisticValue(item.target * item.calorieMultiplier, 1)} ккал`
+                            : undefined}
+                          labelExpanded={item.productFilter
+                            ? activeMacroProductFilter === item.productFilter
+                            : undefined}
+                          onLabelClick={item.productFilter
+                            ? () => toggleMacroProductFilter(item.productFilter)
+                            : undefined}
+                        />
+                        {item.productFilter && activeMacroProductFilter === item.productFilter && (
+                          <div className="diary-macro-products-popover">
+                            <div className="diary-macro-products-popover-head">
+                              <strong>На 100 г</strong>
+                              <button
+                                type="button"
+                                onClick={() => setMacroProductSortDirection((current) => current === 'desc' ? 'asc' : 'desc')}
+                                aria-label={macroProductSortDirection === 'desc'
+                                  ? 'Сортировать от меньшего к большему'
+                                  : 'Сортировать от большего к меньшему'}
+                                title="Изменить порядок сортировки"
+                              >
+                                {macroProductSortDirection === 'desc' ? 'По убыванию ↓' : 'По возрастанию ↑'}
+                              </button>
+                            </div>
+                            {filteredSavedProducts.length === 0 ? (
+                              <p>Сохранённых продуктов нет</p>
+                            ) : (
+                              <ul>
+                                {filteredSavedProducts.map((product) => (
+                                  <li key={product.id}>
+                                    <span>{product.name}</span>
+                                    <b>{formatStatisticValue(getSavedProductMacro(product, item.productFilter), 1)} г</b>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}
@@ -947,25 +1142,21 @@ export function DiaryView() {
                 {weightPeriodStatistics ? (
                   <>
                     <div className="diary-weight-change-values">
-                      {[1, 7, 14, 28]
-                        .filter((days) => days === 1 || weightPeriodStatistics.selectedDays >= days)
+                      {[7, 14, 28]
+                        .filter((days) => days === 28 || weightPeriodStatistics.selectedDays >= days)
                       .map((days) => {
                         const change = weightPeriodStatistics.averageDailyChange * days
                         const target = statisticsTargets[weightTargetKey(days)]
                         return (
                           <div key={days}>
-                            <small>{days === 1 ? 'За сутки' : `За ${days} суток`}</small>
-                            <strong>{formatSignedWeight(change)} кг</strong>
-                            {hasTarget(target) && (
-                              <small className="diary-statistics-weight-comparison">
-                                <span style={{ color: getTargetDeviationColor(change, target) }}>
-                                  Цель: {formatSignedWeight(target)} кг
-                                </span>
-                                {!isWeightTargetReached(change, target) && (
-                                  <span>Разница: {formatSignedWeight(change - target)} кг</span>
-                                )}
-                              </small>
-                            )}
+                            <StatisticValueComparison
+                              label={days === 1 ? 'За сутки' : `За ${days} суток`}
+                              actual={change}
+                              actualText={`${formatSignedWeight(change)} кг`}
+                              target={target}
+                              targetText={hasTarget(target) ? `${formatSignedWeight(target)} кг` : undefined}
+                              targetColor={hasTarget(target) ? getTargetDeviationColor(change, target) : undefined}
+                            />
                           </div>
                           )
                         })}
@@ -974,7 +1165,7 @@ export function DiaryView() {
                       {formatPeriodDate(weightPeriodStatistics.firstDate)} — {formatPeriodDate(weightPeriodStatistics.lastDate)}
                       {' · '}{formatMeasurementCount(weightPeriodStatistics.measurements)}
                     </small>
-                    <small>Расчёт по среднему темпу между первым и последним замером</small>
+                    <small>Расчёт по среднему</small>
                   </>
                 ) : (
                   <>
@@ -983,7 +1174,14 @@ export function DiaryView() {
                   </>
                 )}
               </div>
-            </section>
+              </section>
+              <MacroNutrientCalculator
+                key={`${profile?.daily_calories_norm ?? 'no-calorie-norm'}-${profile?.desired_weight ?? 'no-desired-weight'}-${macroCalculatorSettings.fatCaloriesPercent}-${macroCalculatorSettings.proteinWeightMultiplier}`}
+                dailyCaloriesNorm={profile?.daily_calories_norm}
+                desiredWeight={profile?.desired_weight}
+                settings={macroCalculatorSettings}
+              />
+            </div>
           )}
 
           <section className="diary-data-section diary-exercises" aria-labelledby="diary-exercises-heading">
@@ -1084,10 +1282,8 @@ function formatPeriodDate(value: string) {
 
 function statisticsTargetsToForm(targets: DiaryStatisticsTargets | null | undefined): StatisticsTargetForm {
   return {
-    proteins: targetInputValue(targets?.proteins),
-    fats: targetInputValue(targets?.fats),
     carbohydrates: targetInputValue(targets?.carbohydrates),
-    weightDay: weightTargetInputValue(targets?.weightDay),
+    calculateMacroCalories: targets?.calculateMacroCalories === true,
     weight7Days: weightTargetInputValue(targets?.weight7Days),
     weight14Days: weightTargetInputValue(targets?.weight14Days),
     weight28Days: weightTargetInputValue(targets?.weight28Days),
@@ -1116,6 +1312,31 @@ function parseWeightTarget(value: string) {
   return normalized.startsWith('+') ? Math.abs(parsed) : -Math.abs(parsed)
 }
 
+function macroCalculatorSettingsFromTargets(
+  targets: DiaryStatisticsTargets | null | undefined,
+): MacroCalculatorSettings {
+  return {
+    fatCaloriesPercent: typeof targets?.fatCaloriesPercent === 'number'
+      && Number.isFinite(targets.fatCaloriesPercent)
+      && targets.fatCaloriesPercent >= 0
+      && targets.fatCaloriesPercent <= 100
+      ? targets.fatCaloriesPercent
+      : DEFAULT_MACRO_CALCULATOR_SETTINGS.fatCaloriesPercent,
+    proteinWeightMultiplier: typeof targets?.proteinWeightMultiplier === 'number'
+      && Number.isFinite(targets.proteinWeightMultiplier)
+      && targets.proteinWeightMultiplier >= 0
+      ? targets.proteinWeightMultiplier
+      : DEFAULT_MACRO_CALCULATOR_SETTINGS.proteinWeightMultiplier,
+  }
+}
+
+function macroCalculatorSettingsToForm(settings: MacroCalculatorSettings): MacroCalculatorSettingsForm {
+  return {
+    fatCaloriesPercent: String(settings.fatCaloriesPercent),
+    proteinWeightMultiplier: String(settings.proteinWeightMultiplier),
+  }
+}
+
 function hasTarget(value: number | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value !== 0
 }
@@ -1134,13 +1355,6 @@ function formatStatisticValue(value: number, maximumFractionDigits: number) {
   })
 }
 
-function formatSignedStatistic(value: number, maximumFractionDigits: number) {
-  const rounded = Number(value.toFixed(maximumFractionDigits))
-  const formatted = formatStatisticValue(Math.abs(rounded), maximumFractionDigits)
-  if (rounded === 0) return formatted
-  return `${rounded > 0 ? '+' : '−'}${formatted}`
-}
-
 function formatSignedWeight(value: number) {
   if (Math.abs(value) < 0.005) return '0,0'
   const formatted = Math.abs(value).toLocaleString('ru-RU', {
@@ -1153,6 +1367,10 @@ function formatSignedWeight(value: number) {
 function getTargetDeviationColor(actual: number, target: number) {
   if (isWeightTargetReached(actual, target)) return 'hsl(120 72% 44%)'
 
+  return getDeviationColor(actual, target)
+}
+
+function getDeviationColor(actual: number, target: number) {
   const deviation = Math.abs(actual - target) / Math.abs(target)
   const colorProgress = Math.min(1, deviation / 0.5)
   const hue = Math.round(120 * (1 - colorProgress))
@@ -1161,6 +1379,249 @@ function getTargetDeviationColor(actual: number, target: number) {
 
 function isWeightTargetReached(actual: number, target: number) {
   return target < 0 ? actual <= target : actual >= target
+}
+
+type MacroCalculatorKey = 'proteins' | 'fats' | 'carbohydrates'
+
+const MACRO_CALCULATOR_FIELDS: Array<{
+  key: MacroCalculatorKey
+  label: string
+  calorieFactor: number
+}> = [
+  { key: 'proteins', label: 'Белки', calorieFactor: 4 },
+  { key: 'fats', label: 'Жиры', calorieFactor: 9 },
+  { key: 'carbohydrates', label: 'Углеводы', calorieFactor: 4 },
+]
+
+function MacroNutrientCalculator({
+  dailyCaloriesNorm,
+  desiredWeight,
+  settings,
+}: {
+  dailyCaloriesNorm?: number | null
+  desiredWeight?: number | null
+  settings: MacroCalculatorSettings
+}) {
+  const [values, setValues] = useState<Record<MacroCalculatorKey, { grams: string; calories: string }>>(() => {
+    const defaultFatCalories = typeof dailyCaloriesNorm === 'number' && dailyCaloriesNorm > 0
+      ? dailyCaloriesNorm * (settings.fatCaloriesPercent / 100)
+      : null
+    const defaultProteinGrams = typeof desiredWeight === 'number' && desiredWeight > 0
+      ? desiredWeight * settings.proteinWeightMultiplier
+      : null
+    const defaultProteinCalories = defaultProteinGrams === null ? null : defaultProteinGrams * 4
+    const defaultCarbohydrateCalories = typeof dailyCaloriesNorm === 'number'
+      && dailyCaloriesNorm > 0
+      && defaultProteinCalories !== null
+      && defaultFatCalories !== null
+      ? dailyCaloriesNorm - defaultProteinCalories - defaultFatCalories
+      : null
+
+    return {
+      proteins: defaultProteinGrams === null || defaultProteinCalories === null
+        ? { grams: '', calories: '' }
+        : {
+            grams: formatCalculatorInput(defaultProteinGrams),
+            calories: formatCalculatorInput(defaultProteinCalories),
+          },
+      fats: defaultFatCalories === null
+        ? { grams: '', calories: '' }
+        : {
+            grams: formatCalculatorInput(defaultFatCalories / 9),
+            calories: formatCalculatorInput(defaultFatCalories),
+          },
+      carbohydrates: defaultCarbohydrateCalories === null || defaultCarbohydrateCalories <= 0
+        ? { grams: '', calories: '' }
+        : {
+            grams: formatCalculatorInput(defaultCarbohydrateCalories / 4),
+            calories: formatCalculatorInput(defaultCarbohydrateCalories),
+          },
+    }
+  })
+
+  const updateValue = (
+    key: MacroCalculatorKey,
+    source: 'grams' | 'calories',
+    value: string,
+    calorieFactor: number,
+  ) => {
+    const parsed = parseCalculatorValue(value)
+    const calculated = parsed === null
+      ? ''
+      : formatCalculatorInput(source === 'grams' ? parsed * calorieFactor : parsed / calorieFactor)
+
+    setValues((current) => ({
+      ...current,
+      [key]: source === 'grams'
+        ? { grams: value, calories: calculated }
+        : { grams: calculated, calories: value },
+    }))
+  }
+
+  const totalCalories = MACRO_CALCULATOR_FIELDS.reduce((total, field) => (
+    total + (parseCalculatorValue(values[field.key].calories) ?? 0)
+  ), 0)
+
+  return (
+    <aside className="diary-macro-calculator" aria-labelledby="diary-macro-calculator-heading">
+      <div>
+        <h3 id="diary-macro-calculator-heading">Калькулятор КБЖУ</h3>
+        <p>Белки и углеводы × 4, жиры × 9</p>
+      </div>
+      <div className="diary-macro-calculator-fields">
+        {MACRO_CALCULATOR_FIELDS.map((field) => (
+          <div className="diary-macro-calculator-row" key={field.key}>
+            <label>
+              <span>{field.label}, г</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={values[field.key].grams}
+                onChange={(event) => updateValue(field.key, 'grams', event.target.value, field.calorieFactor)}
+                placeholder="0"
+                aria-label={`${field.label}, граммы`}
+              />
+            </label>
+            <span aria-hidden="true">=</span>
+            <label>
+              <span>Калории</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={values[field.key].calories}
+                onChange={(event) => updateValue(field.key, 'calories', event.target.value, field.calorieFactor)}
+                placeholder="0"
+                aria-label={`${field.label}, калории`}
+              />
+            </label>
+          </div>
+        ))}
+      </div>
+      <div className="diary-macro-calculator-total">
+        <span>Всего калорий</span>
+        <strong>{formatStatisticValue(totalCalories, 1)} ккал</strong>
+      </div>
+    </aside>
+  )
+}
+
+function parseCalculatorValue(value: string) {
+  const normalized = value.trim().replace(',', '.')
+  if (!normalized) return null
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+}
+
+function formatCalculatorInput(value: number) {
+  return String(Math.round(value * 100) / 100).replace('.', ',')
+}
+
+function getSavedProductMacro(
+  product: { proteins_per_100g: number; fats_per_100g: number; carbohydrates_per_100g: number },
+  filter: MacroProductFilter,
+) {
+  if (filter === 'proteins') return product.proteins_per_100g
+  if (filter === 'fats') return product.fats_per_100g
+  return product.carbohydrates_per_100g
+}
+
+function StatisticValueComparison({
+  label,
+  actual,
+  actualText,
+  target,
+  targetText,
+  targetColor,
+  actualSecondaryText,
+  targetSecondaryText,
+  labelExpanded,
+  onLabelClick,
+}: {
+  label: string
+  actual: number
+  actualText: string
+  target?: number
+  targetText?: string
+  targetColor?: string
+  actualSecondaryText?: string
+  targetSecondaryText?: string
+  labelExpanded?: boolean
+  onLabelClick?: () => void
+}) {
+  const showTarget = hasTarget(target) && targetText !== undefined && targetColor !== undefined
+
+  return (
+    <div className={`diary-statistics-comparison${showTarget ? ' has-target' : ''}`}>
+      <div className="diary-statistics-value-head">
+        {onLabelClick ? (
+          <button
+            type="button"
+            className={`diary-statistics-filter-button${labelExpanded ? ' active' : ''}`}
+            onClick={onLabelClick}
+            aria-expanded={labelExpanded}
+            title={`Показать сохранённые продукты: ${label.toLocaleLowerCase('ru-RU')}`}
+          >
+            {label}
+            <span aria-hidden="true">{labelExpanded ? '⌃' : '⌄'}</span>
+          </button>
+        ) : <span>{label}</span>}
+        {showTarget && (
+          <>
+            <span className="diary-statistics-head-spacer" aria-hidden="true" />
+            <span>Цель</span>
+          </>
+        )}
+      </div>
+      <div className={`diary-statistics-value-row${showTarget ? ' has-target' : ''}`}>
+        <div className="diary-statistics-value-stack">
+          <strong style={showTarget ? { color: targetColor } : undefined}>{actualText}</strong>
+          {actualSecondaryText && <small>{actualSecondaryText}</small>}
+        </div>
+        {showTarget && (
+          <>
+            <StatisticComparisonIndicator actual={actual} target={target} color={targetColor} />
+            <div className="diary-statistics-value-stack diary-statistics-target-stack">
+              <strong className="diary-statistics-target-number" style={{ color: targetColor }}>
+                {targetText}
+              </strong>
+              {targetSecondaryText && <small>{targetSecondaryText}</small>}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StatisticComparisonIndicator({ actual, target, color }: { actual: number; target: number; color: string }) {
+  const relation = getStatisticRelation(actual, target)
+  const relationLabel = relation === 'equal'
+    ? 'примерно равно цели'
+    : relation === 'greater'
+      ? 'больше цели'
+      : 'меньше цели'
+
+  return (
+    <span
+      className={`diary-statistics-comparison-indicator ${relation}`}
+      style={{ color }}
+      role="img"
+      aria-label={`Фактическое значение ${relationLabel}`}
+      title={relationLabel}
+    >
+      {relation === 'equal' ? '=' : (
+        <svg viewBox="0 0 24 16" aria-hidden="true">
+          <path d={relation === 'greater' ? 'M4 12 12 4l8 8' : 'm4 4 8 8 8-8'} />
+        </svg>
+      )}
+    </span>
+  )
+}
+
+function getStatisticRelation(actual: number, target: number): 'less' | 'equal' | 'greater' {
+  const tolerance = Math.abs(target) * 0.05
+  if (Math.abs(actual - target) <= tolerance) return 'equal'
+  return actual > target ? 'greater' : 'less'
 }
 
 function formatMeasurementCount(value: number) {

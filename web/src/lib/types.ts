@@ -4,6 +4,9 @@ export type DiaryStatisticsTargets = {
   proteins?: number
   fats?: number
   carbohydrates?: number
+  calculateMacroCalories?: boolean
+  fatCaloriesPercent?: number
+  proteinWeightMultiplier?: number
   weightDay?: number
   weight7Days?: number
   weight14Days?: number
