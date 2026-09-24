@@ -666,7 +666,8 @@ input:not([type]) {
 }
 
 .code-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1528,6 +1529,133 @@ nav {
 
 .task-editor-add {
   grid-template-columns: minmax(0, 1fr) auto 88px auto;
+}
+
+@media (min-width: 769px) {
+  .task-editor-add.withdrawal-task-editor-add {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .task-editor-add.withdrawal-task-editor-add > .primary {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+.negative-habits-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.auth-card .code-cell {
+  min-width: 0;
+  width: 100%;
+}
+
+.negative-habits-settings-toggle {
+  justify-self: start;
+  width: min(100%, 320px);
+}
+
+.negative-habits-group .task-group-list {
+  margin-top: 10px;
+}
+
+.task-settings-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.negative-habits-create-pin,
+.negative-habits-pin-form label,
+.negative-habits-change-pin-form label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.negative-habits-create-pin {
+  grid-column: 1 / -1;
+  width: min(100%, 320px);
+}
+
+.negative-habits-create-pin input,
+.negative-habits-pin-form input,
+.negative-habits-change-pin-form input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  letter-spacing: 0.22em;
+}
+
+.negative-habits-pin-form,
+.negative-habits-security-settings {
+  display: grid;
+  width: min(100%, 420px);
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.negative-habits-group .negative-habits-pin-form {
+  margin-top: 10px;
+}
+
+.negative-habits-pin-actions,
+.negative-habits-change-pin-actions {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.negative-habits-change-pin-button {
+  justify-self: start;
+}
+
+.negative-habits-change-pin-form {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.negative-habits-pin-required {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.negative-habits-pin-required input {
+  flex: 0 0 auto;
+}
+
+.negative-habits-pin-error,
+.negative-habits-security-settings .banner,
+.negative-habits-security-message {
+  margin: 0;
+  font-size: 12px;
+}
+
+.negative-habits-pin-error {
+  color: var(--danger, #a33b3b);
 }
 
 .withdrawal-syndrome-setting {
@@ -6388,6 +6516,19 @@ nav {
     padding: 6px 10px;
     font-size: 13px;
   }
+}
+
+.profile-security-actions {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-security-actions .settings-action {
+  flex: 0 1 auto;
+  justify-self: auto;
+  width: auto;
 }
 
 .settings-block .toggle {

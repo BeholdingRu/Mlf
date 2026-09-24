@@ -470,6 +470,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setTasks((prev) => prev.filter((t) => t.id !== id))
         setCompletions((prev) => prev.filter((c) => c.task_id !== id))
       },
+      async saveNegativeHabitsSecurity(patch) {
+        if (!user || !profile) return
+        if (patch.pin !== undefined && !/^\d{4}$/.test(patch.pin)) {
+          throw new Error('PIN должен состоять из четырёх цифр')
+        }
+        const update: { negative_habits_pin?: string; negative_habits_pin_required?: boolean } = {}
+        if (patch.pin !== undefined) update.negative_habits_pin = patch.pin
+        if (patch.requirePin !== undefined) update.negative_habits_pin_required = patch.requirePin
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update(update)
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
       async saveWeightSettings(target) {
         if (!user || !profile) return
         const started =

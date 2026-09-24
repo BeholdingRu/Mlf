@@ -39,6 +39,8 @@ create table if not exists public.profiles (
     check (jsonb_typeof(bible_bookmark_color_labels) = 'object'),
   diary_statistics_targets jsonb not null default '{}'::jsonb
     check (jsonb_typeof(diary_statistics_targets) = 'object'),
+  negative_habits_pin text check (negative_habits_pin ~ '^[0-9]{4}$'),
+  negative_habits_pin_required boolean not null default true,
   created_at timestamptz not null default now()
 );
 

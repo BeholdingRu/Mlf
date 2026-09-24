@@ -121,6 +121,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error: signOutError } = await client.auth.signOut({ scope: 'others' })
         if (signOutError) throw signOutError
       },
+      async verifyPassword(password) {
+        const email = session?.user.email
+        if (!email) throw new Error('Не удалось определить email текущего пользователя')
+        const { error } = await requireSupabase().auth.signInWithPassword({ email, password })
+        if (error) throw new Error('Пароль указан неверно')
+      },
     }),
     [session, loading, recoveryRequired],
   )

@@ -63,7 +63,18 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
 }
 
 export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?: () => void }) {
-  const { tasks, completions, completeToday, profile, addTask, updateTask, restartWithdrawalTask, deleteTask, adminMode } = useData()
+  const {
+    tasks,
+    completions,
+    completeToday,
+    profile,
+    addTask,
+    updateTask,
+    restartWithdrawalTask,
+    deleteTask,
+    saveNegativeHabitsSecurity,
+    adminMode,
+  } = useData()
   const [taskSettingsDraft] = useState<TaskSettingsDraft | null>(getSavedTaskSettingsDraft)
   const [subTab, setSubTab] = useState<DailyTasksSubTab>(getSavedDailyTasksSubTab)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -71,6 +82,24 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const [newDays, setNewDays] = useState(taskSettingsDraft?.newDays ?? '21')
   const [newWithdrawalSyndrome, setNewWithdrawalSyndrome] = useState(taskSettingsDraft?.newWithdrawalSyndrome ?? false)
   const [withdrawalSyndromeInfoOpen, setWithdrawalSyndromeInfoOpen] = useState(false)
+  const [negativeHabitsListOpen, setNegativeHabitsListOpen] = useState(false)
+  const [negativeHabitsSettingsOpen, setNegativeHabitsSettingsOpen] = useState(false)
+  const [negativeHabitsListPinOpen, setNegativeHabitsListPinOpen] = useState(false)
+  const [negativeHabitsSettingsPinOpen, setNegativeHabitsSettingsPinOpen] = useState(false)
+  const [negativeHabitsListPin, setNegativeHabitsListPin] = useState('')
+  const [negativeHabitsSettingsPin, setNegativeHabitsSettingsPin] = useState('')
+  const [negativeHabitsListPinError, setNegativeHabitsListPinError] = useState<string | null>(null)
+  const [negativeHabitsSettingsPinError, setNegativeHabitsSettingsPinError] = useState<string | null>(null)
+  const [newNegativeHabitPin, setNewNegativeHabitPin] = useState('')
+  const [negativeHabitsChangePinOpen, setNegativeHabitsChangePinOpen] = useState(false)
+  const [currentNegativeHabitPin, setCurrentNegativeHabitPin] = useState('')
+  const [replacementNegativeHabitPin, setReplacementNegativeHabitPin] = useState('')
+  const [negativeHabitsEnablePinOpen, setNegativeHabitsEnablePinOpen] = useState(false)
+  const [negativeHabitsEnablePin, setNegativeHabitsEnablePin] = useState('')
+  const [negativeHabitsEnablePinError, setNegativeHabitsEnablePinError] = useState<string | null>(null)
+  const [negativeHabitsSecurityBusy, setNegativeHabitsSecurityBusy] = useState(false)
+  const [negativeHabitsSecurityError, setNegativeHabitsSecurityError] = useState<string | null>(null)
+  const [negativeHabitsSecurityMessage, setNegativeHabitsSecurityMessage] = useState<string | null>(null)
   const [taskEditorOpen, setTaskEditorOpen] = useState(false)
   const [edits, setEdits] = useState<Record<string, TaskEditDraft>>(taskSettingsDraft?.edits ?? {})
   const [error, setError] = useState<string | null>(null)
@@ -78,9 +107,12 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const today = localISODate()
   const [testDate, setTestDate] = useState(() => window.sessionStorage.getItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY) ?? today)
   const testToday = adminMode && testDate ? testDate : today
+  const withdrawalTasks = tasks.filter((task) => task.withdrawal_syndrome)
+  const negativeHabitsPin = profile?.negative_habits_pin ?? (withdrawalTasks.length > 0 ? '0000' : null)
+  const negativeHabitsPinRequired = profile?.negative_habits_pin_required !== false
   const taskGroups = [
     { id: 'regular', tasks: tasks.filter((task) => !task.withdrawal_syndrome) },
-    { id: 'withdrawal', tasks: tasks.filter((task) => task.withdrawal_syndrome) },
+    { id: 'withdrawal', tasks: withdrawalTasks },
   ].filter((group) => group.tasks.length > 0)
 
   useEffect(() => {
@@ -103,6 +135,148 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
     window.sessionStorage.setItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY, testDate)
   }, [testDate])
 
+  function toggleNegativeHabitsList() {
+    if (negativeHabitsListOpen) {
+      setNegativeHabitsListOpen(false)
+      return
+    }
+    if (!negativeHabitsPinRequired) {
+      setNegativeHabitsListOpen(true)
+      return
+    }
+    setNegativeHabitsListPin('')
+    setNegativeHabitsListPinError(null)
+    setNegativeHabitsListPinOpen(true)
+  }
+
+  function toggleNegativeHabitsSettings() {
+    if (negativeHabitsSettingsOpen) {
+      setNegativeHabitsSettingsOpen(false)
+      setNegativeHabitsChangePinOpen(false)
+      setNegativeHabitsEnablePinOpen(false)
+      setCurrentNegativeHabitPin('')
+      setReplacementNegativeHabitPin('')
+      setNegativeHabitsEnablePin('')
+      setNegativeHabitsEnablePinError(null)
+      setNegativeHabitsSecurityError(null)
+      setNegativeHabitsSecurityMessage(null)
+      return
+    }
+    if (!negativeHabitsPinRequired) {
+      setNegativeHabitsSettingsOpen(true)
+      return
+    }
+    setNegativeHabitsSettingsPin('')
+    setNegativeHabitsSettingsPinError(null)
+    setNegativeHabitsSettingsPinOpen(true)
+  }
+
+  function unlockNegativeHabitsList() {
+    if (negativeHabitsListPin !== negativeHabitsPin) {
+      setNegativeHabitsListPinError('Неверный PIN')
+      return
+    }
+    setNegativeHabitsListPinOpen(false)
+    setNegativeHabitsListPin('')
+    setNegativeHabitsListPinError(null)
+    setNegativeHabitsListOpen(true)
+  }
+
+  function unlockNegativeHabitsSettings() {
+    if (negativeHabitsSettingsPin !== negativeHabitsPin) {
+      setNegativeHabitsSettingsPinError('Неверный PIN')
+      return
+    }
+    setNegativeHabitsSettingsPinOpen(false)
+    setNegativeHabitsSettingsPin('')
+    setNegativeHabitsSettingsPinError(null)
+    setNegativeHabitsSettingsOpen(true)
+  }
+
+  async function updateNegativeHabitsPinRequired(required: boolean) {
+    if (required && !negativeHabitsPinRequired) {
+      setNegativeHabitsChangePinOpen(false)
+      setCurrentNegativeHabitPin('')
+      setReplacementNegativeHabitPin('')
+      setNegativeHabitsEnablePin('')
+      setNegativeHabitsEnablePinError(null)
+      setNegativeHabitsEnablePinOpen(true)
+      setNegativeHabitsSecurityError(null)
+      setNegativeHabitsSecurityMessage(null)
+      return
+    }
+
+    setNegativeHabitsSecurityBusy(true)
+    setNegativeHabitsSecurityError(null)
+    setNegativeHabitsSecurityMessage(null)
+    try {
+      await saveNegativeHabitsSecurity({ requirePin: required })
+      setNegativeHabitsChangePinOpen(false)
+      setCurrentNegativeHabitPin('')
+      setReplacementNegativeHabitPin('')
+      setNegativeHabitsEnablePinOpen(false)
+      setNegativeHabitsEnablePin('')
+      setNegativeHabitsSecurityMessage(required ? 'Защита PIN включена' : 'Защита PIN отключена')
+    } catch (securityError) {
+      setNegativeHabitsSecurityError(
+        securityError instanceof Error ? securityError.message : 'Не удалось сохранить настройку PIN',
+      )
+    } finally {
+      setNegativeHabitsSecurityBusy(false)
+    }
+  }
+
+  async function confirmNegativeHabitsPinRequired() {
+    if (negativeHabitsEnablePin !== negativeHabitsPin) {
+      setNegativeHabitsEnablePinError('Неверный PIN')
+      return
+    }
+
+    setNegativeHabitsSecurityBusy(true)
+    setNegativeHabitsEnablePinError(null)
+    setNegativeHabitsSecurityError(null)
+    setNegativeHabitsSecurityMessage(null)
+    try {
+      await saveNegativeHabitsSecurity({ requirePin: true })
+      setNegativeHabitsEnablePinOpen(false)
+      setNegativeHabitsEnablePin('')
+      setNegativeHabitsSecurityMessage('Защита PIN включена')
+    } catch (securityError) {
+      setNegativeHabitsEnablePinError(
+        securityError instanceof Error ? securityError.message : 'Не удалось включить защиту PIN',
+      )
+    } finally {
+      setNegativeHabitsSecurityBusy(false)
+    }
+  }
+
+  async function changeNegativeHabitsPin() {
+    if (!negativeHabitsPinRequired && currentNegativeHabitPin !== negativeHabitsPin) {
+      setNegativeHabitsSecurityError('Неверный действующий PIN')
+      return
+    }
+    if (!/^\d{4}$/.test(replacementNegativeHabitPin)) {
+      setNegativeHabitsSecurityError('PIN должен состоять из четырёх цифр')
+      return
+    }
+    setNegativeHabitsSecurityBusy(true)
+    setNegativeHabitsSecurityError(null)
+    setNegativeHabitsSecurityMessage(null)
+    try {
+      await saveNegativeHabitsSecurity({ pin: replacementNegativeHabitPin })
+      setNegativeHabitsChangePinOpen(false)
+      setCurrentNegativeHabitPin('')
+      setReplacementNegativeHabitPin('')
+      setNegativeHabitsSecurityMessage('PIN изменён')
+    } catch (securityError) {
+      setNegativeHabitsSecurityError(
+        securityError instanceof Error ? securityError.message : 'Не удалось изменить PIN',
+      )
+    } finally {
+      setNegativeHabitsSecurityBusy(false)
+    }
+  }
+
   async function onAdd() {
     const title = newTitle.trim()
     const days = Number(newDays)
@@ -110,17 +284,25 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
       setError('Введите название задачи')
       return
     }
-    if (!Number.isInteger(days) || days < 1) {
+    if (!newWithdrawalSyndrome && (!Number.isInteger(days) || days < 1)) {
       setError('Количество дней шкалы должно быть целым числом от 1')
+      return
+    }
+    if (newWithdrawalSyndrome && !negativeHabitsPin && !/^\d{4}$/.test(newNegativeHabitPin)) {
+      setError('Создайте PIN из четырёх цифр для негативных привычек')
       return
     }
     setBusy(true)
     setError(null)
     try {
+      if (newWithdrawalSyndrome && !negativeHabitsPin) {
+        await saveNegativeHabitsSecurity({ pin: newNegativeHabitPin, requirePin: true })
+      }
       await addTask(title, days, newWithdrawalSyndrome)
       setNewTitle('')
       setNewDays('21')
       setNewWithdrawalSyndrome(false)
+      setNewNegativeHabitPin('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось добавить задачу')
     } finally {
@@ -165,8 +347,41 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
             )}
             <ul className="task-list">
               {taskGroups.map((group) => (
-                <li key={group.id} className="task-group">
-                  <ul className="task-group-list">
+                <li key={group.id} className={`task-group${group.id === 'withdrawal' ? ' negative-habits-group' : ''}`}>
+                  {group.id === 'withdrawal' && (
+                    <button
+                      type="button"
+                      className="ghost compact negative-habits-toggle"
+                      aria-expanded={negativeHabitsListOpen}
+                      aria-controls="negative-habits-task-list"
+                      onClick={toggleNegativeHabitsList}
+                    >
+                      <span>Негативные привычки/зависимости</span>
+                      <span aria-hidden="true">{negativeHabitsListOpen ? '⌃' : '⌄'}</span>
+                    </button>
+                  )}
+                  {group.id === 'withdrawal' && negativeHabitsListPinOpen && (
+                    <NegativeHabitsPinForm
+                      id="negative-habits-list-pin"
+                      value={negativeHabitsListPin}
+                      error={negativeHabitsListPinError}
+                      onChange={(value) => {
+                        setNegativeHabitsListPin(value)
+                        setNegativeHabitsListPinError(null)
+                      }}
+                      onSubmit={unlockNegativeHabitsList}
+                      onCancel={() => {
+                        setNegativeHabitsListPinOpen(false)
+                        setNegativeHabitsListPin('')
+                        setNegativeHabitsListPinError(null)
+                      }}
+                    />
+                  )}
+                  {(group.id !== 'withdrawal' || negativeHabitsListOpen) && (
+                  <ul
+                    id={group.id === 'withdrawal' ? 'negative-habits-task-list' : undefined}
+                    className="task-group-list"
+                  >
                   {group.tasks.map((task) => {
               const withdrawalPhase = getWithdrawalPhase(
                 task.withdrawal_syndrome,
@@ -277,6 +492,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
               )
                   })}
                   </ul>
+                  )}
                 </li>
               ))}
             </ul>
@@ -290,7 +506,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
             Для каждой задачи укажите, сколько дней нужно, чтобы шкала «% формирования привычки»
             достигла 100%.
           </p>
-          <div className="task-editor-add">
+          <div className={`task-editor-add${newWithdrawalSyndrome ? ' withdrawal-task-editor-add' : ''}`}>
             <input
               placeholder="Название задачи"
               value={newTitle}
@@ -301,7 +517,10 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 <input
                   type="checkbox"
                   checked={newWithdrawalSyndrome}
-                  onChange={(event) => setNewWithdrawalSyndrome(event.target.checked)}
+                  onChange={(event) => {
+                    setNewWithdrawalSyndrome(event.target.checked)
+                    if (!event.target.checked) setNewNegativeHabitPin('')
+                  }}
                 />
                 <span>Синдром отмены</span>
               </label>
@@ -321,6 +540,25 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 </p>
               )}
             </div>
+            {newWithdrawalSyndrome && !negativeHabitsPin && (
+              <label className="negative-habits-create-pin">
+                Создайте четырёхзначный пин
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  pattern="[0-9]{4}"
+                  maxLength={4}
+                  value={newNegativeHabitPin}
+                  onChange={(event) => {
+                    setNewNegativeHabitPin(normalizePin(event.target.value))
+                    setError(null)
+                  }}
+                  placeholder="0000"
+                  aria-label="PIN для негативных привычек"
+                />
+              </label>
+            )}
             {!newWithdrawalSyndrome && (
               <input
                 type="number"
@@ -341,14 +579,178 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
             className="ghost compact task-editor-toggle"
             aria-expanded={taskEditorOpen}
             aria-controls="task-settings-list"
-            onClick={() => setTaskEditorOpen((open) => !open)}
+            onClick={() => setTaskEditorOpen((open) => {
+              if (open) {
+                setNegativeHabitsSettingsOpen(false)
+                setNegativeHabitsSettingsPinOpen(false)
+                setNegativeHabitsSettingsPin('')
+                setNegativeHabitsSettingsPinError(null)
+              }
+              return !open
+            })}
           >
             {taskEditorOpen ? 'Скрыть редактирование' : 'Редактировать задачи/привычки'}
           </button>
 
           {taskEditorOpen && (
-            <ul id="task-settings-list" className="task-settings-list">
-              {tasks.map((task) => {
+            <div id="task-settings-list" className="task-settings-editor">
+              {tasks.some((task) => task.withdrawal_syndrome) && (
+                <button
+                  type="button"
+                  className="ghost compact negative-habits-toggle negative-habits-settings-toggle"
+                  aria-expanded={negativeHabitsSettingsOpen}
+                  aria-controls="negative-habits-settings-list"
+                  onClick={toggleNegativeHabitsSettings}
+                >
+                  <span>Негативные привычки/зависимости</span>
+                  <span aria-hidden="true">{negativeHabitsSettingsOpen ? '⌃' : '⌄'}</span>
+                </button>
+              )}
+              {negativeHabitsSettingsPinOpen && (
+                <NegativeHabitsPinForm
+                  id="negative-habits-settings-pin"
+                  value={negativeHabitsSettingsPin}
+                  error={negativeHabitsSettingsPinError}
+                  onChange={(value) => {
+                    setNegativeHabitsSettingsPin(value)
+                    setNegativeHabitsSettingsPinError(null)
+                  }}
+                  onSubmit={unlockNegativeHabitsSettings}
+                  onCancel={() => {
+                    setNegativeHabitsSettingsPinOpen(false)
+                    setNegativeHabitsSettingsPin('')
+                    setNegativeHabitsSettingsPinError(null)
+                  }}
+                />
+              )}
+              {negativeHabitsSettingsOpen && (
+                <div className="negative-habits-security-settings">
+                  <label className="toggle negative-habits-pin-required">
+                    <input
+                      type="checkbox"
+                      checked={negativeHabitsPinRequired}
+                      disabled={negativeHabitsSecurityBusy}
+                      onChange={(event) => void updateNegativeHabitsPinRequired(event.target.checked)}
+                    />
+                    <span>Требовать пин для раскрытия поля</span>
+                  </label>
+                  {negativeHabitsEnablePinOpen && (
+                    <NegativeHabitsPinForm
+                      id="negative-habits-enable-pin"
+                      value={negativeHabitsEnablePin}
+                      error={negativeHabitsEnablePinError}
+                      label="Введите действующий PIN"
+                      submitLabel="Включить защиту"
+                      disabled={negativeHabitsSecurityBusy}
+                      onChange={(value) => {
+                        setNegativeHabitsEnablePin(value)
+                        setNegativeHabitsEnablePinError(null)
+                      }}
+                      onSubmit={() => void confirmNegativeHabitsPinRequired()}
+                      onCancel={() => {
+                        setNegativeHabitsEnablePinOpen(false)
+                        setNegativeHabitsEnablePin('')
+                        setNegativeHabitsEnablePinError(null)
+                      }}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className="ghost compact negative-habits-change-pin-button"
+                    disabled={negativeHabitsSecurityBusy}
+                    onClick={() => {
+                      setNegativeHabitsEnablePinOpen(false)
+                      setNegativeHabitsEnablePin('')
+                      setNegativeHabitsEnablePinError(null)
+                      setNegativeHabitsChangePinOpen((open) => !open)
+                      setCurrentNegativeHabitPin('')
+                      setReplacementNegativeHabitPin('')
+                      setNegativeHabitsSecurityError(null)
+                      setNegativeHabitsSecurityMessage(null)
+                    }}
+                  >
+                    Сменить пин
+                  </button>
+                  {negativeHabitsChangePinOpen && (
+                    <form
+                      className="negative-habits-change-pin-form"
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        void changeNegativeHabitsPin()
+                      }}
+                    >
+                      {!negativeHabitsPinRequired && (
+                        <label>
+                          Действующий пин
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            autoComplete="current-password"
+                            pattern="[0-9]{4}"
+                            maxLength={4}
+                            value={currentNegativeHabitPin}
+                            disabled={negativeHabitsSecurityBusy}
+                            onChange={(event) => {
+                              setCurrentNegativeHabitPin(normalizePin(event.target.value))
+                              setNegativeHabitsSecurityError(null)
+                              setNegativeHabitsSecurityMessage(null)
+                            }}
+                            autoFocus
+                          />
+                        </label>
+                      )}
+                      <label>
+                        Новый пин
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          autoComplete="new-password"
+                          pattern="[0-9]{4}"
+                          maxLength={4}
+                          value={replacementNegativeHabitPin}
+                          disabled={negativeHabitsSecurityBusy}
+                          onChange={(event) => {
+                            setReplacementNegativeHabitPin(normalizePin(event.target.value))
+                            setNegativeHabitsSecurityError(null)
+                            setNegativeHabitsSecurityMessage(null)
+                          }}
+                          autoFocus={negativeHabitsPinRequired}
+                        />
+                      </label>
+                      <div className="negative-habits-change-pin-actions">
+                        <button
+                          type="submit"
+                          className="primary compact"
+                          disabled={
+                            negativeHabitsSecurityBusy
+                            || replacementNegativeHabitPin.length !== 4
+                            || (!negativeHabitsPinRequired && currentNegativeHabitPin.length !== 4)
+                          }
+                        >
+                          Сохранить пин
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost compact"
+                          disabled={negativeHabitsSecurityBusy}
+                          onClick={() => {
+                            setNegativeHabitsChangePinOpen(false)
+                            setCurrentNegativeHabitPin('')
+                            setReplacementNegativeHabitPin('')
+                            setNegativeHabitsSecurityError(null)
+                          }}
+                        >
+                          Отмена
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                  {negativeHabitsSecurityError && <p className="banner error">{negativeHabitsSecurityError}</p>}
+                  {negativeHabitsSecurityMessage && <p className="hint negative-habits-security-message">{negativeHabitsSecurityMessage}</p>}
+                </div>
+              )}
+              <ul id="negative-habits-settings-list" className="task-settings-list">
+                {tasks.filter((task) => !task.withdrawal_syndrome || negativeHabitsSettingsOpen).map((task) => {
                 const edit = edits[task.id] ?? {
                   title: task.title,
                   habit_days: String(task.habit_days),
@@ -435,14 +837,76 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                     </button>
                   </li>
                 )
-              })}
-            </ul>
+                })}
+              </ul>
+            </div>
           )}
           {error && <p className="banner error">{error}</p>}
         </div>
       )}
     </section>
   )
+}
+
+function NegativeHabitsPinForm({
+  id,
+  value,
+  error,
+  label = 'Введите четырёхзначный PIN',
+  submitLabel = 'Открыть',
+  disabled = false,
+  onChange,
+  onSubmit,
+  onCancel,
+}: {
+  id: string
+  value: string
+  error: string | null
+  label?: string
+  submitLabel?: string
+  disabled?: boolean
+  onChange: (value: string) => void
+  onSubmit: () => void
+  onCancel: () => void
+}) {
+  const errorId = `${id}-error`
+
+  return (
+    <form
+      id={id}
+      className="negative-habits-pin-form"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit()
+      }}
+    >
+      <label>
+        {label}
+        <input
+          type="password"
+          inputMode="numeric"
+          autoComplete="current-password"
+          pattern="[0-9]{4}"
+          maxLength={4}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange(normalizePin(event.target.value))}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : undefined}
+          autoFocus
+        />
+      </label>
+      <div className="negative-habits-pin-actions">
+        <button type="submit" className="primary compact" disabled={disabled || value.length !== 4}>{submitLabel}</button>
+        <button type="button" className="ghost compact" disabled={disabled} onClick={onCancel}>Отмена</button>
+      </div>
+      {error && <p id={errorId} className="negative-habits-pin-error">{error}</p>}
+    </form>
+  )
+}
+
+function normalizePin(value: string) {
+  return value.replace(/\D/g, '').slice(0, 4)
 }
 
 function getVirtualCompletionDays(createdAt: string, testDate: string): number {

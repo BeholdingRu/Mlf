@@ -14,6 +14,7 @@ export type AuthContextValue = {
   verifyRecovery: (email: string, token: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  verifyPassword: (password: string) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

@@ -33,21 +33,28 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     saveAnnualCycleEnabled,
     saveShabbatTheme,
     saveTheme,
+    saveNegativeHabitsSecurity,
     isAdmin,
     adminMode,
     setAdminMode,
   } = useData()
-  const { user, signOut, changePassword } = useAuth()
+  const { user, signOut, changePassword, verifyPassword } = useAuth()
   const [enabled, setEnabled] = useState(profile?.weight_enabled ?? false)
   const [error, setError] = useState<string | null>(null)
   const [passwordInfo, setPasswordInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [passwordBusy, setPasswordBusy] = useState(false)
+  const [pinBusy, setPinBusy] = useState(false)
   const [appearanceOpen, setAppearanceOpen] = useState(false)
   const [passwordFormOpen, setPasswordFormOpen] = useState(false)
+  const [pinFormOpen, setPinFormOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState('')
+  const [pinAccountPassword, setPinAccountPassword] = useState('')
+  const [newPin, setNewPin] = useState('')
+  const [newPinConfirmation, setNewPinConfirmation] = useState('')
+  const [pinInfo, setPinInfo] = useState<string | null>(null)
   const [nutritionInfoOpen, setNutritionInfoOpen] = useState(false)
   const [theme, setTheme] = useState<ThemeId>(() =>
     profile ? normalizeTheme(profile.theme) : getSavedTheme(),
@@ -187,6 +194,35 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       setError(getAuthErrorMessage(err, 'Не удалось изменить пароль'))
     } finally {
       setPasswordBusy(false)
+    }
+  }
+
+  async function onPinChange(event: FormEvent) {
+    event.preventDefault()
+    setError(null)
+    setPinInfo(null)
+
+    if (!/^\d{4}$/.test(newPin)) {
+      setError('Новый пин должен состоять из четырёх цифр')
+      return
+    }
+    if (newPin !== newPinConfirmation) {
+      setError('Введённые пины не совпадают')
+      return
+    }
+
+    setPinBusy(true)
+    try {
+      await verifyPassword(pinAccountPassword)
+      await saveNegativeHabitsSecurity({ pin: newPin })
+      setPinAccountPassword('')
+      setNewPin('')
+      setNewPinConfirmation('')
+      setPinInfo('Пин успешно изменён.')
+    } catch (err) {
+      setError(getAuthErrorMessage(err, 'Не удалось изменить пин'))
+    } finally {
+      setPinBusy(false)
     }
   }
 
@@ -384,15 +420,30 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         <section className="settings-block">
           <h3>Профиль</h3>
           <p className="email">{user?.email}</p>
-          <button
-            type="button"
-            className="primary compact settings-action"
-            aria-expanded={passwordFormOpen}
-            aria-controls="password-change-form"
-            onClick={() => setPasswordFormOpen((open) => !open)}
-          >
-            Смена пароля
-          </button>
+          <div className="profile-security-actions">
+            <button
+              type="button"
+              className="primary compact settings-action"
+              aria-expanded={passwordFormOpen}
+              aria-controls="password-change-form"
+              onClick={() => setPasswordFormOpen((open) => !open)}
+            >
+              Смена пароля
+            </button>
+            <button
+              type="button"
+              className="primary compact settings-action"
+              aria-expanded={pinFormOpen}
+              aria-controls="pin-change-form"
+              onClick={() => {
+                setPinFormOpen((open) => !open)
+                setError(null)
+                setPinInfo(null)
+              }}
+            >
+              Сменить пин с подтверждением
+            </button>
+          </div>
           {passwordFormOpen && (
             <form id="password-change-form" onSubmit={onPasswordChange}>
               <label>
@@ -431,6 +482,50 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             </form>
           )}
           {passwordInfo && <p className="banner info">{passwordInfo}</p>}
+          {pinFormOpen && (
+            <form id="pin-change-form" onSubmit={onPinChange}>
+              <label>
+                Пароль учётной записи
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={pinAccountPassword}
+                  onChange={(event) => setPinAccountPassword(event.target.value)}
+                />
+              </label>
+              <label>
+                Новый пин
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  pattern="[0-9]{4}"
+                  maxLength={4}
+                  required
+                  value={newPin}
+                  onChange={(event) => setNewPin(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                />
+              </label>
+              <label>
+                Повторите новый пин
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  pattern="[0-9]{4}"
+                  maxLength={4}
+                  required
+                  value={newPinConfirmation}
+                  onChange={(event) => setNewPinConfirmation(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                />
+              </label>
+              <button className="primary compact" type="submit" disabled={pinBusy}>
+                {pinBusy ? 'Проверка…' : 'Изменить пин'}
+              </button>
+            </form>
+          )}
+          {pinInfo && <p className="banner info">{pinInfo}</p>}
           <button type="button" className="danger compact settings-action" onClick={() => signOut()}>
             Выйти из аккаунта
           </button>

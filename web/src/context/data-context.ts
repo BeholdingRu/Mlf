@@ -55,6 +55,7 @@ export type DataContextValue = {
   updateTask: (id: string, patch: { title?: string; habit_days?: number }) => Promise<void>
   restartWithdrawalTask: (taskId: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
+  saveNegativeHabitsSecurity: (patch: { pin?: string; requirePin?: boolean }) => Promise<void>
   saveWeightSettings: (target: number | null) => Promise<void>
   saveWeightVisibility: (enabled: boolean) => Promise<void>
   logTodayWeight: (value: number) => Promise<void>
