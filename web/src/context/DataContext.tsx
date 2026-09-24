@@ -545,6 +545,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (updError) throw updError
         setProfile(data as Profile)
       },
+      async saveDiaryStatisticsTargets(targets) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({ diary_statistics_targets: targets })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
       async saveTheme(theme) {
         if (!user || !profile) return
         const { data, error: updError } = await requireSupabase()

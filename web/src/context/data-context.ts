@@ -6,6 +6,7 @@ import type {
   BibleBookmark,
   BibleTreeProgress,
   BibleVerse,
+  DiaryStatisticsTargets,
   FoodLog,
   MealPlanEntry,
   MealType,
@@ -59,6 +60,7 @@ export type DataContextValue = {
   logTodayWeight: (value: number) => Promise<void>
   saveCaloriesNorm: (norm: number | null) => Promise<void>
   saveDesiredWeight: (desired: number | null) => Promise<void>
+  saveDiaryStatisticsTargets: (targets: DiaryStatisticsTargets) => Promise<void>
   saveTheme: (theme: ThemeId) => Promise<void>
   saveFontScale: (scale: FontScale) => Promise<void>
   saveLocation: (timeZone: string, city: SunsetCity | null) => Promise<void>

@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useData } from '../hooks/useData'
+import type { DiaryStatisticsTargets } from '../lib/types'
 import {
   dateTimeInputInTimeZone,
   getAdminTestTime,
@@ -31,6 +32,8 @@ const MONTHS = [
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
+type StatisticsTargetForm = Record<keyof DiaryStatisticsTargets, string>
+
 export function DiaryView() {
   const {
     adminMode,
@@ -41,6 +44,7 @@ export function DiaryView() {
     scheduledExercises,
     savedProducts,
     profile,
+    saveDiaryStatisticsTargets,
     logFoodOnDate,
     updateFoodLogProductName,
     deleteFoodLog,
@@ -73,6 +77,21 @@ export function DiaryView() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [visibleMonth, setVisibleMonth] = useState<Date | null>(null)
   const [showProducts, setShowProducts] = useState(false)
+  const [showNutritionStatistics, setShowNutritionStatistics] = useState(false)
+  const [showNutritionPeriod, setShowNutritionPeriod] = useState(false)
+  const [showStatisticsSettings, setShowStatisticsSettings] = useState(false)
+  const [showWeightTargetInfo, setShowWeightTargetInfo] = useState(false)
+  const [statisticsTargetForm, setStatisticsTargetForm] = useState<StatisticsTargetForm>(
+    () => statisticsTargetsToForm(profile?.diary_statistics_targets),
+  )
+  const [statisticsSettingsBusy, setStatisticsSettingsBusy] = useState(false)
+  const [statisticsSettingsError, setStatisticsSettingsError] = useState<string | null>(null)
+  const [nutritionCalendarSelection, setNutritionCalendarSelection] = useState<'start' | 'end'>('start')
+  const [nutritionPeriodFrom, setNutritionPeriodFrom] = useState(() => {
+    const today = parseISODate(actualToday)
+    return localISODate(new Date(today.getFullYear(), today.getMonth(), 1))
+  })
+  const [nutritionPeriodTo, setNutritionPeriodTo] = useState(actualToday)
   const [showExercises, setShowExercises] = useState(false)
   const [showTrainingStatistics, setShowTrainingStatistics] = useState(false)
   const [editingFoodId, setEditingFoodId] = useState<string | null>(null)
@@ -91,6 +110,8 @@ export function DiaryView() {
   const [adminFoodCarbohydrates, setAdminFoodCarbohydrates] = useState('')
   const [adminFoodBusy, setAdminFoodBusy] = useState(false)
   const [adminFoodError, setAdminFoodError] = useState<string | null>(null)
+  const statisticsTargets = profile?.diary_statistics_targets ?? {}
+
   const testDate = testDateTime.slice(0, 10)
   const activeSelectedDate = selectedDate ?? (adminMode && testDate ? testDate : latestDate)
   const activeMonth = visibleMonth ?? (() => {
@@ -130,6 +151,85 @@ export function DiaryView() {
     },
     { proteins: 0, fats: 0, carbohydrates: 0 },
   )
+  const nutritionPeriodStatistics = useMemo(() => {
+    if (!nutritionPeriodFrom || !nutritionPeriodTo || nutritionPeriodFrom > nutritionPeriodTo) return null
+
+    const totalsByDate = new Map<string, {
+      calories: number
+      proteins: number
+      fats: number
+      carbohydrates: number
+    }>()
+
+    foodHistoryLogs.forEach((food) => {
+      if (food.logged_on < nutritionPeriodFrom || food.logged_on > nutritionPeriodTo) return
+
+      const multiplier = food.weight_grams / 100
+      const totals = totalsByDate.get(food.logged_on) ?? {
+        calories: 0,
+        proteins: 0,
+        fats: 0,
+        carbohydrates: 0,
+      }
+      totals.calories += multiplier * food.calories_per_100g
+      totals.proteins += multiplier * food.proteins_per_100g
+      totals.fats += multiplier * food.fats_per_100g
+      totals.carbohydrates += multiplier * food.carbohydrates_per_100g
+      totalsByDate.set(food.logged_on, totals)
+    })
+
+    const trackedDays = totalsByDate.size
+    if (trackedDays === 0) {
+      return { trackedDays, calories: 0, proteins: 0, fats: 0, carbohydrates: 0 }
+    }
+
+    const periodTotals = [...totalsByDate.values()].reduce(
+      (totals, day) => ({
+        calories: totals.calories + day.calories,
+        proteins: totals.proteins + day.proteins,
+        fats: totals.fats + day.fats,
+        carbohydrates: totals.carbohydrates + day.carbohydrates,
+      }),
+      { calories: 0, proteins: 0, fats: 0, carbohydrates: 0 },
+    )
+
+    return {
+      trackedDays,
+      calories: periodTotals.calories / trackedDays,
+      proteins: periodTotals.proteins / trackedDays,
+      fats: periodTotals.fats / trackedDays,
+      carbohydrates: periodTotals.carbohydrates / trackedDays,
+    }
+  }, [foodHistoryLogs, nutritionPeriodFrom, nutritionPeriodTo])
+  const weightPeriodStatistics = useMemo(() => {
+    if (!nutritionPeriodFrom || !nutritionPeriodTo || nutritionPeriodFrom > nutritionPeriodTo) return null
+
+    const selectedDays = Math.round(
+      (parseISODate(nutritionPeriodTo).getTime() - parseISODate(nutritionPeriodFrom).getTime())
+      / (24 * 60 * 60 * 1000),
+    ) + 1
+
+    const periodLogs = weightLogs
+      .filter((log) => log.logged_on >= nutritionPeriodFrom && log.logged_on <= nutritionPeriodTo)
+      .sort((a, b) => a.logged_on.localeCompare(b.logged_on))
+    const firstLog = periodLogs[0]
+    const lastLog = periodLogs[periodLogs.length - 1]
+    if (!firstLog || !lastLog || firstLog.logged_on === lastLog.logged_on) return null
+
+    const elapsedDays = Math.round(
+      (parseISODate(lastLog.logged_on).getTime() - parseISODate(firstLog.logged_on).getTime())
+      / (24 * 60 * 60 * 1000),
+    )
+    if (elapsedDays < 1) return null
+
+    return {
+      averageDailyChange: (lastLog.value - firstLog.value) / elapsedDays,
+      firstDate: firstLog.logged_on,
+      lastDate: lastLog.logged_on,
+      measurements: periodLogs.length,
+      selectedDays,
+    }
+  }, [nutritionPeriodFrom, nutritionPeriodTo, weightLogs])
   const firstWeekday = (activeMonth.getDay() + 6) % 7
   const daysInMonth = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate()
   const emptyDays = Array.from({ length: firstWeekday })
@@ -148,7 +248,26 @@ export function DiaryView() {
 
   const selectDay = (day: number) => {
     const date = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day)
-    setSelectedDate(localISODate(date))
+    const selectedIsoDate = localISODate(date)
+
+    if (showNutritionStatistics && showNutritionPeriod) {
+      if (nutritionCalendarSelection === 'start') {
+        setNutritionPeriodFrom(selectedIsoDate)
+        setNutritionPeriodTo(selectedIsoDate)
+        setNutritionCalendarSelection('end')
+      } else {
+        if (selectedIsoDate < nutritionPeriodFrom) {
+          setNutritionPeriodTo(nutritionPeriodFrom)
+          setNutritionPeriodFrom(selectedIsoDate)
+        } else {
+          setNutritionPeriodTo(selectedIsoDate)
+        }
+        setNutritionCalendarSelection('start')
+      }
+      return
+    }
+
+    setSelectedDate(selectedIsoDate)
     setEditingFoodId(null)
     setFoodNameEditError(null)
     setAdminFoodFormOpen(false)
@@ -262,6 +381,56 @@ export function DiaryView() {
     }
   }
 
+  const saveStatisticsSettings = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (statisticsSettingsBusy) return
+
+    const parsedTargets: Record<keyof DiaryStatisticsTargets, number | undefined> = {
+      proteins: parseTargetNumber(statisticsTargetForm.proteins),
+      fats: parseTargetNumber(statisticsTargetForm.fats),
+      carbohydrates: parseTargetNumber(statisticsTargetForm.carbohydrates),
+      weightDay: parseWeightTarget(statisticsTargetForm.weightDay),
+      weight7Days: parseWeightTarget(statisticsTargetForm.weight7Days),
+      weight14Days: parseWeightTarget(statisticsTargetForm.weight14Days),
+      weight28Days: parseWeightTarget(statisticsTargetForm.weight28Days),
+    }
+    if (Object.values(parsedTargets).some((value) => value !== undefined && !Number.isFinite(value))) {
+      setStatisticsSettingsError('Введите корректные числовые значения')
+      return
+    }
+    if (
+      [parsedTargets.proteins, parsedTargets.fats, parsedTargets.carbohydrates]
+        .some((value) => value !== undefined && value < 0)
+    ) {
+      setStatisticsSettingsError('Желаемые значения КБЖУ не могут быть отрицательными')
+      return
+    }
+
+    const targets = Object.fromEntries(
+      Object.entries(parsedTargets).filter((entry): entry is [string, number] => entry[1] !== undefined),
+    ) as DiaryStatisticsTargets
+
+    setStatisticsSettingsBusy(true)
+    setStatisticsSettingsError(null)
+    try {
+      await saveDiaryStatisticsTargets(targets)
+      setShowStatisticsSettings(false)
+    } catch (settingsError) {
+      setStatisticsSettingsError(
+        settingsError instanceof Error
+          ? settingsError.message
+          : 'Не удалось сохранить настройки статистики',
+      )
+    } finally {
+      setStatisticsSettingsBusy(false)
+    }
+  }
+
+  const updateStatisticsTarget = (key: keyof DiaryStatisticsTargets, value: string) => {
+    setStatisticsTargetForm((current) => ({ ...current, [key]: value }))
+    setStatisticsSettingsError(null)
+  }
+
   const selectedLabel = activeSelectedDate
     ? parseISODate(activeSelectedDate).toLocaleDateString('ru-RU', {
         day: 'numeric',
@@ -321,52 +490,65 @@ export function DiaryView() {
           <span className="hint">Локально симулирует дату и время без сохранения в БД.</span>
         </div>
       )}
-      <div className="diary-calendar">
-        <div className="calendar-head">
-          <button type="button" className="calendar-nav" onClick={previousMonth} aria-label="Предыдущий месяц">
-            ←
-          </button>
-          <h2>
-            {MONTHS[activeMonth.getMonth()]} {activeMonth.getFullYear()}
-          </h2>
-          <button type="button" className="calendar-nav" onClick={nextMonth} aria-label="Следующий месяц">
-            →
-          </button>
-        </div>
-        <div className="calendar-grid" role="grid" aria-label="Календарь дневника">
-          {WEEKDAYS.map((weekday) => (
-            <span key={weekday} className="calendar-weekday">
-              {weekday}
-            </span>
-          ))}
-          {emptyDays.map((_, index) => (
-            <span key={`empty-${index}`} />
-          ))}
-          {monthDays.map((day) => {
-            const iso = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day))
-            const isFriday = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day).getDay() === 5
-            const sunsetTime = profile && isFriday && profile.time_zone && profile.city_latitude !== null && profile.city_longitude !== null
-              ? getSunsetTime(iso, profile.city_latitude, profile.city_longitude, profile.time_zone)
-              : null
-            const classes = [
-              'calendar-day',
-              datesWithRecords.has(iso) ? 'has-food' : '',
-              datesWithMissedTasks.has(iso) ? 'has-missed-task' : '',
-              datesWithTraining.has(iso) ? 'has-training' : '',
-              activeSelectedDate === iso ? 'selected' : '',
-              today === iso ? 'today' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')
+      <div className="diary-calendar-column">
+        <div className="diary-calendar">
+          <div className="calendar-head">
+            <button type="button" className="calendar-nav" onClick={previousMonth} aria-label="Предыдущий месяц">
+              ←
+            </button>
+            <h2>
+              {MONTHS[activeMonth.getMonth()]} {activeMonth.getFullYear()}
+            </h2>
+            <button type="button" className="calendar-nav" onClick={nextMonth} aria-label="Следующий месяц">
+              →
+            </button>
+          </div>
+          <div className="calendar-grid" role="grid" aria-label="Календарь дневника">
+            {WEEKDAYS.map((weekday) => (
+              <span key={weekday} className="calendar-weekday">
+                {weekday}
+              </span>
+            ))}
+            {emptyDays.map((_, index) => (
+              <span key={`empty-${index}`} />
+            ))}
+            {monthDays.map((day) => {
+              const iso = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day))
+              const isFriday = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day).getDay() === 5
+              const sunsetTime = profile && isFriday && profile.time_zone && profile.city_latitude !== null && profile.city_longitude !== null
+                ? getSunsetTime(iso, profile.city_latitude, profile.city_longitude, profile.time_zone)
+                : null
+              const classes = [
+                'calendar-day',
+                datesWithRecords.has(iso) ? 'has-food' : '',
+                datesWithMissedTasks.has(iso) ? 'has-missed-task' : '',
+                datesWithTraining.has(iso) ? 'has-training' : '',
+                activeSelectedDate === iso ? 'selected' : '',
+                today === iso ? 'today' : '',
+                showNutritionStatistics && showNutritionPeriod && iso >= nutritionPeriodFrom && iso <= nutritionPeriodTo
+                  ? 'nutrition-period-range'
+                  : '',
+                showNutritionStatistics && showNutritionPeriod && iso === nutritionPeriodFrom
+                  ? 'nutrition-period-start'
+                  : '',
+                showNutritionStatistics && showNutritionPeriod && iso === nutritionPeriodTo
+                  ? 'nutrition-period-end'
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' ')
 
-            return (
-              <button key={iso} type="button" className={classes} onClick={() => selectDay(day)} aria-label={sunsetTime ? `${day}, заход солнца ${sunsetTime}` : undefined}>
-                <span>{day}</span>
-                {sunsetTime && <small className="calendar-sunset">{sunsetTime}</small>}
-              </button>
-            )
-          })}
+              return (
+                <button key={iso} type="button" className={classes} onClick={() => selectDay(day)} aria-label={sunsetTime ? `${day}, заход солнца ${sunsetTime}` : undefined}>
+                  <span>{day}</span>
+                  {sunsetTime && <small className="calendar-sunset">{sunsetTime}</small>}
+                </button>
+              )
+            })}
+          </div>
         </div>
+
+
       </div>
 
       <div className="food-list diary-food-list">
@@ -401,6 +583,14 @@ export function DiaryView() {
                     Добавить продукт
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="primary compact"
+                  onClick={() => setShowNutritionStatistics((open) => !open)}
+                  aria-expanded={showNutritionStatistics}
+                >
+                  Статистика КБЖУ/вес
+                </button>
                 {selectedLogs.length > 0 && (
                   <button
                     type="button"
@@ -566,6 +756,236 @@ export function DiaryView() {
             )}
           </section>
 
+          {showNutritionStatistics && (
+            <section className="diary-nutrition-statistics" aria-labelledby="diary-nutrition-statistics-heading">
+              <div className="diary-nutrition-statistics-head">
+                <div>
+                  <h3 id="diary-nutrition-statistics-heading">Статистика за период</h3>
+                  <p>
+                    Средние значения за сутки · {formatPeriodDate(nutritionPeriodFrom)} — {formatPeriodDate(nutritionPeriodTo)}
+                  </p>
+                </div>
+                <div className="diary-nutrition-statistics-actions">
+                  <button
+                    type="button"
+                    className="primary compact"
+                    onClick={() => {
+                      setShowNutritionPeriod((open) => {
+                        if (!open) setNutritionCalendarSelection('start')
+                        return !open
+                      })
+                    }}
+                    aria-expanded={showNutritionPeriod}
+                    aria-controls="diary-nutrition-period"
+                  >
+                    Выбрать период
+                  </button>
+                  <button
+                    type="button"
+                    className={`primary diary-statistics-settings-button${showStatisticsSettings ? ' active' : ''}`}
+                    onClick={() => {
+                      setShowStatisticsSettings((open) => {
+                        if (!open) {
+                          setStatisticsTargetForm(statisticsTargetsToForm(profile?.diary_statistics_targets))
+                          setStatisticsSettingsError(null)
+                        }
+                        return !open
+                      })
+                    }}
+                    aria-expanded={showStatisticsSettings}
+                    aria-controls="diary-statistics-settings"
+                    aria-label="Настройка целей статистики"
+                    title="Настройка"
+                  >
+                    <span aria-hidden="true">⚙</span>
+                  </button>
+                </div>
+              </div>
+              {showStatisticsSettings && (
+                <form id="diary-statistics-settings" className="diary-statistics-settings" onSubmit={saveStatisticsSettings}>
+                  <fieldset>
+                    <legend>Желаемые БЖУ за сутки</legend>
+                    <div className="diary-statistics-settings-grid diary-statistics-nutrition-targets">
+                      <label>
+                        Белки, г
+                        <input type="number" min="0" step="0.1" inputMode="decimal" value={statisticsTargetForm.proteins} onChange={(event) => updateStatisticsTarget('proteins', event.target.value)} disabled={statisticsSettingsBusy} />
+                      </label>
+                      <label>
+                        Жиры, г
+                        <input type="number" min="0" step="0.1" inputMode="decimal" value={statisticsTargetForm.fats} onChange={(event) => updateStatisticsTarget('fats', event.target.value)} disabled={statisticsSettingsBusy} />
+                      </label>
+                      <label>
+                        Углеводы, г
+                        <input type="number" min="0" step="0.1" inputMode="decimal" value={statisticsTargetForm.carbohydrates} onChange={(event) => updateStatisticsTarget('carbohydrates', event.target.value)} disabled={statisticsSettingsBusy} />
+                      </label>
+                    </div>
+                  </fieldset>
+                  <fieldset>
+                    <legend>
+                      Желаемое изменение веса
+                      <button
+                        type="button"
+                        className="diary-statistics-info-button"
+                        onClick={() => setShowWeightTargetInfo((open) => !open)}
+                        aria-expanded={showWeightTargetInfo}
+                        aria-controls="diary-weight-target-info"
+                        aria-label="Как вводить желаемое изменение веса"
+                        title="Как вводить значения"
+                      >
+                        i
+                      </button>
+                    </legend>
+                    {showWeightTargetInfo && (
+                      <p id="diary-weight-target-info" className="diary-statistics-weight-info">
+                        Значение без знака считается снижением: 1 сохраняется как −1 кг.
+                        Для увеличения веса поставьте плюс: +1 сохраняется как +1 кг.
+                      </p>
+                    )}
+                    <div className="diary-statistics-settings-grid">
+                      <label>
+                        За сутки, кг
+                        <input type="text" inputMode="text" pattern="[+\-]?[0-9]*[.,]?[0-9]*" placeholder="Например, 0,1 или +0,1" value={statisticsTargetForm.weightDay} onChange={(event) => updateStatisticsTarget('weightDay', event.target.value)} disabled={statisticsSettingsBusy} />
+                      </label>
+                      <label>
+                        За 7 суток, кг
+                        <input type="text" inputMode="text" pattern="[+\-]?[0-9]*[.,]?[0-9]*" placeholder="Например, 1 или +1" value={statisticsTargetForm.weight7Days} onChange={(event) => updateStatisticsTarget('weight7Days', event.target.value)} disabled={statisticsSettingsBusy} />
+                      </label>
+                      <label>
+                        За 14 суток, кг
+                        <input type="text" inputMode="text" pattern="[+\-]?[0-9]*[.,]?[0-9]*" placeholder="Например, 2 или +2" value={statisticsTargetForm.weight14Days} onChange={(event) => updateStatisticsTarget('weight14Days', event.target.value)} disabled={statisticsSettingsBusy} />
+                      </label>
+                      <label>
+                        За 28 суток, кг
+                        <input type="text" inputMode="text" pattern="[+\-]?[0-9]*[.,]?[0-9]*" placeholder="Например, 4 или +4" value={statisticsTargetForm.weight28Days} onChange={(event) => updateStatisticsTarget('weight28Days', event.target.value)} disabled={statisticsSettingsBusy} />
+                      </label>
+                    </div>
+                    <p>Ноль отключает сравнение для выбранного периода.</p>
+                  </fieldset>
+                  <div className="diary-statistics-settings-actions">
+                    <button type="submit" className="primary compact" disabled={statisticsSettingsBusy}>Сохранить</button>
+                    <button
+                      type="button"
+                      className="ghost compact"
+                      disabled={statisticsSettingsBusy}
+                      onClick={() => {
+                        setStatisticsTargetForm(statisticsTargetsToForm(profile?.diary_statistics_targets))
+                        setStatisticsSettingsError(null)
+                        setShowStatisticsSettings(false)
+                      }}
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                  {statisticsSettingsError && <p className="diary-statistics-settings-error">{statisticsSettingsError}</p>}
+                </form>
+              )}
+              {showNutritionPeriod && (
+                <div id="diary-nutrition-period" className="diary-nutrition-period">
+                  <p className="diary-nutrition-period-hint">
+                    {nutritionCalendarSelection === 'start'
+                      ? 'Выберите начальную дату в календаре'
+                      : 'Теперь выберите конечную дату'}
+                  </p>
+                  <label>
+                    Начальная дата
+                    <input
+                      type="date"
+                      value={nutritionPeriodFrom}
+                      max={actualToday}
+                      onChange={(event) => {
+                        setNutritionPeriodFrom(event.target.value)
+                        setNutritionCalendarSelection('start')
+                      }}
+                    />
+                  </label>
+                  <label>
+                    Конечная дата
+                    <input
+                      type="date"
+                      value={nutritionPeriodTo}
+                      max={actualToday}
+                      onChange={(event) => {
+                        setNutritionPeriodTo(event.target.value)
+                        setNutritionCalendarSelection('start')
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+              {!nutritionPeriodStatistics ? (
+                <p className="diary-nutrition-statistics-empty">Конечная дата должна быть не раньше начальной.</p>
+              ) : nutritionPeriodStatistics.trackedDays === 0 ? (
+                <p className="diary-nutrition-statistics-empty">За выбранный период записей о питании нет.</p>
+              ) : (
+                <>
+                  <div className="diary-nutrition-statistics-grid">
+                    {[
+                      { label: 'Калории', actual: nutritionPeriodStatistics.calories, target: undefined, unit: 'ккал', digits: 0 },
+                      { label: 'Белки', actual: nutritionPeriodStatistics.proteins, target: statisticsTargets.proteins, unit: 'г', digits: 1 },
+                      { label: 'Жиры', actual: nutritionPeriodStatistics.fats, target: statisticsTargets.fats, unit: 'г', digits: 1 },
+                      { label: 'Углеводы', actual: nutritionPeriodStatistics.carbohydrates, target: statisticsTargets.carbohydrates, unit: 'г', digits: 1 },
+                    ].map((item) => (
+                      <div key={item.label}>
+                        <span>{item.label}</span>
+                        <strong>{formatStatisticValue(item.actual, item.digits)} {item.unit}</strong>
+                        {hasTarget(item.target) && (
+                          <small className="diary-statistics-comparison">
+                            Цель: {formatStatisticValue(item.target, item.digits)} {item.unit}
+                            <span>Разница: {formatSignedStatistic(item.actual - item.target, item.digits)} {item.unit}</span>
+                          </small>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="diary-nutrition-statistics-days">
+                    Учтено дней с питанием: {nutritionPeriodStatistics.trackedDays}
+                  </p>
+                </>
+              )}
+              <div className="diary-weight-change-statistic">
+                <span>Среднее изменение веса</span>
+                {weightPeriodStatistics ? (
+                  <>
+                    <div className="diary-weight-change-values">
+                      {[1, 7, 14, 28]
+                        .filter((days) => days === 1 || weightPeriodStatistics.selectedDays >= days)
+                      .map((days) => {
+                        const change = weightPeriodStatistics.averageDailyChange * days
+                        const target = statisticsTargets[weightTargetKey(days)]
+                        return (
+                          <div key={days}>
+                            <small>{days === 1 ? 'За сутки' : `За ${days} суток`}</small>
+                            <strong>{formatSignedWeight(change)} кг</strong>
+                            {hasTarget(target) && (
+                              <small className="diary-statistics-weight-comparison">
+                                <span style={{ color: getTargetDeviationColor(change, target) }}>
+                                  Цель: {formatSignedWeight(target)} кг
+                                </span>
+                                {!isWeightTargetReached(change, target) && (
+                                  <span>Разница: {formatSignedWeight(change - target)} кг</span>
+                                )}
+                              </small>
+                            )}
+                          </div>
+                          )
+                        })}
+                    </div>
+                    <small>
+                      {formatPeriodDate(weightPeriodStatistics.firstDate)} — {formatPeriodDate(weightPeriodStatistics.lastDate)}
+                      {' · '}{formatMeasurementCount(weightPeriodStatistics.measurements)}
+                    </small>
+                    <small>Расчёт по среднему темпу между первым и последним замером</small>
+                  </>
+                ) : (
+                  <>
+                    <strong>Недостаточно данных</strong>
+                    <small>Нужно минимум два замера веса в разные дни</small>
+                  </>
+                )}
+              </div>
+            </section>
+          )}
+
           <section className="diary-data-section diary-exercises" aria-labelledby="diary-exercises-heading">
             <div className="diary-section-head">
               <div>
@@ -655,6 +1075,105 @@ export function DiaryView() {
 
 function formatWeight(value: number) {
   return Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
+}
+
+function formatPeriodDate(value: string) {
+  if (!value) return 'дата не выбрана'
+  return parseISODate(value).toLocaleDateString('ru-RU')
+}
+
+function statisticsTargetsToForm(targets: DiaryStatisticsTargets | null | undefined): StatisticsTargetForm {
+  return {
+    proteins: targetInputValue(targets?.proteins),
+    fats: targetInputValue(targets?.fats),
+    carbohydrates: targetInputValue(targets?.carbohydrates),
+    weightDay: weightTargetInputValue(targets?.weightDay),
+    weight7Days: weightTargetInputValue(targets?.weight7Days),
+    weight14Days: weightTargetInputValue(targets?.weight14Days),
+    weight28Days: weightTargetInputValue(targets?.weight28Days),
+  }
+}
+
+function targetInputValue(value: number | undefined) {
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : ''
+}
+
+function weightTargetInputValue(value: number | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return ''
+  return value > 0 ? `+${value}` : String(value)
+}
+
+function parseTargetNumber(value: string) {
+  const normalized = value.trim().replace(',', '.')
+  return normalized === '' ? undefined : Number(normalized)
+}
+
+function parseWeightTarget(value: string) {
+  const normalized = value.trim().replace(',', '.')
+  if (normalized === '') return undefined
+  const parsed = Number(normalized)
+  if (!Number.isFinite(parsed) || parsed === 0) return parsed
+  return normalized.startsWith('+') ? Math.abs(parsed) : -Math.abs(parsed)
+}
+
+function hasTarget(value: number | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value !== 0
+}
+
+function weightTargetKey(days: number): 'weightDay' | 'weight7Days' | 'weight14Days' | 'weight28Days' {
+  if (days === 7) return 'weight7Days'
+  if (days === 14) return 'weight14Days'
+  if (days === 28) return 'weight28Days'
+  return 'weightDay'
+}
+
+function formatStatisticValue(value: number, maximumFractionDigits: number) {
+  return value.toLocaleString('ru-RU', {
+    minimumFractionDigits: maximumFractionDigits,
+    maximumFractionDigits,
+  })
+}
+
+function formatSignedStatistic(value: number, maximumFractionDigits: number) {
+  const rounded = Number(value.toFixed(maximumFractionDigits))
+  const formatted = formatStatisticValue(Math.abs(rounded), maximumFractionDigits)
+  if (rounded === 0) return formatted
+  return `${rounded > 0 ? '+' : '−'}${formatted}`
+}
+
+function formatSignedWeight(value: number) {
+  if (Math.abs(value) < 0.005) return '0,0'
+  const formatted = Math.abs(value).toLocaleString('ru-RU', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  })
+  return `${value > 0 ? '+' : '−'}${formatted}`
+}
+
+function getTargetDeviationColor(actual: number, target: number) {
+  if (isWeightTargetReached(actual, target)) return 'hsl(120 72% 44%)'
+
+  const deviation = Math.abs(actual - target) / Math.abs(target)
+  const colorProgress = Math.min(1, deviation / 0.5)
+  const hue = Math.round(120 * (1 - colorProgress))
+  return `hsl(${hue} 72% 44%)`
+}
+
+function isWeightTargetReached(actual: number, target: number) {
+  return target < 0 ? actual <= target : actual >= target
+}
+
+function formatMeasurementCount(value: number) {
+  const lastTwoDigits = value % 100
+  const lastDigit = value % 10
+  const word = lastTwoDigits >= 11 && lastTwoDigits <= 14
+    ? 'замеров'
+    : lastDigit === 1
+      ? 'замер'
+      : lastDigit >= 2 && lastDigit <= 4
+        ? 'замера'
+        : 'замеров'
+  return `${value} ${word}`
 }
 
 function getWorkedWeight(exercise: { exercise_type: string; weight_kg: number | null; repetitions: number | null; sets: number | null }) {

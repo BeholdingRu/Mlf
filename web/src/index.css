@@ -4718,6 +4718,299 @@ nav {
   padding: 16px;
 }
 
+.diary-calendar-column {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.diary-nutrition-statistics {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.diary-nutrition-statistics-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.diary-nutrition-statistics-head h3,
+.diary-nutrition-statistics-head p,
+.diary-nutrition-statistics-days,
+.diary-nutrition-statistics-empty {
+  margin: 0;
+}
+
+.diary-nutrition-statistics-head h3 {
+  font-size: 15px;
+}
+
+.diary-nutrition-statistics-head p,
+.diary-nutrition-statistics-days,
+.diary-nutrition-statistics-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.diary-nutrition-statistics-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.diary-statistics-settings-button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--moss);
+  color: var(--on-accent);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.diary-statistics-settings-button.active {
+  border-color: color-mix(in srgb, var(--on-accent) 72%, transparent);
+  background: var(--moss);
+  color: var(--on-accent);
+}
+
+.diary-statistics-settings-button span {
+  display: block;
+  transform: translateY(-1px);
+}
+
+.diary-statistics-settings {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-muted);
+}
+
+.diary-statistics-settings fieldset {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.diary-statistics-settings legend {
+  padding: 0 4px;
+  color: var(--moss-deep);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.diary-statistics-info-button {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 5px;
+  padding: 0;
+  border: 1px solid var(--moss);
+  border-radius: 50%;
+  background: var(--info-bg);
+  color: var(--moss-deep);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.diary-statistics-info-button:hover,
+.diary-statistics-info-button[aria-expanded='true'] {
+  background: var(--moss);
+  color: var(--on-accent);
+}
+
+.diary-statistics-weight-info {
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: var(--info-bg);
+  color: var(--ink) !important;
+  line-height: 1.35;
+}
+
+.diary-statistics-settings fieldset > p,
+.diary-statistics-settings-error {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.diary-statistics-settings-error {
+  color: var(--danger, #a33b3b);
+  text-align: center;
+}
+
+.diary-statistics-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.diary-statistics-nutrition-targets {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.diary-statistics-settings-grid label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.diary-statistics-settings-grid input {
+  min-width: 0;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.diary-statistics-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.diary-nutrition-period {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.diary-nutrition-period-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--moss-deep);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.diary-nutrition-period label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.diary-nutrition-period input {
+  min-width: 0;
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font: inherit;
+  color-scheme: light dark;
+}
+
+.diary-nutrition-statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.diary-nutrition-statistics-grid > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-muted);
+}
+
+.diary-nutrition-statistics-grid span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.diary-nutrition-statistics-grid strong {
+  overflow-wrap: anywhere;
+  color: var(--moss-deep);
+  font-size: 14px;
+}
+
+.diary-statistics-comparison,
+.diary-statistics-weight-comparison {
+  display: grid;
+  gap: 1px;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.diary-statistics-comparison span,
+.diary-statistics-weight-comparison span {
+  font-size: inherit;
+}
+
+.diary-weight-change-statistic {
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-muted);
+  text-align: center;
+}
+
+.diary-weight-change-statistic span,
+.diary-weight-change-statistic small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.diary-weight-change-statistic strong {
+  color: var(--moss-deep);
+  font-size: 15px;
+}
+
+.diary-weight-change-values {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.diary-weight-change-values > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
 .calendar-head,
 .diary-list-head {
   display: flex;
@@ -4861,6 +5154,58 @@ nav {
 
 .calendar-day.selected {
   background: var(--moss);
+  color: var(--on-accent);
+}
+
+.calendar-day.nutrition-period-range {
+  --nutrition-period-fill: color-mix(in srgb, var(--moss) 22%, var(--surface));
+  border-color: color-mix(in srgb, var(--moss) 72%, var(--line));
+  border-radius: 0;
+  background: var(--nutrition-period-fill);
+  color: var(--ink);
+}
+
+.calendar-day.nutrition-period-range:not(.nutrition-period-end):not(:nth-child(7n)) {
+  box-shadow: 5px 0 0 var(--nutrition-period-fill);
+}
+
+.calendar-day.nutrition-period-range:nth-child(7n + 1),
+.calendar-day.nutrition-period-start {
+  border-radius: 9px 0 0 9px;
+}
+
+.calendar-day.nutrition-period-range:nth-child(7n),
+.calendar-day.nutrition-period-end {
+  border-radius: 0 9px 9px 0;
+}
+
+.calendar-day.nutrition-period-start,
+.calendar-day.nutrition-period-end {
+  border-color: var(--moss-deep);
+  background: var(--moss);
+  box-shadow: inset 0 0 0 2px var(--moss-deep);
+  color: var(--on-accent);
+  font-weight: 800;
+}
+
+.calendar-day.nutrition-period-start:not(.nutrition-period-end):not(:nth-child(7n)) {
+  box-shadow: inset 0 0 0 2px var(--moss-deep), 5px 0 0 var(--nutrition-period-fill);
+}
+
+.calendar-day.nutrition-period-start.nutrition-period-end,
+.calendar-day.nutrition-period-start:nth-child(7n),
+.calendar-day.nutrition-period-end:nth-child(7n + 1) {
+  border-radius: 9px;
+}
+
+.calendar-day.has-missed-task.nutrition-period-range {
+  overflow: visible;
+}
+
+.calendar-day.nutrition-period-start .calendar-sunset,
+.calendar-day.nutrition-period-end .calendar-sunset {
+  border-color: currentColor;
+  background: color-mix(in srgb, var(--on-accent) 22%, transparent);
   color: var(--on-accent);
 }
 
@@ -6543,6 +6888,50 @@ nav {
   .diary-calendar,
   .meal-plan-calendar {
     padding: 12px;
+  }
+
+  .diary-nutrition-statistics {
+    padding: 10px;
+  }
+
+  .diary-nutrition-statistics-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .diary-nutrition-statistics-head .primary.compact {
+    width: 100%;
+  }
+
+  .diary-nutrition-statistics-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .diary-nutrition-statistics-actions .compact {
+    width: 100%;
+  }
+
+  .diary-statistics-settings-button {
+    justify-self: end;
+  }
+
+  .diary-nutrition-period {
+    grid-template-columns: 1fr;
+  }
+
+  .diary-nutrition-statistics-grid,
+  .diary-weight-change-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .diary-statistics-settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .diary-statistics-nutrition-targets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .calendar-head h2,

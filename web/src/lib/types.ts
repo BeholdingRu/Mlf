@@ -1,5 +1,15 @@
 import type { ShabbatThemeId, ThemeId } from './theme'
 
+export type DiaryStatisticsTargets = {
+  proteins?: number
+  fats?: number
+  carbohydrates?: number
+  weightDay?: number
+  weight7Days?: number
+  weight14Days?: number
+  weight28Days?: number
+}
+
 export type Profile = {
   id: string
   email: string
@@ -21,6 +31,7 @@ export type Profile = {
   last_bible_chapter: number | null
   bible_chapter_positions: Record<string, number>
   bible_bookmark_color_labels: Record<string, string>
+  diary_statistics_targets: DiaryStatisticsTargets
 }
 
 export type BibleVerse = {

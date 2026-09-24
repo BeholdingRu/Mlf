@@ -37,6 +37,8 @@ create table if not exists public.profiles (
     check (jsonb_typeof(bible_chapter_positions) = 'object'),
   bible_bookmark_color_labels jsonb not null default '{}'::jsonb
     check (jsonb_typeof(bible_bookmark_color_labels) = 'object'),
+  diary_statistics_targets jsonb not null default '{}'::jsonb
+    check (jsonb_typeof(diary_statistics_targets) = 'object'),
   created_at timestamptz not null default now()
 );
 
@@ -85,7 +87,9 @@ alter table public.profiles
   add column if not exists last_bible_book_order smallint check (last_bible_book_order between 1 and 66),
   add column if not exists last_bible_chapter smallint check (last_bible_chapter >= 1),
   add column if not exists bible_chapter_positions jsonb not null default '{}'::jsonb
-    check (jsonb_typeof(bible_chapter_positions) = 'object');
+    check (jsonb_typeof(bible_chapter_positions) = 'object'),
+  add column if not exists diary_statistics_targets jsonb not null default '{}'::jsonb
+    check (jsonb_typeof(diary_statistics_targets) = 'object');
 
 update public.profiles
 set bible_chapter_positions = bible_chapter_positions || jsonb_build_object(
