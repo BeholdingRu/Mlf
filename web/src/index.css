@@ -5295,6 +5295,17 @@ nav {
   cursor: pointer;
 }
 
+.diary-macro-products-popover-head button.active {
+  border-color: var(--moss);
+  background: var(--moss);
+  color: var(--done-ink);
+}
+
+.diary-macro-products-popover-head button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .diary-macro-products-popover ul {
   display: grid;
   gap: 3px;
@@ -5323,6 +5334,10 @@ nav {
   color: var(--moss-deep);
   font-size: 11px;
   white-space: nowrap;
+}
+
+.diary-macro-products-popover li .diary-macro-products-values {
+  font-size: 10px;
 }
 
 .diary-nutrition-statistics-grid span {

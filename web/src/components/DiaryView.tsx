@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useData } from '../hooks/useData'
 import type { DiaryStatisticsTargets } from '../lib/types'
 import {
@@ -52,6 +52,11 @@ type MacroCalculatorSettings = {
 type MacroCalculatorSettingsForm = {
   fatCaloriesPercent: string
   proteinWeightMultiplier: string
+}
+
+type MacroCalculatorBalanceValues = {
+  proteins: number | null
+  fats: number | null
 }
 
 const DEFAULT_MACRO_CALCULATOR_SETTINGS: MacroCalculatorSettings = {
@@ -108,6 +113,7 @@ export function DiaryView() {
   const [showWeightTargetInfo, setShowWeightTargetInfo] = useState(false)
   const [activeMacroProductFilter, setActiveMacroProductFilter] = useState<MacroProductFilter | null>(null)
   const [macroProductSortDirection, setMacroProductSortDirection] = useState<'desc' | 'asc'>('desc')
+  const [proteinBalanceSort, setProteinBalanceSort] = useState(false)
   const [statisticsTargetForm, setStatisticsTargetForm] = useState<StatisticsTargetForm>(
     () => statisticsTargetsToForm(profile?.diary_statistics_targets),
   )
@@ -117,6 +123,10 @@ export function DiaryView() {
   const [macroCalculatorSettingsForm, setMacroCalculatorSettingsForm] = useState<MacroCalculatorSettingsForm>(
     () => macroCalculatorSettingsToForm(macroCalculatorSettingsFromTargets(profile?.diary_statistics_targets)),
   )
+  const [macroCalculatorBalanceValues, setMacroCalculatorBalanceValues] = useState<MacroCalculatorBalanceValues>({
+    proteins: null,
+    fats: null,
+  })
   const [statisticsSettingsBusy, setStatisticsSettingsBusy] = useState(false)
   const [statisticsSettingsError, setStatisticsSettingsError] = useState<string | null>(null)
   const [nutritionCalendarSelection, setNutritionCalendarSelection] = useState<'start' | 'end'>('start')
@@ -161,26 +171,65 @@ export function DiaryView() {
     : typeof defaultCarbohydrateTarget === 'number' && defaultCarbohydrateTarget > 0
       ? defaultCarbohydrateTarget
       : undefined
-  const filteredSavedProducts = useMemo(
-    () => activeMacroProductFilter
-      ? savedProducts
-          .filter((product) => getSavedProductMacro(product, activeMacroProductFilter) > 0)
-          .sort((first, second) => {
-            const difference = getSavedProductMacro(second, activeMacroProductFilter)
-              - getSavedProductMacro(first, activeMacroProductFilter)
-            return (macroProductSortDirection === 'desc' ? difference : -difference)
-              || first.name.localeCompare(second.name, 'ru-RU')
-          })
-      : [],
-    [activeMacroProductFilter, macroProductSortDirection, savedProducts],
-  )
+  const proteinBalanceAvailable = typeof macroCalculatorBalanceValues.proteins === 'number'
+    && macroCalculatorBalanceValues.proteins > 0
+    && typeof macroCalculatorBalanceValues.fats === 'number'
+    && macroCalculatorBalanceValues.fats > 0
+  const filteredSavedProducts = useMemo(() => {
+    if (!activeMacroProductFilter) return []
+
+    const calculatorProteins = macroCalculatorBalanceValues.proteins
+    const calculatorFats = macroCalculatorBalanceValues.fats
+    const products = savedProducts.filter(
+      (product) => getSavedProductMacro(product, activeMacroProductFilter) > 0,
+    )
+
+    if (
+      activeMacroProductFilter === 'proteins'
+      && proteinBalanceSort
+      && typeof calculatorProteins === 'number'
+      && calculatorProteins > 0
+      && typeof calculatorFats === 'number'
+      && calculatorFats > 0
+    ) {
+      return products.sort((first, second) => {
+        const balanceDifference = getProteinFatBalanceDeviation(
+          first,
+          calculatorProteins,
+          calculatorFats,
+        ) - getProteinFatBalanceDeviation(
+          second,
+          calculatorProteins,
+          calculatorFats,
+        )
+        return balanceDifference
+          || second.proteins_per_100g - first.proteins_per_100g
+          || first.name.localeCompare(second.name, 'ru-RU')
+      })
+    }
+
+    return products.sort((first, second) => {
+      const difference = getSavedProductMacro(second, activeMacroProductFilter)
+        - getSavedProductMacro(first, activeMacroProductFilter)
+      return (macroProductSortDirection === 'desc' ? difference : -difference)
+        || first.name.localeCompare(second.name, 'ru-RU')
+    })
+  }, [
+    activeMacroProductFilter,
+    macroProductSortDirection,
+    macroCalculatorBalanceValues,
+    proteinBalanceSort,
+    savedProducts,
+  ])
 
   const toggleMacroProductFilter = (filter: MacroProductFilter) => {
     if (activeMacroProductFilter === filter) {
       setActiveMacroProductFilter(null)
+      setProteinBalanceSort(false)
       return
     }
     setMacroProductSortDirection('desc')
+    setProteinBalanceSort(false)
     setActiveMacroProductFilter(filter)
   }
 
@@ -1104,16 +1153,31 @@ export function DiaryView() {
                           <div className="diary-macro-products-popover">
                             <div className="diary-macro-products-popover-head">
                               <strong>На 100 г</strong>
-                              <button
-                                type="button"
-                                onClick={() => setMacroProductSortDirection((current) => current === 'desc' ? 'asc' : 'desc')}
-                                aria-label={macroProductSortDirection === 'desc'
-                                  ? 'Сортировать от меньшего к большему'
-                                  : 'Сортировать от большего к меньшему'}
-                                title="Изменить порядок сортировки"
-                              >
-                                {macroProductSortDirection === 'desc' ? 'По убыванию ↓' : 'По возрастанию ↑'}
-                              </button>
+                              {item.productFilter === 'proteins' ? (
+                                <button
+                                  type="button"
+                                  className={proteinBalanceSort ? 'active' : undefined}
+                                  disabled={!proteinBalanceAvailable}
+                                  onClick={() => setProteinBalanceSort((active) => !active)}
+                                  aria-pressed={proteinBalanceSort}
+                                  title={proteinBalanceAvailable
+                                    ? 'Сортировать по соотношению белков и жиров из калькулятора КБЖУ'
+                                    : 'Введите белки и жиры в калькуляторе КБЖУ'}
+                                >
+                                  Калькулятор КБЖУ
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setMacroProductSortDirection((current) => current === 'desc' ? 'asc' : 'desc')}
+                                  aria-label={macroProductSortDirection === 'desc'
+                                    ? 'Сортировать от меньшего к большему'
+                                    : 'Сортировать от большего к меньшему'}
+                                  title="Изменить порядок сортировки"
+                                >
+                                  {macroProductSortDirection === 'desc' ? 'По убыванию ↓' : 'По возрастанию ↑'}
+                                </button>
+                              )}
                             </div>
                             {filteredSavedProducts.length === 0 ? (
                               <p>Сохранённых продуктов нет</p>
@@ -1122,7 +1186,13 @@ export function DiaryView() {
                                 {filteredSavedProducts.map((product) => (
                                   <li key={product.id}>
                                     <span>{product.name}</span>
-                                    <b>{formatStatisticValue(getSavedProductMacro(product, item.productFilter), 1)} г</b>
+                                    {item.productFilter === 'proteins' ? (
+                                      <b className="diary-macro-products-values">
+                                        Б {formatStatisticValue(product.proteins_per_100g, 1)} г · Ж {formatStatisticValue(product.fats_per_100g, 1)} г
+                                      </b>
+                                    ) : (
+                                      <b>{formatStatisticValue(getSavedProductMacro(product, item.productFilter), 1)} г</b>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
@@ -1180,6 +1250,7 @@ export function DiaryView() {
                 dailyCaloriesNorm={profile?.daily_calories_norm}
                 desiredWeight={profile?.desired_weight}
                 settings={macroCalculatorSettings}
+                onBalanceValuesChange={setMacroCalculatorBalanceValues}
               />
             </div>
           )}
@@ -1397,10 +1468,12 @@ function MacroNutrientCalculator({
   dailyCaloriesNorm,
   desiredWeight,
   settings,
+  onBalanceValuesChange,
 }: {
   dailyCaloriesNorm?: number | null
   desiredWeight?: number | null
   settings: MacroCalculatorSettings
+  onBalanceValuesChange: (values: MacroCalculatorBalanceValues) => void
 }) {
   const [values, setValues] = useState<Record<MacroCalculatorKey, { grams: string; calories: string }>>(() => {
     const defaultFatCalories = typeof dailyCaloriesNorm === 'number' && dailyCaloriesNorm > 0
@@ -1461,6 +1534,13 @@ function MacroNutrientCalculator({
   const totalCalories = MACRO_CALCULATOR_FIELDS.reduce((total, field) => (
     total + (parseCalculatorValue(values[field.key].calories) ?? 0)
   ), 0)
+
+  useEffect(() => {
+    onBalanceValuesChange({
+      proteins: parseCalculatorValue(values.proteins.grams),
+      fats: parseCalculatorValue(values.fats.grams),
+    })
+  }, [onBalanceValuesChange, values.fats.grams, values.proteins.grams])
 
   return (
     <aside className="diary-macro-calculator" aria-labelledby="diary-macro-calculator-heading">
@@ -1523,6 +1603,20 @@ function getSavedProductMacro(
   if (filter === 'proteins') return product.proteins_per_100g
   if (filter === 'fats') return product.fats_per_100g
   return product.carbohydrates_per_100g
+}
+
+function getProteinFatBalanceDeviation(
+  product: { proteins_per_100g: number; fats_per_100g: number },
+  proteinTarget: number,
+  fatTarget: number,
+) {
+  const productTotal = product.proteins_per_100g + product.fats_per_100g
+  const targetTotal = proteinTarget + fatTarget
+  if (productTotal <= 0 || targetTotal <= 0) return Number.POSITIVE_INFINITY
+
+  const productProteinShare = product.proteins_per_100g / productTotal
+  const targetProteinShare = proteinTarget / targetTotal
+  return Math.abs(productProteinShare - targetProteinShare)
 }
 
 function StatisticValueComparison({
