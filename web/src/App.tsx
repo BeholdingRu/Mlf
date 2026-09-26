@@ -1,27 +1,12 @@
 import { AuthProvider } from './context/AuthContext'
 import { DataProvider } from './context/DataContext'
+import { GuestDataProvider } from './context/GuestDataProvider'
 import { useAuth } from './hooks/useAuth'
-import { supabaseConfigured } from './lib/supabase'
 import { AuthPage } from './pages/AuthPage'
 import { CabinetPage } from './pages/CabinetPage'
 import { RecoveryPasswordPage } from './pages/RecoveryPasswordPage'
 
 export default function App() {
-  if (!supabaseConfigured) {
-    return (
-      <div className="auth-shell">
-        <div className="auth-card">
-          <p className="eyebrow">MLF</p>
-          <h1>Нужен Supabase</h1>
-          <p className="lede">
-            Скопируйте <code>web/.env.example</code> в <code>web/.env</code> и укажите URL проекта
-            и anon-ключ. Затем выполните SQL из <code>web/supabase/schema.sql</code>.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <AuthProvider>
       <Root />
@@ -30,12 +15,25 @@ export default function App() {
 }
 
 function Root() {
-  const { user, loading, recoveryRequired } = useAuth()
+  const { user, loading, isGuest, recoveryRequired, enterGuestMode } = useAuth()
   if (loading) {
     return (
       <div className="auth-shell">
-        <p className="muted">Загрузка…</p>
+        <div className="auth-card auth-loading-card">
+          <p className="muted">Загрузка…</p>
+          <button type="button" className="ghost guest-mode-button" onClick={enterGuestMode}>
+            Продолжить как гость
+          </button>
+          <p className="hint">Гостевые данные останутся только в этом браузере.</p>
+        </div>
       </div>
+    )
+  }
+  if (isGuest) {
+    return (
+      <GuestDataProvider key="guest-local">
+        <CabinetPage />
+      </GuestDataProvider>
     )
   }
   if (!user) return <AuthPage />

@@ -9,6 +9,7 @@ import { DiaryView } from '../components/DiaryView'
 import { MediaView } from '../components/MediaView'
 import { PathView } from '../components/PathView'
 import { useData } from '../hooks/useData'
+import { useAuth } from '../hooks/useAuth'
 import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
 import { applyFontScale, applyTheme, normalizeFontScale, normalizeShabbatTheme, normalizeTheme } from '../lib/theme'
@@ -31,6 +32,7 @@ function getSavedCabinetTab(): CabinetTab {
 
 export function CabinetPage() {
   const { adminMode, loading, error, profile, tasks, completions, scheduledExercises } = useData()
+  const { isGuest } = useAuth()
   const viewport = useViewport()
   const [tab, setTab] = useState<CabinetTab>(getSavedCabinetTab)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -120,15 +122,26 @@ export function CabinetPage() {
       />
       <main className="main">
         <header className={tab === 'calories' ? 'topbar calories-topbar' : 'topbar'}>
-          {tab === 'path' ? (
-            <div className="path-heading">
-              <p className="path-heading-quote">
-                Вникай в себя и в учение; занимайся сим постоянно: ибо, так поступая, и себя спасёшь, и слушающих тебя. 1Тим.4:16
-              </p>
-            </div>
-          ) : (
-            <h1>{heading}</h1>
-          )}
+          <div className="topbar-context">
+            {tab === 'path' ? (
+              <div className="path-heading">
+                <p className="path-heading-quote">
+                  Вникай в себя и в учение; занимайся сим постоянно: ибо, так поступая, и себя спасёшь, и слушающих тебя. 1Тим.4:16
+                </p>
+              </div>
+            ) : (
+              <h1>{heading}</h1>
+            )}
+            {isGuest && (
+              <span
+                className="guest-mode-badge"
+                title="Данные сохраняются только на этом устройстве"
+              >
+                <span className="guest-mode-badge-dot" aria-hidden="true" />
+                Гостевой режим · локально
+              </span>
+            )}
+          </div>
           <button
             type="button"
             className="primary settings-button topbar-settings-button"

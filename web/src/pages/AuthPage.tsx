@@ -8,7 +8,7 @@ type RecoveryStep = 'email' | 'code'
 const RECOVERY_CODE_LENGTH = 8
 
 export function AuthPage() {
-  const { signIn, requestRecovery, verifyRecovery } = useAuth()
+  const { enterGuestMode, signIn, requestRecovery, verifyRecovery } = useAuth()
   const [mode, setMode] = useState<AuthMode>('login')
   const [recoveryStep, setRecoveryStep] = useState<RecoveryStep>('email')
   const [email, setEmail] = useState('')
@@ -181,6 +181,18 @@ export function AuthPage() {
             </button>
           )}
         </div>
+
+        {mode === 'login' && (
+          <section className="guest-entry" aria-label="Гостевой режим">
+            <p>
+              В гостевом режиме персональные записи и настройки сохраняются только в этом
+              браузере и не передаются в облачную базу. Синхронизация между устройствами недоступна.
+            </p>
+            <button type="button" className="ghost guest-mode-button" onClick={enterGuestMode}>
+              Продолжить как гость
+            </button>
+          </section>
+        )}
       </div>
     </div>
   )

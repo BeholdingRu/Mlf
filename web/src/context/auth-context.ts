@@ -5,7 +5,10 @@ export type AuthContextValue = {
   user: User | null
   session: Session | null
   loading: boolean
+  isGuest: boolean
   recoveryRequired: boolean
+  enterGuestMode: () => void
+  exitGuestMode: () => void
   signIn: (email: string, password: string) => Promise<void>
   validateRegistrationCode: (code: string) => Promise<boolean>
   signUp: (email: string, password: string, registrationCode: string) => Promise<'session' | 'confirm'>

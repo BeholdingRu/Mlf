@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { GUEST_DATA_CLEAR_EVENT } from '../context/GuestDataProvider'
 import { useData } from '../hooks/useData'
 import { useAuth } from '../hooks/useAuth'
 import { getAuthErrorMessage } from '../lib/auth-errors'
@@ -38,7 +39,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     adminMode,
     setAdminMode,
   } = useData()
-  const { user, signOut, changePassword, verifyPassword } = useAuth()
+  const { user, isGuest, signOut, exitGuestMode, changePassword, verifyPassword } = useAuth()
   const [enabled, setEnabled] = useState(profile?.weight_enabled ?? false)
   const [error, setError] = useState<string | null>(null)
   const [passwordInfo, setPasswordInfo] = useState<string | null>(null)
@@ -55,6 +56,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [newPin, setNewPin] = useState('')
   const [newPinConfirmation, setNewPinConfirmation] = useState('')
   const [pinInfo, setPinInfo] = useState<string | null>(null)
+  const [guestDataInfo, setGuestDataInfo] = useState<string | null>(null)
   const [nutritionInfoOpen, setNutritionInfoOpen] = useState(false)
   const [theme, setTheme] = useState<ThemeId>(() =>
     profile ? normalizeTheme(profile.theme) : getSavedTheme(),
@@ -67,6 +69,18 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [annualCycleEnabled, setAnnualCycleEnabled] = useState(profile?.annual_cycle_enabled ?? false)
   const [shabbatTheme, setShabbatTheme] = useState<ShabbatThemeId>(() => normalizeShabbatTheme(profile?.shabbat_theme))
   const shabbatActive = isShabbatActive(profile)
+
+  function leaveGuestMode() {
+    onClose()
+    exitGuestMode()
+  }
+
+  function clearGuestData() {
+    if (!window.confirm('Удалить все данные гостевого режима с этого устройства? Отменить это действие нельзя.')) return
+
+    window.dispatchEvent(new Event(GUEST_DATA_CLEAR_EVENT))
+    setGuestDataInfo('Локальные данные гостевого режима удалены.')
+  }
 
   async function changeWeightVisibility(nextEnabled: boolean) {
     const previousEnabled = enabled
@@ -256,7 +270,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <p className="hint">
                 {shabbatActive
                   ? 'Во время Шаббата доступно праздничное оформление.'
-                  : 'Тема сохраняется в профиле и будет доступна на всех устройствах.'}
+                  : isGuest
+                    ? 'Тема сохраняется только в этом браузере.'
+                    : 'Тема сохраняется в профиле и будет доступна на всех устройствах.'}
               </p>
               <div className="theme-options" role="radiogroup" aria-label="Выбор темы">
                 {shabbatActive ? shabbatThemes.map((option) => (
@@ -418,117 +434,137 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         )}
 
         <section className="settings-block">
-          <h3>Профиль</h3>
-          <p className="email">{user?.email}</p>
-          <div className="profile-security-actions">
-            <button
-              type="button"
-              className="primary compact settings-action"
-              aria-expanded={passwordFormOpen}
-              aria-controls="password-change-form"
-              onClick={() => setPasswordFormOpen((open) => !open)}
-            >
-              Смена пароля
-            </button>
-            <button
-              type="button"
-              className="primary compact settings-action"
-              aria-expanded={pinFormOpen}
-              aria-controls="pin-change-form"
-              onClick={() => {
-                setPinFormOpen((open) => !open)
-                setError(null)
-                setPinInfo(null)
-              }}
-            >
-              Сменить пин с подтверждением
-            </button>
-          </div>
-          {passwordFormOpen && (
-            <form id="password-change-form" onSubmit={onPasswordChange}>
-              <label>
-                Текущий пароль
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
-                />
-              </label>
-              <label>
-                Новый пароль
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                />
-              </label>
-              <label>
-                Повторите новый пароль
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  value={newPasswordConfirmation}
-                  onChange={(event) => setNewPasswordConfirmation(event.target.value)}
-                />
-              </label>
-              <button className="primary compact" type="submit" disabled={passwordBusy}>
-                {passwordBusy ? 'Сохранение…' : 'Изменить пароль'}
+          <h3>{isGuest ? 'Гостевой режим' : 'Профиль'}</h3>
+          {isGuest ? (
+            <div className="guest-storage-settings">
+              <p className="banner info guest-privacy-note">
+                Персональные данные сохраняются только на этом устройстве и не передаются в
+                облачную базу. Они не синхронизируются и могут быть удалены браузером.
+              </p>
+              {guestDataInfo && <p className="banner info">{guestDataInfo}</p>}
+              <div className="guest-storage-actions">
+                <button type="button" className="danger compact" onClick={clearGuestData}>
+                  Удалить локальные данные
+                </button>
+                <button type="button" className="ghost compact" onClick={leaveGuestMode}>
+                  Выйти из гостевого режима
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="email">{user?.email}</p>
+              <div className="profile-security-actions">
+                <button
+                  type="button"
+                  className="primary compact settings-action"
+                  aria-expanded={passwordFormOpen}
+                  aria-controls="password-change-form"
+                  onClick={() => setPasswordFormOpen((open) => !open)}
+                >
+                  Смена пароля
+                </button>
+                <button
+                  type="button"
+                  className="primary compact settings-action"
+                  aria-expanded={pinFormOpen}
+                  aria-controls="pin-change-form"
+                  onClick={() => {
+                    setPinFormOpen((open) => !open)
+                    setError(null)
+                    setPinInfo(null)
+                  }}
+                >
+                  Сменить пин с подтверждением
+                </button>
+              </div>
+              {passwordFormOpen && (
+                <form id="password-change-form" onSubmit={onPasswordChange}>
+                  <label>
+                    Текущий пароль
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      value={currentPassword}
+                      onChange={(event) => setCurrentPassword(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Новый пароль
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Повторите новый пароль
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      value={newPasswordConfirmation}
+                      onChange={(event) => setNewPasswordConfirmation(event.target.value)}
+                    />
+                  </label>
+                  <button className="primary compact" type="submit" disabled={passwordBusy}>
+                    {passwordBusy ? 'Сохранение…' : 'Изменить пароль'}
+                  </button>
+                </form>
+              )}
+              {passwordInfo && <p className="banner info">{passwordInfo}</p>}
+              {pinFormOpen && (
+                <form id="pin-change-form" onSubmit={onPinChange}>
+                  <label>
+                    Пароль учётной записи
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      value={pinAccountPassword}
+                      onChange={(event) => setPinAccountPassword(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Новый пин
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      pattern="[0-9]{4}"
+                      maxLength={4}
+                      required
+                      value={newPin}
+                      onChange={(event) => setNewPin(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                    />
+                  </label>
+                  <label>
+                    Повторите новый пин
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      pattern="[0-9]{4}"
+                      maxLength={4}
+                      required
+                      value={newPinConfirmation}
+                      onChange={(event) => setNewPinConfirmation(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                    />
+                  </label>
+                  <button className="primary compact" type="submit" disabled={pinBusy}>
+                    {pinBusy ? 'Проверка…' : 'Изменить пин'}
+                  </button>
+                </form>
+              )}
+              {pinInfo && <p className="banner info">{pinInfo}</p>}
+              <button type="button" className="danger compact settings-action" onClick={() => signOut()}>
+                Выйти из аккаунта
               </button>
-            </form>
+            </>
           )}
-          {passwordInfo && <p className="banner info">{passwordInfo}</p>}
-          {pinFormOpen && (
-            <form id="pin-change-form" onSubmit={onPinChange}>
-              <label>
-                Пароль учётной записи
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={pinAccountPassword}
-                  onChange={(event) => setPinAccountPassword(event.target.value)}
-                />
-              </label>
-              <label>
-                Новый пин
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="new-password"
-                  pattern="[0-9]{4}"
-                  maxLength={4}
-                  required
-                  value={newPin}
-                  onChange={(event) => setNewPin(event.target.value.replace(/\D/g, '').slice(0, 4))}
-                />
-              </label>
-              <label>
-                Повторите новый пин
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="new-password"
-                  pattern="[0-9]{4}"
-                  maxLength={4}
-                  required
-                  value={newPinConfirmation}
-                  onChange={(event) => setNewPinConfirmation(event.target.value.replace(/\D/g, '').slice(0, 4))}
-                />
-              </label>
-              <button className="primary compact" type="submit" disabled={pinBusy}>
-                {pinBusy ? 'Проверка…' : 'Изменить пин'}
-              </button>
-            </form>
-          )}
-          {pinInfo && <p className="banner info">{pinInfo}</p>}
-          <button type="button" className="danger compact settings-action" onClick={() => signOut()}>
-            Выйти из аккаунта
-          </button>
         </section>
 
         {error && <p className="banner error">{error}</p>}
