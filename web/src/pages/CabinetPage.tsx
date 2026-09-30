@@ -13,10 +13,10 @@ import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
 import { applyFontScale, applyTheme, normalizeFontScale, normalizeShabbatTheme, normalizeTheme } from '../lib/theme'
 import { isShabbatActive } from '../lib/shabbat'
-import { localISODate } from '../lib/dates'
+import { isoDateInTimeZone, localISODate } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { getRegularTaskProgressDays } from '../lib/task-progress'
-import { getNextBibleLocation, type BibleNavigationTarget } from '../lib/bible-books'
+import { getNextBibleLocation, isBibleReadingTask, type BibleNavigationTarget } from '../lib/bible-books'
 import { ADMIN_TEST_TIME_CHANGE_EVENT, getAdminTestTime } from '../lib/admin-test-time'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
@@ -40,11 +40,13 @@ export function CabinetPage() {
     (exercise) => !exercise.completed && exercise.planned_on === localISODate(currentTime),
   )
   const today = localISODate(currentTime)
+  const bibleToday = isoDateInTimeZone(profile?.time_zone, currentTime)
   const hasIncompleteDailyTasks = tasks.some((task) => {
+    const taskToday = isBibleReadingTask(task) ? bibleToday : today
     const automaticTask = task.withdrawal_syndrome || task.inverted_logic || (profile?.weight_enabled && isNutritionTask(task))
-    const habitFormed = getRegularTaskProgressDays(task, completions, today, profile?.time_zone) >= task.habit_days
+    const habitFormed = getRegularTaskProgressDays(task, completions, taskToday, profile?.time_zone) >= task.habit_days
     const completedToday = completions.some(
-      (completion) => completion.task_id === task.id && completion.completed_on === today,
+      (completion) => completion.task_id === task.id && completion.completed_on === taskToday,
     )
 
     return !automaticTask && !habitFormed && !completedToday

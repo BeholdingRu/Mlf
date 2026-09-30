@@ -1604,6 +1604,96 @@ nav {
   gap: 8px;
 }
 
+.default-task-settings {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.default-task-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px auto;
+  gap: 8px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.default-task-card h3 {
+  align-self: center;
+  margin: 0;
+  font-size: 15px;
+}
+
+.default-task-card label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.default-task-card label > input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.default-task-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bible-default-task-card {
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.55fr) auto;
+}
+
+.bible-default-task-card > h3,
+.default-bible-task-title-field,
+.default-bible-task-hint,
+.default-task-card > .banner {
+  grid-column: 1 / -1;
+}
+
+.default-bible-task-title-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.default-bible-task-title-prefix {
+  padding: 9px 0 9px 11px;
+  color: var(--ink);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.default-bible-task-title-prefix::after {
+  content: ':';
+  margin-right: 6px;
+}
+
+.default-bible-task-title-input input {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.default-bible-task-hint {
+  margin: 0;
+  font-size: 12px;
+}
+
 .negative-habits-create-pin,
 .negative-habits-pin-form label,
 .negative-habits-change-pin-form label {
@@ -2057,7 +2147,8 @@ nav {
   min-width: 0;
 }
 
-.bible-continue-button {
+.bible-continue-button,
+.bible-chapter-countdown {
   flex: 0 0 auto;
   min-height: 30px;
   padding: 5px 10px;
@@ -2079,6 +2170,13 @@ nav {
 .bible-continue-button:focus-visible {
   outline: 2px solid var(--leaf);
   outline-offset: 2px;
+}
+
+.bible-chapter-countdown {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .task-body .hint {
@@ -7114,7 +7212,8 @@ nav {
     gap: 6px;
   }
 
-  .bible-continue-button {
+  .bible-continue-button,
+  .bible-chapter-countdown {
     padding: 5px 8px;
     font-size: 11px;
   }
@@ -7199,6 +7298,28 @@ nav {
 
   .task-editor-row > :first-child {
     grid-column: 1 / -1;
+  }
+
+  .default-task-card,
+  .bible-default-task-card {
+    grid-template-columns: 1fr;
+  }
+
+  .default-task-card > *,
+  .bible-default-task-card > * {
+    grid-column: 1;
+  }
+
+  .default-task-actions {
+    flex-wrap: wrap;
+  }
+
+  .default-bible-task-title-input {
+    grid-template-columns: 1fr;
+  }
+
+  .default-bible-task-title-prefix {
+    padding-bottom: 0;
   }
 
   .days {

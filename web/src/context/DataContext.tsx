@@ -2,11 +2,12 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { requireSupabase } from '../lib/supabase'
-import { isoDateInTimeZone, localISODate } from '../lib/dates'
+import { isoDateInTimeZone, localISODate, millisecondsUntilNextDayInTimeZone } from '../lib/dates'
 import type {
   FoodLog,
   MealPlanEntry,
@@ -28,6 +29,12 @@ import type {
 } from '../lib/types'
 import { DEFAULT_PRODUCT_CATEGORY } from '../lib/product-categories'
 import { isNutritionTask } from '../lib/nutrition-task'
+import { isBibleReadingTask } from '../lib/bible-books'
+import {
+  getBibleDailyReadingCount,
+  seedBibleDailyReadingChapters,
+  subscribeBibleDailyReading,
+} from '../lib/bible-daily-reading'
 import { useAuth } from '../hooks/useAuth'
 import { DataContext, type DataContextValue } from './data-context'
 import { BIBLE_GROWTH_TOTAL_STEPS } from '../lib/bible-growth'
@@ -65,7 +72,7 @@ function normalizeBibleTreeProgress(data: unknown): BibleTreeProgress {
   const row = result as BibleTreeProgressRpcRow | null | undefined
   return {
     progressSteps: Math.max(0, Math.min(BIBLE_GROWTH_TOTAL_STEPS, Number(row?.progress_steps) || 0)),
-    chaptersToday: Math.max(0, Number(row?.chapters_today) || 0),
+    chaptersToday: Math.max(0, Math.min(5, Number(row?.chapters_today) || 0)),
     startedOn: row?.started_on ?? null,
     available: true,
   }
@@ -99,6 +106,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [mealPlanEntries, setMealPlanEntries] = useState<MealPlanEntry[]>([])
   const [bibleBookmarks, setBibleBookmarks] = useState<BibleBookmark[]>([])
   const [bibleTreeProgress, setBibleTreeProgress] = useState<BibleTreeProgress>(EMPTY_BIBLE_TREE_PROGRESS)
+  const [bibleTreeProgressDate, setBibleTreeProgressDate] = useState<string | null>(null)
+  const [bibleReadingDate, setBibleReadingDate] = useState(() => isoDateInTimeZone(undefined))
+  const [bibleDailyReading, setBibleDailyReading] = useState<{
+    userId: string | null
+    date: string
+    count: number
+  }>(() => ({ userId: null, date: isoDateInTimeZone(undefined), count: 0 }))
   const [pathDayConfirmations, setPathDayConfirmations] = useState<PathDayConfirmation[]>([])
   const [courseLessonCompletions, setCourseLessonCompletions] = useState<CourseLessonCompletion[]>([])
   const [mindfulnessCategories, setMindfulnessCategories] = useState<MindfulnessCategory[]>([])
@@ -112,6 +126,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [adminMode, setAdminModeEnabled] = useState(
     () => window.sessionStorage.getItem(ADMIN_MODE_STORAGE_KEY) === 'true',
   )
+  const bibleCompletionPendingRef = useRef(new Set<string>())
+  const bibleChaptersReadToday = bibleDailyReading.userId === (userId ?? null)
+    && bibleDailyReading.date === bibleReadingDate
+    ? bibleDailyReading.count
+    : 0
 
   const setAdminMode = useCallback((enabled: boolean) => {
     if (!isAdmin) return
@@ -211,9 +230,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     const taskHistoryEffectiveOn = isoDateInTimeZone(nextProfile.time_zone)
+    setBibleReadingDate(taskHistoryEffectiveOn)
+    setBibleDailyReading({
+      userId,
+      date: taskHistoryEffectiveOn,
+      count: getBibleDailyReadingCount(userId, taskHistoryEffectiveOn),
+    })
     setProfile(nextProfile)
     setTasks(((tasksRes.data ?? []) as Task[]).map((task) => ({
       ...task,
+      task_kind: task.task_kind ?? null,
+      bible_daily_chapter_target: task.bible_daily_chapter_target ?? null,
       inverted_logic: task.inverted_logic ?? false,
       inverted_logic_history: normalizeTaskInvertedLogicHistory(
         task.inverted_logic_history,
@@ -259,8 +286,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLoading(false)
 
     try {
-      const [bibleTreeResult, adminResult] = await withDataLoadTimeout(Promise.all([
+      const bibleReadingDate = isoDateInTimeZone(nextProfile.time_zone)
+      const [bibleTreeResult, bibleReadsResult, adminResult] = await withDataLoadTimeout(Promise.all([
         client.rpc('refresh_bible_tree_progress'),
+        client
+          .from('bible_chapter_reads')
+          .select('book_order,chapter')
+          .eq('user_id', userId)
+          .eq('read_on', bibleReadingDate)
+          .limit(5),
         client.rpc('is_admin'),
       ]))
 
@@ -269,13 +303,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
           setError(bibleTreeResult.error.message)
         }
         setBibleTreeProgress(EMPTY_BIBLE_TREE_PROGRESS)
+        setBibleTreeProgressDate(bibleReadingDate)
       } else {
         setBibleTreeProgress(normalizeBibleTreeProgress(bibleTreeResult.data))
+        setBibleTreeProgressDate(bibleReadingDate)
+      }
+
+      if (!bibleReadsResult.error) {
+        seedBibleDailyReadingChapters(
+          userId,
+          bibleReadingDate,
+          (bibleReadsResult.data ?? []).map((read) => ({
+            bookOrder: Number(read.book_order),
+            chapter: Number(read.chapter),
+          })),
+        )
       }
 
       setIsAdmin(adminResult.error == null && adminResult.data === true)
     } catch (supplementaryLoadError) {
       setBibleTreeProgress(EMPTY_BIBLE_TREE_PROGRESS)
+      setBibleTreeProgressDate(isoDateInTimeZone(nextProfile.time_zone))
       setIsAdmin(false)
       setError(
         supplementaryLoadError instanceof Error
@@ -289,6 +337,62 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const timer = window.setTimeout(() => void refresh(), 0)
     return () => window.clearTimeout(timer)
   }, [refresh, userId])
+
+  useEffect(() => {
+    let midnightTimer: number | undefined
+    const syncReadingDate = () => {
+      const nextDate = isoDateInTimeZone(profile?.time_zone)
+      const nextCount = userId ? getBibleDailyReadingCount(userId, nextDate) : 0
+      setBibleDailyReading({ userId: userId ?? null, date: nextDate, count: nextCount })
+      setBibleReadingDate(nextDate)
+      midnightTimer = window.setTimeout(
+        syncReadingDate,
+        millisecondsUntilNextDayInTimeZone(profile?.time_zone) + 50,
+      )
+    }
+    const initialTimer = window.setTimeout(syncReadingDate, 0)
+    return () => {
+      window.clearTimeout(initialTimer)
+      window.clearTimeout(midnightTimer)
+    }
+  }, [profile?.time_zone, userId])
+
+  useEffect(() => {
+    if (!userId || !profile) {
+      const resetTimer = window.setTimeout(() => {
+        setBibleDailyReading({ userId: null, date: bibleReadingDate, count: 0 })
+      }, 0)
+      return () => window.clearTimeout(resetTimer)
+    }
+
+    const syncReadingCount = () => {
+      setBibleDailyReading({
+        userId,
+        date: bibleReadingDate,
+        count: Math.max(
+          bibleTreeProgressDate === bibleReadingDate ? bibleTreeProgress.chaptersToday : 0,
+          getBibleDailyReadingCount(userId, bibleReadingDate),
+        ),
+      })
+    }
+
+    const syncTimer = window.setTimeout(syncReadingCount, 0)
+    const unsubscribe = subscribeBibleDailyReading((detail) => {
+      if (detail.userId !== userId || detail.date !== bibleReadingDate) return
+      setBibleDailyReading({
+        userId,
+        date: bibleReadingDate,
+        count: Math.max(
+          bibleTreeProgressDate === bibleReadingDate ? bibleTreeProgress.chaptersToday : 0,
+          detail.count,
+        ),
+      })
+    })
+    return () => {
+      window.clearTimeout(syncTimer)
+      unsubscribe()
+    }
+  }, [bibleReadingDate, bibleTreeProgress.chaptersToday, bibleTreeProgressDate, profile, userId])
 
   useEffect(() => {
     if (!userId) return
@@ -391,6 +495,61 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer)
   }, [reconcileNutritionTaskDate])
 
+  useEffect(() => {
+    if (!user || !profile) return
+
+    const bibleTask = tasks.find((task) => !task.withdrawal_syndrome && task.task_kind === 'bible_reading')
+      ?? tasks.find((task) => !task.withdrawal_syndrome && isBibleReadingTask(task))
+    if (!bibleTask) return
+
+    const target = bibleTask.bible_daily_chapter_target ?? 5
+    if (bibleChaptersReadToday < target) return
+
+    const completedOn = bibleReadingDate
+    if (completions.some(
+      (completion) => completion.task_id === bibleTask.id && completion.completed_on === completedOn,
+    )) return
+
+    const pendingKey = `${bibleTask.id}:${completedOn}`
+    if (bibleCompletionPendingRef.current.has(pendingKey)) return
+    bibleCompletionPendingRef.current.add(pendingKey)
+
+    const completeBibleTask = async () => {
+      try {
+        const { data, error: completionError } = await requireSupabase()
+          .from('task_completions')
+          .upsert(
+            {
+              task_id: bibleTask.id,
+              user_id: user.id,
+              completed_on: completedOn,
+            },
+            { onConflict: 'task_id,completed_on' },
+          )
+          .select('*')
+          .single()
+        if (completionError) throw completionError
+        const completion = data as TaskCompletion
+        setCompletions((previous) => [
+          ...previous.filter((item) => !(
+            item.task_id === bibleTask.id && item.completed_on === completedOn
+          )),
+          completion,
+        ])
+      } catch (completionError) {
+        setError(
+          completionError instanceof Error
+            ? completionError.message
+            : 'Не удалось автоматически завершить задачу чтения Библии',
+        )
+      } finally {
+        bibleCompletionPendingRef.current.delete(pendingKey)
+      }
+    }
+
+    void completeBibleTask()
+  }, [bibleChaptersReadToday, bibleReadingDate, completions, profile, tasks, user])
+
   const value = useMemo<DataContextValue>(
     () => ({
       profile,
@@ -402,6 +561,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       mealPlanEntries,
       bibleBookmarks,
       bibleTreeProgress,
+      bibleTreeProgressDate,
+      bibleChaptersReadToday,
       pathDayConfirmations,
       courseLessonCompletions,
       mindfulnessCategories,
@@ -421,34 +582,68 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (profile?.weight_enabled && task && isNutritionTask(task)) {
           throw new Error('Эта задача отмечается автоматически по дневной норме калорий')
         }
-        const today = localISODate()
+        const today = task && isBibleReadingTask(task)
+          ? isoDateInTimeZone(profile?.time_zone)
+          : localISODate()
         const existing = completions.find(
           (c) => c.task_id === taskId && c.completed_on === today,
         )
         if (existing) return
         const { data, error: insError } = await requireSupabase()
           .from('task_completions')
-          .insert({
-            task_id: taskId,
-            user_id: user.id,
-            completed_on: today,
-          })
+          .upsert(
+            {
+              task_id: taskId,
+              user_id: user.id,
+              completed_on: today,
+            },
+            { onConflict: 'task_id,completed_on' },
+          )
           .select('*')
           .single()
         if (insError) throw insError
-        setCompletions((prev) => [...prev, data as TaskCompletion])
+        const completion = data as TaskCompletion
+        setCompletions((prev) => [
+          ...prev.filter((item) => !(item.task_id === taskId && item.completed_on === today)),
+          completion,
+        ])
       },
-      async addTask(title, habitDays, withdrawalSyndrome = false, invertedLogic = false) {
+      async addTask(
+        title,
+        habitDays,
+        withdrawalSyndrome = false,
+        invertedLogic = false,
+        options = {},
+      ) {
         if (!user) return
+        const taskKind = withdrawalSyndrome ? null : options.taskKind ?? null
+        const bibleDailyChapterTarget = taskKind === 'bible_reading'
+          ? options.bibleDailyChapterTarget ?? 5
+          : null
+        const nextSortOrder = tasks.reduce(
+          (maximum, task) => Math.max(maximum, task.sort_order),
+          -1,
+        ) + 1 + (taskKind === 'bible_reading' ? 1 : 0)
+        if (
+          bibleDailyChapterTarget != null
+          && (!Number.isInteger(bibleDailyChapterTarget) || bibleDailyChapterTarget < 1)
+        ) {
+          throw new Error('Количество глав должно быть целым числом от 1')
+        }
         const { data, error: insError } = await requireSupabase()
           .from('tasks')
           .insert({
             user_id: user.id,
             title,
+            task_kind: taskKind,
+            bible_daily_chapter_target: bibleDailyChapterTarget,
             habit_days: habitDays,
-            sort_order: tasks.length,
+            sort_order: nextSortOrder,
             withdrawal_syndrome: withdrawalSyndrome,
-            inverted_logic: !withdrawalSyndrome && !isNutritionTask({ title }) && invertedLogic,
+            inverted_logic: !withdrawalSyndrome
+              && !isNutritionTask({ title, task_kind: taskKind })
+              && !isBibleReadingTask({ title, task_kind: taskKind })
+              && invertedLogic,
             withdrawal_started_on: withdrawalSyndrome ? localISODate() : null,
           })
           .select('*')
@@ -457,6 +652,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const insertedTask = data as Task
         setTasks((prev) => [...prev, {
           ...insertedTask,
+          task_kind: insertedTask.task_kind ?? null,
+          bible_daily_chapter_target: insertedTask.bible_daily_chapter_target ?? null,
           inverted_logic_history: normalizeTaskInvertedLogicHistory(
             insertedTask.inverted_logic_history,
             insertedTask.inverted_logic,
@@ -467,7 +664,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       async updateTask(id, patch) {
         const currentTask = tasks.find((task) => task.id === id)
         const nextTitle = patch.title ?? currentTask?.title ?? ''
-        const nextPatch = isNutritionTask({ title: nextTitle })
+        const nextTaskKind = patch.task_kind ?? currentTask?.task_kind ?? null
+        if (
+          patch.bible_daily_chapter_target != null
+          && (!Number.isInteger(patch.bible_daily_chapter_target) || patch.bible_daily_chapter_target < 1)
+        ) {
+          throw new Error('Количество глав должно быть целым числом от 1')
+        }
+        const isDefaultAutomaticTask = isNutritionTask({ title: nextTitle, task_kind: nextTaskKind })
+          || isBibleReadingTask({ title: nextTitle, task_kind: nextTaskKind })
+        const nextPatch = isDefaultAutomaticTask
           ? { ...patch, inverted_logic: false }
           : patch
         const inversionChanged = nextPatch.inverted_logic !== undefined
@@ -501,7 +707,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
               )
             : currentTask?.inverted_logic_history ?? []
         setTasks((prev) => prev.map((task) => (task.id === id
-          ? { ...updatedTask, inverted_logic_history: updatedHistory }
+          ? {
+              ...updatedTask,
+              task_kind: updatedTask.task_kind ?? null,
+              bible_daily_chapter_target: updatedTask.bible_daily_chapter_target ?? null,
+              inverted_logic_history: updatedHistory,
+            }
           : task)))
       },
       async restartWithdrawalTask(taskId) {
@@ -518,6 +729,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setTasks((prev) => prev.map((task) => (task.id === taskId
           ? {
               ...restartedTask,
+              task_kind: restartedTask.task_kind ?? null,
+              bible_daily_chapter_target: restartedTask.bible_daily_chapter_target ?? null,
               inverted_logic_history: Array.isArray(restartedTask.inverted_logic_history)
                 ? normalizeTaskInvertedLogicHistory(
                     restartedTask.inverted_logic_history,
@@ -724,26 +937,77 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
       async recordBibleChapterRead(bookOrder, chapter) {
         if (!user) return null
-        const { data, error: recordError } = await requireSupabase().rpc('record_bible_chapter_read', {
+        const readingDate = isoDateInTimeZone(profile?.time_zone)
+        const client = requireSupabase()
+        const { data, error: recordError } = await client.rpc('record_bible_chapter_read', {
           p_book_order: bookOrder,
           p_chapter: chapter,
         })
         if (recordError) {
-          if (isBibleTreeFeatureMissing(recordError)) return null
+          if (isBibleTreeFeatureMissing(recordError)) {
+            setBibleTreeProgress(EMPTY_BIBLE_TREE_PROGRESS)
+            setBibleTreeProgressDate(readingDate)
+            return null
+          }
           throw recordError
         }
         const nextProgress = normalizeBibleTreeProgress(data)
         setBibleTreeProgress(nextProgress)
+        setBibleTreeProgressDate(readingDate)
+        if (nextProgress.chaptersToday >= 5) {
+          const readsResult = await client
+            .from('bible_chapter_reads')
+            .select('book_order,chapter')
+            .eq('user_id', user.id)
+            .eq('read_on', readingDate)
+            .limit(5)
+          if (!readsResult.error) {
+            seedBibleDailyReadingChapters(
+              user.id,
+              readingDate,
+              (readsResult.data ?? []).map((read) => ({
+                bookOrder: Number(read.book_order),
+                chapter: Number(read.chapter),
+              })),
+            )
+          }
+        }
         return nextProgress
       },
       async refreshBibleTreeProgress() {
         if (!user) return
-        const { data, error: refreshError } = await requireSupabase().rpc('refresh_bible_tree_progress')
+        const readingDate = isoDateInTimeZone(profile?.time_zone)
+        const client = requireSupabase()
+        const [progressResult, readsResult] = await Promise.all([
+          client.rpc('refresh_bible_tree_progress'),
+          client
+            .from('bible_chapter_reads')
+            .select('book_order,chapter')
+            .eq('user_id', user.id)
+            .eq('read_on', readingDate)
+            .limit(5),
+        ])
+        const { data, error: refreshError } = progressResult
         if (refreshError) {
-          if (isBibleTreeFeatureMissing(refreshError)) return
+          if (isBibleTreeFeatureMissing(refreshError)) {
+            setBibleTreeProgress(EMPTY_BIBLE_TREE_PROGRESS)
+            setBibleTreeProgressDate(readingDate)
+            return
+          }
           throw refreshError
         }
         setBibleTreeProgress(normalizeBibleTreeProgress(data))
+        setBibleTreeProgressDate(readingDate)
+        if (!readsResult.error) {
+          seedBibleDailyReadingChapters(
+            user.id,
+            readingDate,
+            (readsResult.data ?? []).map((read) => ({
+              bookOrder: Number(read.book_order),
+              chapter: Number(read.chapter),
+            })),
+          )
+        }
       },
       async addBibleBookmark(bookOrder, chapter, verse, title, color) {
         if (!user) throw new Error('Не удалось определить пользователя')
@@ -1213,6 +1477,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       mealPlanEntries,
       bibleBookmarks,
       bibleTreeProgress,
+      bibleTreeProgressDate,
+      bibleChaptersReadToday,
       pathDayConfirmations,
       courseLessonCompletions,
       mindfulnessCategories,

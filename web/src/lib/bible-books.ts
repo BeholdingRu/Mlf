@@ -44,6 +44,12 @@ export const NEW_TESTAMENT: BibleBook[] = [
 
 export const BIBLE_BOOKS = [...OLD_TESTAMENT, ...NEW_TESTAMENT]
 
+export const BIBLE_READING_TASK_PREFIX = 'Чтение Библии'
+export const BIBLE_READING_TASK_TITLE = BIBLE_READING_TASK_PREFIX
+
+const BIBLE_READING_TASK_TITLE_PATTERN = /^(?:чтение\s+библии|чтение\s+бибили)(?:$|\s|:|—|-)/iu
+const BIBLE_READING_TASK_SUFFIX_PATTERN = /^(?:чтение\s+библии|чтение\s+бибили)(?:\s*(?::|—|-)\s*|\s+)(.*)$/iu
+
 export function getNextBibleLocation(bookOrder: number | null | undefined, chapter: number | null | undefined) {
   const bookIndex = BIBLE_BOOKS.findIndex((book) => book.order === bookOrder)
   if (bookIndex < 0 || !chapter) return { bookOrder: BIBLE_BOOKS[0].order, chapter: 1 }
@@ -57,6 +63,27 @@ export function getNextBibleLocation(bookOrder: number | null | undefined, chapt
 }
 
 export function isBibleReadingTaskTitle(title: string) {
-  const normalizedTitle = title.toLocaleLowerCase('ru-RU').replace(/\s+/g, ' ').trim()
-  return normalizedTitle.includes('чтение библии') || normalizedTitle.includes('чтение бибили')
+  return BIBLE_READING_TASK_TITLE_PATTERN.test(title.trim())
+}
+
+export function isBibleReadingTask(task: {
+  title: string
+  task_kind?: string | null
+  withdrawal_syndrome?: boolean
+}) {
+  if (task.withdrawal_syndrome) return false
+  if (task.task_kind) return task.task_kind === 'bible_reading'
+  return isBibleReadingTaskTitle(task.title)
+}
+
+export function extractBibleReadingTaskSuffix(title: string) {
+  const match = title.trim().match(BIBLE_READING_TASK_SUFFIX_PATTERN)
+  return match?.[1]?.trim() ?? ''
+}
+
+export function composeBibleReadingTaskTitle(suffix: string) {
+  const normalizedSuffix = suffix.trim()
+  return normalizedSuffix
+    ? `${BIBLE_READING_TASK_TITLE}: ${normalizedSuffix}`
+    : BIBLE_READING_TASK_TITLE
 }

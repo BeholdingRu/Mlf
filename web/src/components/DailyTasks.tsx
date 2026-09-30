@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { useData } from '../hooks/useData'
-import { daysInclusive, localISODate, parseISODate, percent } from '../lib/dates'
+import { daysInclusive, isoDateInTimeZone, localISODate, parseISODate, percent } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { getRegularTaskProgressDays } from '../lib/task-progress'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
-import { isBibleReadingTaskTitle } from '../lib/bible-books'
+import { isBibleReadingTask } from '../lib/bible-books'
 import { NegativeHabitsPinForm } from './NegativeHabitsPinForm'
+import { DefaultTaskSettings } from './DefaultTaskSettings'
 
 type DailyTasksSubTab = 'list' | 'manage'
 
@@ -87,6 +88,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
     deleteTask,
     saveNegativeHabitsSecurity,
     adminMode,
+    bibleChaptersReadToday,
   } = useData()
   const [taskSettingsDraft] = useState<TaskSettingsDraft | null>(getSavedTaskSettingsDraft)
   const [subTab, setSubTab] = useState<DailyTasksSubTab>(getSavedDailyTasksSubTab)
@@ -121,11 +123,17 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const today = localISODate()
+  const bibleToday = isoDateInTimeZone(profile?.time_zone)
   const [testDate, setTestDate] = useState(() => window.sessionStorage.getItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY) ?? today)
   const testToday = adminMode && testDate ? testDate : today
   const withdrawalTasks = tasks.filter((task) => task.withdrawal_syndrome)
   const negativeHabitsPin = profile?.negative_habits_pin ?? (withdrawalTasks.length > 0 ? '0000' : null)
   const negativeHabitsPinRequired = profile?.negative_habits_pin_required !== false
+  const regularTasks = tasks.filter((task) => !task.withdrawal_syndrome)
+  const nutritionDefaultTask = regularTasks.find((task) => task.task_kind === 'nutrition')
+    ?? regularTasks.find(isNutritionTask)
+  const bibleDefaultTask = regularTasks.find((task) => task.task_kind === 'bible_reading')
+    ?? regularTasks.find(isBibleReadingTask)
   const taskGroups = [
     { id: 'regular', tasks: tasks.filter((task) => !task.withdrawal_syndrome) },
     { id: 'withdrawal', tasks: withdrawalTasks },
@@ -311,6 +319,10 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
       setError('Введите название задачи')
       return
     }
+    if (isNutritionTask({ title }) || isBibleReadingTask({ title })) {
+      setError('Добавьте эту стандартную задачу отдельной кнопкой в разделе редактирования')
+      return
+    }
     if (!newWithdrawalSyndrome && (!Number.isInteger(days) || days < 1)) {
       setError('Количество дней шкалы должно быть целым числом от 1')
       return
@@ -411,6 +423,11 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                     className="task-group-list"
                   >
                   {group.tasks.map((task) => {
+              const taskToday = isBibleReadingTask(task) ? bibleToday : today
+              const bibleChapterTarget = task.bible_daily_chapter_target ?? 5
+              const bibleChaptersRemaining = isBibleReadingTask(task)
+                ? Math.max(0, bibleChapterTarget - bibleChaptersReadToday)
+                : 0
               const withdrawalPhase = getWithdrawalPhase(
                 task.withdrawal_syndrome,
                 task.withdrawal_started_on,
@@ -418,9 +435,9 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 testToday,
               )
               const doneToday = completions.some(
-                (c) => c.task_id === task.id && c.completed_on === today,
+                (c) => c.task_id === task.id && c.completed_on === taskToday,
               )
-              const actualTotalDays = getRegularTaskProgressDays(task, completions, today, profile?.time_zone)
+              const actualTotalDays = getRegularTaskProgressDays(task, completions, taskToday, profile?.time_zone)
               const totalDays = adminMode && !task.withdrawal_syndrome
                 ? getVirtualCompletionDays(task.created_at, testToday)
                 : actualTotalDays
@@ -487,7 +504,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                   <div className="task-body">
                     <div className="task-title-line">
                       <strong>{task.title}</strong>
-                      {isBibleReadingTaskTitle(task.title) && onContinueBibleReading && (
+                      {isBibleReadingTask(task) && onContinueBibleReading && (
                         <button
                           type="button"
                           className="bible-continue-button"
@@ -495,6 +512,14 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                         >
                           Продолжить чтение
                         </button>
+                      )}
+                      {bibleChaptersRemaining > 0 && (
+                        <span
+                          className="bible-chapter-countdown"
+                          aria-label={`Осталось прочитать глав: ${bibleChaptersRemaining}`}
+                        >
+                          Осталось глав: {bibleChaptersRemaining}
+                        </span>
                       )}
                     </div>
                     {!habitFormed && (
@@ -726,6 +751,10 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
 
           {taskEditorOpen && (
             <div id="task-settings-list" className="task-settings-editor">
+              <DefaultTaskSettings
+                nutritionTask={nutritionDefaultTask}
+                bibleTask={bibleDefaultTask}
+              />
               {tasks.some((task) => task.withdrawal_syndrome) && (
                 <button
                   type="button"
@@ -882,14 +911,19 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 </div>
               )}
               <ul id="negative-habits-settings-list" className="task-settings-list">
-                {tasks.filter((task) => !task.withdrawal_syndrome || negativeHabitsSettingsOpen).map((task) => {
+                {tasks.filter((task) => (
+                  task.id !== nutritionDefaultTask?.id
+                  && task.id !== bibleDefaultTask?.id
+                  && (!task.withdrawal_syndrome || negativeHabitsSettingsOpen)
+                )).map((task) => {
                 const edit = edits[task.id] ?? {
                   title: task.title,
                   habit_days: String(task.habit_days),
                   inverted_logic: task.inverted_logic,
                 }
                 const inversionLockedToday = completions.some(
-                  (completion) => completion.task_id === task.id && completion.completed_on === today,
+                  (completion) => completion.task_id === task.id
+                    && completion.completed_on === (isBibleReadingTask(task) ? bibleToday : today),
                 )
                 const effectiveEdit = inversionLockedToday
                   ? { ...edit, inverted_logic: task.inverted_logic }

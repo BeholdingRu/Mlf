@@ -1,5 +1,5 @@
 -- Run once in the Supabase SQL editor to enable the Bible reading tree.
--- Each unique chapter opened during the user's local day is counted once.
+-- Up to five unique chapters opened during the user's local day are counted once.
 create table if not exists public.bible_chapter_reads (
   id bigint generated always as identity primary key,
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -163,6 +163,7 @@ as $$
 declare
   current_user_id uuid := auth.uid();
   today date;
+  chapter_count integer;
 begin
   if current_user_id is null then
     raise exception 'Authentication required';
@@ -187,19 +188,32 @@ begin
   )
   on conflict (user_id) do nothing;
 
-  insert into public.bible_chapter_reads (
-    user_id,
-    read_on,
-    book_order,
-    chapter
-  )
-  values (
-    current_user_id,
-    today,
-    p_book_order,
-    p_chapter
-  )
-  on conflict (user_id, read_on, book_order, chapter) do nothing;
+  perform 1
+  from public.bible_tree_progress as progress
+  where progress.user_id = current_user_id
+  for update;
+
+  select count(*)::integer
+    into chapter_count
+  from public.bible_chapter_reads as reads
+  where reads.user_id = current_user_id
+    and reads.read_on = today;
+
+  if chapter_count < 5 then
+    insert into public.bible_chapter_reads (
+      user_id,
+      read_on,
+      book_order,
+      chapter
+    )
+    values (
+      current_user_id,
+      today,
+      p_book_order,
+      p_chapter
+    )
+    on conflict (user_id, read_on, book_order, chapter) do nothing;
+  end if;
 
   return query
     select *

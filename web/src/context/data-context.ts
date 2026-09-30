@@ -19,6 +19,7 @@ import type {
   SavedExercise,
   SavedProduct,
   Task,
+  TaskKind,
   TaskCompletion,
   TorahPortion,
   WeightLog,
@@ -37,6 +38,8 @@ export type DataContextValue = {
   mealPlanEntries: MealPlanEntry[]
   bibleBookmarks: BibleBookmark[]
   bibleTreeProgress: BibleTreeProgress
+  bibleTreeProgressDate: string | null
+  bibleChaptersReadToday: number
   pathDayConfirmations: PathDayConfirmation[]
   courseLessonCompletions: CourseLessonCompletion[]
   mindfulnessCategories: MindfulnessCategory[]
@@ -51,8 +54,20 @@ export type DataContextValue = {
   setAdminMode: (enabled: boolean) => void
   refresh: () => Promise<void>
   completeToday: (taskId: string) => Promise<void>
-  addTask: (title: string, habitDays: number, withdrawalSyndrome?: boolean, invertedLogic?: boolean) => Promise<void>
-  updateTask: (id: string, patch: { title?: string; habit_days?: number; inverted_logic?: boolean }) => Promise<void>
+  addTask: (
+    title: string,
+    habitDays: number,
+    withdrawalSyndrome?: boolean,
+    invertedLogic?: boolean,
+    options?: { taskKind?: TaskKind | null; bibleDailyChapterTarget?: number | null },
+  ) => Promise<void>
+  updateTask: (id: string, patch: {
+    title?: string
+    habit_days?: number
+    inverted_logic?: boolean
+    task_kind?: TaskKind | null
+    bible_daily_chapter_target?: number | null
+  }) => Promise<void>
   restartWithdrawalTask: (taskId: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
   saveNegativeHabitsSecurity: (patch: { pin?: string; requirePin?: boolean }) => Promise<void>

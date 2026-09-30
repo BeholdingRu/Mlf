@@ -4,12 +4,14 @@ import {
   BIBLE_BOOKS,
   NEW_TESTAMENT,
   OLD_TESTAMENT,
+  isBibleReadingTask,
   type BibleBook,
   type BibleNavigationTarget,
 } from '../lib/bible-books'
 import { EXTERNAL_BIBLE_TRANSLATIONS, openBibleTranslation } from '../lib/bible-translations'
 import { BIBLE_GROWTH_STAGE_STEPS, BIBLE_GROWTH_TOTAL_STEPS } from '../lib/bible-growth'
 import { DEFAULT_BIBLE_BOOKMARK_COLOR, normalizeBibleBookmarkColor } from '../lib/bible-bookmark-colors'
+import { recordLocalBibleChapter } from '../lib/bible-daily-reading'
 import { daysInclusive, isoDateInTimeZone, millisecondsUntilNextDayInTimeZone, parseISODate } from '../lib/dates'
 import type { BibleBookmark, BibleVerse, Profile, TorahPortion } from '../lib/types'
 import { BibleBookmarkColorPalette } from './BibleBookmarkColorPalette'
@@ -71,7 +73,9 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
     addBibleBookmark,
     adminMode,
     bibleBookmarks,
+    bibleChaptersReadToday,
     bibleTreeProgress,
+    bibleTreeProgressDate,
     deleteBibleBookmark,
     getBibleChapter,
     getTorahPortions,
@@ -79,10 +83,13 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
     recordBibleChapterRead,
     refreshBibleTreeProgress,
     saveBibleReadingPosition,
+    tasks,
     updateBibleBookmark,
   } = useData()
   const includeTorahPortions = profile?.annual_cycle_enabled ?? false
-  const today = isoDateInTimeZone(profile?.time_zone)
+  const readingUserId = profile?.id
+  const readingTimeZone = profile?.time_zone
+  const today = isoDateInTimeZone(readingTimeZone)
   const [requestedNavigation] = useState(() => getRequestedNavigation(navigationRequest))
   const [book, setBook] = useState<BibleBook | null>(requestedNavigation.book)
   const [chapter, setChapter] = useState<number | null>(requestedNavigation.chapter)
@@ -110,6 +117,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   const recordedChapterKeysRef = useRef(new Set<string>())
   const chapterRecordQueueRef = useRef<Promise<void>>(Promise.resolve())
   const chaptersTodayRef = useRef(bibleTreeProgress.chaptersToday)
+  const chaptersTodayDateRef = useRef(bibleTreeProgressDate ?? today)
   const torahPortions = includeTorahPortions && book && loadedTorahPortions?.bookOrder === book.order
     ? loadedTorahPortions.portions
     : []
@@ -118,7 +126,10 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
       .filter((bookmark) => bookmark.book_order === book?.order && bookmark.chapter === chapter)
       .map((bookmark) => [bookmark.verse, bookmark]),
   )
-  const remainingChaptersToday = Math.max(0, 5 - bibleTreeProgress.chaptersToday)
+  const bibleReadingTask = tasks.find((task) => isBibleReadingTask(task))
+  const remainingChaptersToday = bibleReadingTask
+    ? Math.max(0, (bibleReadingTask.bible_daily_chapter_target ?? 5) - bibleChaptersReadToday)
+    : 0
   const actualVisibleTreeSteps = Math.min(
     BIBLE_GROWTH_TOTAL_STEPS,
     bibleTreeProgress.progressSteps + (bibleTreeProgress.chaptersToday >= 5 ? 1 : 0),
@@ -131,20 +142,46 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   const vineProgressPercent = Math.min(100, visibleTreeSteps * 0.3)
   const grapeProgressPercent = Math.min(100, Math.max(0, visibleTreeSteps - BIBLE_GROWTH_STAGE_STEPS) * 0.3)
   const trackBibleChapter = useCallback((bookOrder: number, chapterNumber: number) => {
+    const readingDate = isoDateInTimeZone(readingTimeZone)
+    if (chaptersTodayDateRef.current !== readingDate) {
+      chaptersTodayDateRef.current = readingDate
+      chaptersTodayRef.current = 0
+    }
+    if (readingUserId) {
+      recordLocalBibleChapter(
+        readingUserId,
+        readingDate,
+        bookOrder,
+        chapterNumber,
+        chaptersTodayRef.current,
+      )
+    }
     if (chaptersTodayRef.current >= 5) return
-    const chapterKey = `${isoDateInTimeZone(profile?.time_zone)}:${bookOrder}:${chapterNumber}`
+    const chapterKey = `${readingDate}:${bookOrder}:${chapterNumber}`
     if (recordedChapterKeysRef.current.has(chapterKey)) return
     recordedChapterKeysRef.current.add(chapterKey)
     chapterRecordQueueRef.current = chapterRecordQueueRef.current
       .then(async () => {
         if (chaptersTodayRef.current >= 5) return
         const nextProgress = await recordBibleChapterReadRef.current(bookOrder, chapterNumber)
-        if (nextProgress) chaptersTodayRef.current = nextProgress.chaptersToday
+        if (nextProgress) {
+          chaptersTodayRef.current = nextProgress.chaptersToday
+          chaptersTodayDateRef.current = readingDate
+          if (readingUserId) {
+            recordLocalBibleChapter(
+              readingUserId,
+              readingDate,
+              bookOrder,
+              chapterNumber,
+              nextProgress.chaptersToday,
+            )
+          }
+        }
       })
       .catch(() => {
         recordedChapterKeysRef.current.delete(chapterKey)
       })
-  }, [profile?.time_zone])
+  }, [readingTimeZone, readingUserId])
 
   useEffect(() => {
     saveBibleReadingPositionRef.current = saveBibleReadingPosition
@@ -163,8 +200,10 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   }, [refreshBibleTreeProgress])
 
   useEffect(() => {
+    if (!bibleTreeProgressDate) return
     chaptersTodayRef.current = bibleTreeProgress.chaptersToday
-  }, [bibleTreeProgress.chaptersToday])
+    chaptersTodayDateRef.current = bibleTreeProgressDate
+  }, [bibleTreeProgress.chaptersToday, bibleTreeProgressDate])
 
   useEffect(() => {
     let disposed = false

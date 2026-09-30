@@ -94,10 +94,14 @@ export type TorahPortion = {
   end_verse: number
 }
 
+export type TaskKind = 'nutrition' | 'bible_reading'
+
 export type Task = {
   id: string
   user_id: string
   title: string
+  task_kind: TaskKind | null
+  bible_daily_chapter_target: number | null
   habit_days: number
   sort_order: number
   withdrawal_syndrome: boolean
