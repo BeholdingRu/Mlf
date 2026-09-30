@@ -294,7 +294,7 @@ export function StatsView() {
                       aria-controls="negative-habits-statistics-list"
                       onClick={toggleNegativeHabits}
                     >
-                      <span>Негативная привычка/зависимость</span>
+                      <span>Негативные привычки/зависимости</span>
                       <span aria-hidden="true">{negativeHabitsOpen ? '⌃' : '⌄'}</span>
                     </button>
                   )}

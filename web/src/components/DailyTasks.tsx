@@ -384,7 +384,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                       aria-controls="negative-habits-task-list"
                       onClick={toggleNegativeHabitsList}
                     >
-                      <span>Негативная привычка/зависимость</span>
+                      <span>Негативные привычки/зависимости</span>
                       <span aria-hidden="true">{negativeHabitsListOpen ? '⌃' : '⌄'}</span>
                     </button>
                   )}
@@ -734,7 +734,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                   aria-controls="negative-habits-settings-list"
                   onClick={toggleNegativeHabitsSettings}
                 >
-                  <span>Негативная привычка/зависимость</span>
+                  <span>Негативные привычки/зависимости</span>
                   <span aria-hidden="true">{negativeHabitsSettingsOpen ? '⌃' : '⌄'}</span>
                 </button>
               )}
