@@ -202,7 +202,11 @@ function normalizeGuestData(value: unknown): GuestData {
       diary_statistics_targets: sourceProfile.diary_statistics_targets ?? {},
       negative_habits_pin_required: sourceProfile.negative_habits_pin_required !== false,
     },
-    tasks: asArray<Task>(source.tasks).map((item) => ({ ...item, user_id: GUEST_USER_ID })),
+    tasks: asArray<Task>(source.tasks).map((item) => ({
+      ...item,
+      user_id: GUEST_USER_ID,
+      inverted_logic: item.inverted_logic ?? false,
+    })),
     completions: asArray<TaskCompletion>(source.completions).map((item) => ({
       ...item,
       user_id: GUEST_USER_ID,
@@ -455,7 +459,7 @@ export function GuestDataProvider({ children }: { children: ReactNode }) {
       setData((current) => ({ ...current, completions: [...current.completions, completion] }))
     },
 
-    async addTask(title, habitDays, withdrawalSyndrome = false) {
+    async addTask(title, habitDays, withdrawalSyndrome = false, invertedLogic = false) {
       const task: Task = {
         id: createId('task'),
         user_id: GUEST_USER_ID,
@@ -463,6 +467,7 @@ export function GuestDataProvider({ children }: { children: ReactNode }) {
         habit_days: habitDays,
         sort_order: data.tasks.length,
         withdrawal_syndrome: withdrawalSyndrome,
+        inverted_logic: !withdrawalSyndrome && !isNutritionTask({ title }) && invertedLogic,
         withdrawal_started_on: withdrawalSyndrome ? today : null,
         withdrawal_restart_on: null,
         created_at: new Date().toISOString(),
@@ -471,9 +476,25 @@ export function GuestDataProvider({ children }: { children: ReactNode }) {
     },
 
     async updateTask(id, patch) {
+      const currentTask = data.tasks.find((task) => task.id === id)
+      const nextTitle = patch.title ?? currentTask?.title ?? ''
+      const nextPatch = isNutritionTask({ title: nextTitle })
+        ? { ...patch, inverted_logic: false }
+        : patch
+      const inversionChanged = nextPatch.inverted_logic !== undefined
+        && nextPatch.inverted_logic !== currentTask?.inverted_logic
+      const markedToday = data.completions.some(
+        (completion) => completion.task_id === id && completion.completed_on === today,
+      )
+      if (currentTask?.inverted_logic && inversionChanged && markedToday) {
+        throw new Error('Инверсию логики нельзя изменить после отметки задачи за сегодня')
+      }
       setData((current) => ({
         ...current,
-        tasks: current.tasks.map((task) => task.id === id ? { ...task, ...patch } : task),
+        tasks: current.tasks.map((task) => {
+          if (task.id !== id) return task
+          return { ...task, ...nextPatch }
+        }),
       }))
     },
 

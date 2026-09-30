@@ -43,7 +43,7 @@ export function CabinetPage() {
   )
   const today = localISODate(currentTime)
   const hasIncompleteDailyTasks = tasks.some((task) => {
-    const automaticTask = task.withdrawal_syndrome || (profile?.weight_enabled && isNutritionTask(task))
+    const automaticTask = task.withdrawal_syndrome || task.inverted_logic || (profile?.weight_enabled && isNutritionTask(task))
     const habitFormed = getRegularTaskProgressDays(task, completions, today, profile?.time_zone) >= task.habit_days
     const completedToday = completions.some(
       (completion) => completion.task_id === task.id && completion.completed_on === today,

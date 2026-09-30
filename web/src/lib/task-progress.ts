@@ -22,13 +22,23 @@ export function getRegularTaskProgress(
   const cursor = parseISODate(createdOn)
   const lastDate = parseISODate(today)
   let progressDays = 0
-  const successfulDays = completedDates.size
+  let successfulDays = task.inverted_logic ? 0 : completedDates.size
   let missedDays = 0
   const missedDates: string[] = []
 
   while (cursor <= lastDate) {
     const date = localISODate(cursor)
-    if (completedDates.has(date)) {
+    const marked = completedDates.has(date)
+    if (task.inverted_logic) {
+      if (marked) {
+        missedDays += 1
+        missedDates.push(date)
+        progressDays = Math.max(0, progressDays - 1)
+      } else if (date < today) {
+        successfulDays += 1
+        progressDays += 1
+      }
+    } else if (marked) {
       progressDays += 1
     } else if (date < today) {
       missedDays += 1

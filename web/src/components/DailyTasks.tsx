@@ -6,6 +6,7 @@ import { isNutritionTask } from '../lib/nutrition-task'
 import { getRegularTaskProgressDays } from '../lib/task-progress'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
 import { isBibleReadingTaskTitle } from '../lib/bible-books'
+import { NegativeHabitsPinForm } from './NegativeHabitsPinForm'
 
 type DailyTasksSubTab = 'list' | 'manage'
 
@@ -15,12 +16,14 @@ const WITHDRAWAL_TEST_DATE_STORAGE_KEY = 'mlf:withdrawal-test-date'
 type TaskEditDraft = {
   title: string
   habit_days: string
+  inverted_logic: boolean
 }
 
 type TaskSettingsDraft = {
   newTitle: string
   newDays: string
   newWithdrawalSyndrome: boolean
+  newInvertedLogic: boolean
   edits: Record<string, TaskEditDraft>
 }
 
@@ -40,10 +43,16 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
       typeof draft.newTitle !== 'string'
       || typeof draft.newDays !== 'string'
       || (draft.newWithdrawalSyndrome !== undefined && typeof draft.newWithdrawalSyndrome !== 'boolean')
+      || (draft.newInvertedLogic !== undefined && typeof draft.newInvertedLogic !== 'boolean')
       || !draft.edits
       || typeof draft.edits !== 'object'
       || Object.values(draft.edits).some(
-        (edit) => !edit || typeof edit.title !== 'string' || typeof edit.habit_days !== 'string',
+        (edit) => (
+          !edit
+          || typeof edit.title !== 'string'
+          || typeof edit.habit_days !== 'string'
+          || (edit.inverted_logic !== undefined && typeof edit.inverted_logic !== 'boolean')
+        ),
       )
     ) {
       window.sessionStorage.removeItem(TASK_SETTINGS_DRAFT_STORAGE_KEY)
@@ -54,7 +63,11 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
       newTitle: draft.newTitle,
       newDays: draft.newDays,
       newWithdrawalSyndrome: draft.newWithdrawalSyndrome ?? false,
-      edits: draft.edits,
+      newInvertedLogic: draft.newWithdrawalSyndrome ? false : draft.newInvertedLogic ?? false,
+      edits: Object.fromEntries(Object.entries(draft.edits).map(([taskId, edit]) => [
+        taskId,
+        { ...edit, inverted_logic: edit.inverted_logic ?? false },
+      ])),
     }
   } catch {
     window.sessionStorage.removeItem(TASK_SETTINGS_DRAFT_STORAGE_KEY)
@@ -81,7 +94,9 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const [newTitle, setNewTitle] = useState(taskSettingsDraft?.newTitle ?? '')
   const [newDays, setNewDays] = useState(taskSettingsDraft?.newDays ?? '21')
   const [newWithdrawalSyndrome, setNewWithdrawalSyndrome] = useState(taskSettingsDraft?.newWithdrawalSyndrome ?? false)
+  const [newInvertedLogic, setNewInvertedLogic] = useState(taskSettingsDraft?.newInvertedLogic ?? false)
   const [withdrawalSyndromeInfoOpen, setWithdrawalSyndromeInfoOpen] = useState(false)
+  const [invertedLogicInfoOpen, setInvertedLogicInfoOpen] = useState(false)
   const [negativeHabitsListOpen, setNegativeHabitsListOpen] = useState(false)
   const [negativeHabitsSettingsOpen, setNegativeHabitsSettingsOpen] = useState(false)
   const [negativeHabitsListPinOpen, setNegativeHabitsListPinOpen] = useState(false)
@@ -102,6 +117,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const [negativeHabitsSecurityMessage, setNegativeHabitsSecurityMessage] = useState<string | null>(null)
   const [taskEditorOpen, setTaskEditorOpen] = useState(false)
   const [edits, setEdits] = useState<Record<string, TaskEditDraft>>(taskSettingsDraft?.edits ?? {})
+  const [invertedConfirmationTaskId, setInvertedConfirmationTaskId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const today = localISODate()
@@ -120,20 +136,31 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   }, [subTab])
 
   useEffect(() => {
-    if (!newTitle && newDays === '21' && !newWithdrawalSyndrome && Object.keys(edits).length === 0) {
+    if (!newTitle && newDays === '21' && !newWithdrawalSyndrome && !newInvertedLogic && Object.keys(edits).length === 0) {
       window.sessionStorage.removeItem(TASK_SETTINGS_DRAFT_STORAGE_KEY)
       return
     }
 
     window.sessionStorage.setItem(
       TASK_SETTINGS_DRAFT_STORAGE_KEY,
-      JSON.stringify({ newTitle, newDays, newWithdrawalSyndrome, edits }),
+      JSON.stringify({ newTitle, newDays, newWithdrawalSyndrome, newInvertedLogic, edits }),
     )
-  }, [edits, newDays, newTitle, newWithdrawalSyndrome])
+  }, [edits, newDays, newInvertedLogic, newTitle, newWithdrawalSyndrome])
 
   useEffect(() => {
     window.sessionStorage.setItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY, testDate)
   }, [testDate])
+
+  useEffect(() => {
+    if (!invertedConfirmationTaskId) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && busyId !== invertedConfirmationTaskId) {
+        setInvertedConfirmationTaskId(null)
+      }
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [busyId, invertedConfirmationTaskId])
 
   function toggleNegativeHabitsList() {
     if (negativeHabitsListOpen) {
@@ -289,7 +316,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
       return
     }
     if (newWithdrawalSyndrome && !negativeHabitsPin && !/^\d{4}$/.test(newNegativeHabitPin)) {
-      setError('Создайте PIN из четырёх цифр для негативных привычек')
+      setError('Создайте PIN из четырёх цифр для негативной привычки/зависимости')
       return
     }
     setBusy(true)
@@ -298,10 +325,11 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
       if (newWithdrawalSyndrome && !negativeHabitsPin) {
         await saveNegativeHabitsSecurity({ pin: newNegativeHabitPin, requirePin: true })
       }
-      await addTask(title, days, newWithdrawalSyndrome)
+      await addTask(title, days, newWithdrawalSyndrome, newInvertedLogic)
       setNewTitle('')
       setNewDays('21')
       setNewWithdrawalSyndrome(false)
+      setNewInvertedLogic(false)
       setNewNegativeHabitPin('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось добавить задачу')
@@ -356,7 +384,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                       aria-controls="negative-habits-task-list"
                       onClick={toggleNegativeHabitsList}
                     >
-                      <span>Негативные привычки/зависимости</span>
+                      <span>Негативная привычка/зависимость</span>
                       <span aria-hidden="true">{negativeHabitsListOpen ? '⌃' : '⌄'}</span>
                     </button>
                   )}
@@ -402,7 +430,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
               return (
                 <li
                   key={task.id}
-                  className={`task-row${doneToday && !habitFormed ? ' done' : ''}${automaticNutritionTask ? ' automatic' : ''}${habitFormed ? ' habit-formed' : ''}${withdrawalPhase ? ` withdrawal-${withdrawalPhase.tone}` : ''}`}
+                  className={`task-row${doneToday && !habitFormed ? task.inverted_logic ? ' inverted-failed' : ' done' : ''}${automaticNutritionTask ? ' automatic' : ''}${habitFormed ? ' habit-formed' : ''}${withdrawalPhase ? ` withdrawal-${withdrawalPhase.tone}` : ''}`}
                 >
                   {withdrawalPhase ? (
                     <button
@@ -430,9 +458,13 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                   ) : !habitFormed && (
                     <button
                       type="button"
-                      className="check"
+                      className={`check${task.inverted_logic ? ' inverted' : ''}`}
                       disabled={busyId === task.id || doneToday || automaticNutritionTask}
                       onClick={async () => {
+                        if (task.inverted_logic) {
+                          setInvertedConfirmationTaskId(task.id)
+                          return
+                        }
                         setBusyId(task.id)
                         try {
                           await completeToday(task.id)
@@ -445,11 +477,11 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                         automaticNutritionTask
                           ? 'Ручное выполнение недоступно: задача отмечается автоматически по калориям'
                           : doneToday
-                            ? 'Выполнено сегодня'
-                            : 'Отметить выполнение'
+                            ? task.inverted_logic ? 'Провал отмечен сегодня' : 'Выполнено сегодня'
+                            : task.inverted_logic ? 'Отметить невыполнение задачи' : 'Отметить выполнение'
                       }
                     >
-                      {doneToday ? '✓' : ''}
+                      {doneToday ? task.inverted_logic ? '!' : '✓' : ''}
                     </button>
                   )}
                   <div className="task-body">
@@ -476,8 +508,26 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                               ? 'Перезапуск запланирован на завтра'
                               : 'Отсчёт фазы выполняется автоматически'
                             : doneToday
-                              ? 'Выполнено сегодня'
-                              : 'Можно отметить один раз в сутки'}
+                              ? task.inverted_logic ? 'Провалено сегодня' : 'Выполнено сегодня'
+                              : (
+                                <span className="task-hint-line">
+                                  <span>
+                                    {task.inverted_logic
+                                      ? 'Будет автоматически отмечена успешно в 00:00'
+                                      : 'Можно отметить один раз в сутки'}
+                                  </span>
+                                  {task.inverted_logic && (
+                                    <span
+                                      className="inverted-logic-indicator"
+                                      title="инверсия логики"
+                                      aria-label="инверсия логики"
+                                      tabIndex={0}
+                                    >
+                                      И
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                       </span>
                     )}
                   </div>
@@ -488,6 +538,51 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                     phaseInfo={withdrawalPhase?.info}
                     hideTrack={withdrawalPhase?.clean}
                   />
+                  {task.inverted_logic && invertedConfirmationTaskId === task.id && !doneToday && (
+                    <div
+                      className="modal-overlay"
+                      role="presentation"
+                      onClick={() => {
+                        if (busyId !== task.id) setInvertedConfirmationTaskId(null)
+                      }}
+                    >
+                      <form
+                        className="modal-content inverted-task-confirmation"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={`inverted-task-confirmation-title-${task.id}`}
+                        onClick={(event) => event.stopPropagation()}
+                        onSubmit={async (event) => {
+                          event.preventDefault()
+                          setBusyId(task.id)
+                          try {
+                            await completeToday(task.id)
+                            setInvertedConfirmationTaskId(null)
+                          } finally {
+                            setBusyId(null)
+                          }
+                        }}
+                      >
+                        <h3 id={`inverted-task-confirmation-title-${task.id}`}>
+                          Подтвердите, что задача не выполнена сегодня
+                        </h3>
+                        <div className="modal-actions">
+                          <button type="submit" className="danger compact" disabled={busyId === task.id}>
+                            Подтвердить
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost compact"
+                            disabled={busyId === task.id}
+                            onClick={() => setInvertedConfirmationTaskId(null)}
+                            autoFocus
+                          >
+                            Отмена
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
                 </li>
               )
                   })}
@@ -510,33 +605,70 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
             <input
               placeholder="Название задачи"
               value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
+              onChange={(event) => {
+                setNewTitle(event.target.value)
+                if (isNutritionTask({ title: event.target.value })) setNewInvertedLogic(false)
+              }}
             />
             <div className="withdrawal-syndrome-setting">
               <label className="toggle">
                 <input
                   type="checkbox"
                   checked={newWithdrawalSyndrome}
+                  disabled={newInvertedLogic}
                   onChange={(event) => {
                     setNewWithdrawalSyndrome(event.target.checked)
-                    if (!event.target.checked) setNewNegativeHabitPin('')
+                    if (event.target.checked) setNewInvertedLogic(false)
+                    else setNewNegativeHabitPin('')
                   }}
                 />
-                <span>Синдром отмены</span>
+                <span>Негативная привычка/зависимость</span>
               </label>
               <button
                 type="button"
                 className="info-button"
-                aria-label="Информация о синдроме отмены"
+                aria-label="Информация о негативной привычке или зависимости"
                 aria-expanded={withdrawalSyndromeInfoOpen}
                 aria-controls="withdrawal-syndrome-info"
-                onClick={() => setWithdrawalSyndromeInfoOpen((open) => !open)}
+                onClick={() => setWithdrawalSyndromeInfoOpen((open) => {
+                  if (!open) setInvertedLogicInfoOpen(false)
+                  return !open
+                })}
               >
                 i
               </button>
               {withdrawalSyndromeInfoOpen && (
                 <p id="withdrawal-syndrome-info" className="withdrawal-syndrome-info">
                   Если у вас есть биохимическая зависимость (алкогольная, никотиновая или другая), вы можете использовать эту функцию. Она покажет, сколько примерно времени осталось до момента, когда зависимость перестанет влиять на вашу жизнь. Всего будет три этапа: острый, подострый и пролонгированный. Отмечать эту задачу не нужно: она будет фиксироваться как выполненная автоматически. Сроки этапов взяты из личного опыта автора; это максимальные сроки, которые приводят различные исследования.
+                </p>
+              )}
+            </div>
+            <div className="withdrawal-syndrome-setting inverted-logic-setting-wrap">
+              <label className="toggle inverted-logic-setting">
+                <input
+                  type="checkbox"
+                  checked={newInvertedLogic}
+                  disabled={newWithdrawalSyndrome || isNutritionTask({ title: newTitle })}
+                  onChange={(event) => setNewInvertedLogic(event.target.checked)}
+                />
+                <span>Инверсия логики</span>
+              </label>
+              <button
+                type="button"
+                className="info-button"
+                aria-label="Информация об инверсии логики"
+                aria-expanded={invertedLogicInfoOpen}
+                aria-controls="inverted-logic-info"
+                onClick={() => setInvertedLogicInfoOpen((open) => {
+                  if (!open) setWithdrawalSyndromeInfoOpen(false)
+                  return !open
+                })}
+              >
+                i
+              </button>
+              {invertedLogicInfoOpen && (
+                <p id="inverted-logic-info" className="withdrawal-syndrome-info">
+                  Если включить, то подтверждение задачи будет считаться провалом, редактирование задачи при этом будет заблокированно на сутки
                 </p>
               )}
             </div>
@@ -555,7 +687,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                     setError(null)
                   }}
                   placeholder="0000"
-                  aria-label="PIN для негативных привычек"
+                  aria-label="PIN для негативной привычки или зависимости"
                 />
               </label>
             )}
@@ -602,7 +734,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                   aria-controls="negative-habits-settings-list"
                   onClick={toggleNegativeHabitsSettings}
                 >
-                  <span>Негативные привычки/зависимости</span>
+                  <span>Негативная привычка/зависимость</span>
                   <span aria-hidden="true">{negativeHabitsSettingsOpen ? '⌃' : '⌄'}</span>
                 </button>
               )}
@@ -754,41 +886,69 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 const edit = edits[task.id] ?? {
                   title: task.title,
                   habit_days: String(task.habit_days),
+                  inverted_logic: task.inverted_logic,
                 }
+                const inversionLockedToday = task.inverted_logic && completions.some(
+                  (completion) => completion.task_id === task.id && completion.completed_on === today,
+                )
+                const effectiveEdit = inversionLockedToday
+                  ? { ...edit, inverted_logic: true }
+                  : edit
                 return (
                   <li key={task.id} className={`task-editor-row${task.withdrawal_syndrome ? ' withdrawal-task-editor-row' : ''}`}>
                     <input
-                      value={edit.title}
+                      value={effectiveEdit.title}
                       onChange={(e) =>
                         setEdits((prev) => ({
                           ...prev,
-                          [task.id]: { ...edit, title: e.target.value },
+                          [task.id]: {
+                            ...effectiveEdit,
+                            title: e.target.value,
+                            inverted_logic: isNutritionTask({ title: e.target.value })
+                              ? false
+                              : effectiveEdit.inverted_logic,
+                          },
                         }))
                       }
                       aria-label="Название"
                     />
                     {!task.withdrawal_syndrome && (
-                      <input
-                        type="number"
-                        min={1}
-                        className="days"
-                        value={edit.habit_days}
-                        onChange={(e) =>
-                          setEdits((prev) => ({
-                            ...prev,
-                            [task.id]: { ...edit, habit_days: e.target.value },
-                          }))
-                        }
-                        aria-label="Дней до заполнения шкалы"
-                      />
+                      <>
+                        <input
+                          type="number"
+                          min={1}
+                          className="days"
+                          value={effectiveEdit.habit_days}
+                          onChange={(e) =>
+                            setEdits((prev) => ({
+                              ...prev,
+                              [task.id]: { ...effectiveEdit, habit_days: e.target.value },
+                            }))
+                          }
+                          aria-label="Дней до заполнения шкалы"
+                        />
+                        <label className="toggle inverted-logic-setting task-edit-inverted-logic">
+                          <input
+                            type="checkbox"
+                            checked={effectiveEdit.inverted_logic}
+                            disabled={inversionLockedToday || isNutritionTask({ title: effectiveEdit.title })}
+                            title={inversionLockedToday ? 'Логику нельзя изменить после отметки за сегодня' : undefined}
+                            onChange={(event) => setEdits((prev) => ({
+                              ...prev,
+                              [task.id]: { ...effectiveEdit, inverted_logic: event.target.checked },
+                            }))}
+                          />
+                          <span>Инверсия логики</span>
+                        </label>
+                      </>
                     )}
                     <button
                       type="button"
                       className="ghost compact"
                       disabled={busy}
                       onClick={async () => {
-                        const days = Number(edit.habit_days)
-                        if (!edit.title.trim() || (!task.withdrawal_syndrome && (!Number.isInteger(days) || days < 1))) {
+                        const days = Number(effectiveEdit.habit_days)
+                        if (!effectiveEdit.title.trim() || (!task.withdrawal_syndrome && (!Number.isInteger(days) || days < 1))) {
                           setError('Проверьте название и число дней')
                           return
                         }
@@ -796,8 +956,12 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                         setError(null)
                         try {
                           await updateTask(task.id, task.withdrawal_syndrome
-                            ? { title: edit.title.trim() }
-                            : { title: edit.title.trim(), habit_days: days },
+                            ? { title: effectiveEdit.title.trim() }
+                            : {
+                                title: effectiveEdit.title.trim(),
+                                habit_days: days,
+                                inverted_logic: effectiveEdit.inverted_logic,
+                              },
                           )
                           setEdits((prev) => {
                             const { [task.id]: _, ...next } = prev
@@ -848,69 +1012,12 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   )
 }
 
-function NegativeHabitsPinForm({
-  id,
-  value,
-  error,
-  label = 'Введите четырёхзначный PIN',
-  submitLabel = 'Открыть',
-  disabled = false,
-  onChange,
-  onSubmit,
-  onCancel,
-}: {
-  id: string
-  value: string
-  error: string | null
-  label?: string
-  submitLabel?: string
-  disabled?: boolean
-  onChange: (value: string) => void
-  onSubmit: () => void
-  onCancel: () => void
-}) {
-  const errorId = `${id}-error`
-
-  return (
-    <form
-      id={id}
-      className="negative-habits-pin-form"
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit()
-      }}
-    >
-      <label>
-        {label}
-        <input
-          type="password"
-          inputMode="numeric"
-          autoComplete="current-password"
-          pattern="[0-9]{4}"
-          maxLength={4}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => onChange(normalizePin(event.target.value))}
-          aria-invalid={Boolean(error)}
-          aria-describedby={error ? errorId : undefined}
-          autoFocus
-        />
-      </label>
-      <div className="negative-habits-pin-actions">
-        <button type="submit" className="primary compact" disabled={disabled || value.length !== 4}>{submitLabel}</button>
-        <button type="button" className="ghost compact" disabled={disabled} onClick={onCancel}>Отмена</button>
-      </div>
-      {error && <p id={errorId} className="negative-habits-pin-error">{error}</p>}
-    </form>
-  )
-}
-
-function normalizePin(value: string) {
-  return value.replace(/\D/g, '').slice(0, 4)
-}
-
 function getVirtualCompletionDays(createdAt: string, testDate: string): number {
   const createdOn = createdAt.slice(0, 10)
   if (testDate < createdOn) return 0
   return daysInclusive(parseISODate(createdOn), parseISODate(testDate))
+}
+
+function normalizePin(value: string) {
+  return value.replace(/\D/g, '').slice(0, 4)
 }

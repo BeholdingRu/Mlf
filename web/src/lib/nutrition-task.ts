@@ -1,8 +1,6 @@
-import type { Task } from './types'
-
 const nutritionTaskTitle = 'телостроительство:питание'
 
-export function isNutritionTask(task: Task) {
+export function isNutritionTask(task: { title: string }) {
   const normalizedTitle = task.title
     .trim()
     .toLocaleLowerCase('ru-RU')

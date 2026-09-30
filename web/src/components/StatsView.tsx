@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
+import { NegativeHabitsPinForm } from './NegativeHabitsPinForm'
 import { WeightChart } from './WeightChart'
 import { useData } from '../hooks/useData'
 import { localISODate, percent } from '../lib/dates'
@@ -65,14 +66,21 @@ export function StatsView() {
   const [testWeightLogs, setTestWeightLogs] = useState<WeightLog[]>(getSavedTestWeightLogs)
   const [weightChartWeekday, setWeightChartWeekday] = useState<WeightChartWeekday>(getSavedWeightChartWeekday)
   const [weekdayPickerOpen, setWeekdayPickerOpen] = useState(false)
+  const [negativeHabitsOpen, setNegativeHabitsOpen] = useState(false)
+  const [negativeHabitsPinOpen, setNegativeHabitsPinOpen] = useState(false)
+  const [negativeHabitsPinValue, setNegativeHabitsPinValue] = useState('')
+  const [negativeHabitsPinError, setNegativeHabitsPinError] = useState<string | null>(null)
 
   const testDates = new Set(testWeightLogs.map((log) => log.logged_on))
   const chartWeightLogs = adminMode
     ? [...weightLogs.filter((log) => !testDates.has(log.logged_on)), ...testWeightLogs]
     : weightLogs
+  const withdrawalTasks = tasks.filter((task) => task.withdrawal_syndrome)
+  const negativeHabitsPin = profile?.negative_habits_pin ?? (withdrawalTasks.length > 0 ? '0000' : null)
+  const negativeHabitsPinRequired = profile?.negative_habits_pin_required !== false
   const taskGroups = [
     { id: 'regular', tasks: tasks.filter((task) => !task.withdrawal_syndrome) },
-    { id: 'withdrawal', tasks: tasks.filter((task) => task.withdrawal_syndrome) },
+    { id: 'withdrawal', tasks: withdrawalTasks },
   ].filter((group) => group.tasks.length > 0)
 
   useEffect(() => {
@@ -174,6 +182,31 @@ export function StatsView() {
     }
   }
 
+  function toggleNegativeHabits() {
+    if (negativeHabitsOpen) {
+      setNegativeHabitsOpen(false)
+      return
+    }
+    if (!negativeHabitsPinRequired) {
+      setNegativeHabitsOpen(true)
+      return
+    }
+    setNegativeHabitsPinValue('')
+    setNegativeHabitsPinError(null)
+    setNegativeHabitsPinOpen(true)
+  }
+
+  function unlockNegativeHabits() {
+    if (negativeHabitsPinValue !== negativeHabitsPin) {
+      setNegativeHabitsPinError('Неверный PIN')
+      return
+    }
+    setNegativeHabitsPinOpen(false)
+    setNegativeHabitsPinValue('')
+    setNegativeHabitsPinError(null)
+    setNegativeHabitsOpen(true)
+  }
+
   return (
     <section className="stats-view">
       <nav className="daily-tasks-tabs" aria-label="Разделы статистики">
@@ -252,8 +285,41 @@ export function StatsView() {
           ) : (
             <ul className="task-list">
               {taskGroups.map((group) => (
-                <li key={group.id} className="task-group">
-                  <ul className="task-group-list">
+                <li key={group.id} className={`task-group${group.id === 'withdrawal' ? ' negative-habits-group' : ''}`}>
+                  {group.id === 'withdrawal' && (
+                    <button
+                      type="button"
+                      className="ghost compact negative-habits-toggle"
+                      aria-expanded={negativeHabitsOpen}
+                      aria-controls="negative-habits-statistics-list"
+                      onClick={toggleNegativeHabits}
+                    >
+                      <span>Негативная привычка/зависимость</span>
+                      <span aria-hidden="true">{negativeHabitsOpen ? '⌃' : '⌄'}</span>
+                    </button>
+                  )}
+                  {group.id === 'withdrawal' && negativeHabitsPinOpen && (
+                    <NegativeHabitsPinForm
+                      id="negative-habits-statistics-pin"
+                      value={negativeHabitsPinValue}
+                      error={negativeHabitsPinError}
+                      onChange={(value) => {
+                        setNegativeHabitsPinValue(value)
+                        setNegativeHabitsPinError(null)
+                      }}
+                      onSubmit={unlockNegativeHabits}
+                      onCancel={() => {
+                        setNegativeHabitsPinOpen(false)
+                        setNegativeHabitsPinValue('')
+                        setNegativeHabitsPinError(null)
+                      }}
+                    />
+                  )}
+                  {(group.id !== 'withdrawal' || negativeHabitsOpen) && (
+                  <ul
+                    id={group.id === 'withdrawal' ? 'negative-habits-statistics-list' : undefined}
+                    className="task-group-list"
+                  >
                     {group.tasks.map((task) => {
                       const withdrawalPhase = getWithdrawalPhase(
                         task.withdrawal_syndrome,
@@ -302,6 +368,7 @@ export function StatsView() {
                       )
                     })}
                   </ul>
+                  )}
                 </li>
               ))}
             </ul>

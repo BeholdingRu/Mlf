@@ -207,7 +207,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     setProfile(nextProfile)
-    setTasks((tasksRes.data ?? []) as Task[])
+    setTasks(((tasksRes.data ?? []) as Task[]).map((task) => ({
+      ...task,
+      inverted_logic: task.inverted_logic ?? false,
+    })))
     setCompletions((completionsRes.data ?? []) as TaskCompletion[])
     setWeightLogs((weightRes.data ?? []) as WeightLog[])
     const normalizedSavedProducts = ((productsRes.data ?? []) as SavedProduct[]).map((product) => ({
@@ -425,7 +428,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (insError) throw insError
         setCompletions((prev) => [...prev, data as TaskCompletion])
       },
-      async addTask(title, habitDays, withdrawalSyndrome = false) {
+      async addTask(title, habitDays, withdrawalSyndrome = false, invertedLogic = false) {
         if (!user) return
         const { data, error: insError } = await requireSupabase()
           .from('tasks')
@@ -435,6 +438,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             habit_days: habitDays,
             sort_order: tasks.length,
             withdrawal_syndrome: withdrawalSyndrome,
+            inverted_logic: !withdrawalSyndrome && !isNutritionTask({ title }) && invertedLogic,
             withdrawal_started_on: withdrawalSyndrome ? localISODate() : null,
           })
           .select('*')
@@ -443,9 +447,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setTasks((prev) => [...prev, data as Task])
       },
       async updateTask(id, patch) {
+        const currentTask = tasks.find((task) => task.id === id)
+        const nextTitle = patch.title ?? currentTask?.title ?? ''
+        const nextPatch = isNutritionTask({ title: nextTitle })
+          ? { ...patch, inverted_logic: false }
+          : patch
+        const inversionChanged = nextPatch.inverted_logic !== undefined
+          && nextPatch.inverted_logic !== currentTask?.inverted_logic
+        const markedToday = completions.some(
+          (completion) => completion.task_id === id && completion.completed_on === localISODate(),
+        )
+        if (currentTask?.inverted_logic && inversionChanged && markedToday) {
+          throw new Error('Инверсию логики нельзя изменить после отметки задачи за сегодня')
+        }
         const { data, error: updError } = await requireSupabase()
           .from('tasks')
-          .update(patch)
+          .update(nextPatch)
           .eq('id', id)
           .select('*')
           .single()

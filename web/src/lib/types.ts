@@ -101,6 +101,7 @@ export type Task = {
   habit_days: number
   sort_order: number
   withdrawal_syndrome: boolean
+  inverted_logic: boolean
   withdrawal_started_on: string | null
   withdrawal_restart_on: string | null
   created_at: string
