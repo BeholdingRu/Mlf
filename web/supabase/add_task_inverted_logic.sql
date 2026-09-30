@@ -21,14 +21,13 @@ as $$
 declare
   user_today date;
 begin
-  if old.inverted_logic = true
-    and new.inverted_logic is distinct from old.inverted_logic then
-    select timezone(coalesce(nullif(profile.time_zone, ''), 'UTC'), now())::date
+  if new.inverted_logic is distinct from old.inverted_logic then
+    select timezone(coalesce(nullif(profile.time_zone, ''), 'Europe/Moscow'), now())::date
     into user_today
     from public.profiles as profile
     where profile.id = old.user_id;
 
-    user_today := coalesce(user_today, current_date);
+    user_today := coalesce(user_today, timezone('Europe/Moscow', now())::date);
 
     if exists (
       select 1

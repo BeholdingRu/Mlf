@@ -102,9 +102,15 @@ export type Task = {
   sort_order: number
   withdrawal_syndrome: boolean
   inverted_logic: boolean
+  inverted_logic_history: TaskInvertedLogicHistoryEntry[]
   withdrawal_started_on: string | null
   withdrawal_restart_on: string | null
   created_at: string
+}
+
+export type TaskInvertedLogicHistoryEntry = {
+  effective_on: string
+  inverted_logic: boolean
 }
 
 export type TaskCompletion = {

@@ -153,6 +153,7 @@ create table if not exists public.tasks (
   sort_order integer not null default 0,
   withdrawal_syndrome boolean not null default false,
   inverted_logic boolean not null default false,
+  inverted_logic_history jsonb not null default '[]'::jsonb,
   withdrawal_started_on date,
   withdrawal_restart_on date,
   created_at timestamptz not null default now()
@@ -161,6 +162,7 @@ create table if not exists public.tasks (
 alter table public.tasks
   add column if not exists withdrawal_syndrome boolean not null default false,
   add column if not exists inverted_logic boolean not null default false,
+  add column if not exists inverted_logic_history jsonb not null default '[]'::jsonb,
   add column if not exists withdrawal_started_on date,
   add column if not exists withdrawal_restart_on date;
 
@@ -175,6 +177,16 @@ alter table public.tasks
   add constraint tasks_withdrawal_inverted_logic_check
   check (not (withdrawal_syndrome and inverted_logic));
 
+update public.tasks
+set inverted_logic_history = '[]'::jsonb
+where inverted_logic_history is null;
+
+alter table public.tasks
+  drop constraint if exists tasks_inverted_logic_history_check;
+alter table public.tasks
+  add constraint tasks_inverted_logic_history_check
+  check (jsonb_typeof(inverted_logic_history) = 'array');
+
 create table if not exists public.task_completions (
   id uuid primary key default gen_random_uuid(),
   task_id uuid not null references public.tasks (id) on delete cascade,
@@ -183,22 +195,121 @@ create table if not exists public.task_completions (
   unique (task_id, completed_on)
 );
 
+drop trigger if exists maintain_task_inverted_logic_history on public.tasks;
+
+update public.tasks as task
+set inverted_logic_history = jsonb_build_array(
+  jsonb_build_object(
+    'effective_on', timezone(
+      coalesce(nullif(profile.time_zone, ''), 'Europe/Moscow'),
+      now()
+    )::date,
+    'inverted_logic', true
+  )
+)
+from public.profiles as profile
+where profile.id = task.user_id
+  and task.inverted_logic = true
+  and jsonb_array_length(task.inverted_logic_history) = 0;
+
+create or replace function public.maintain_task_inverted_logic_history()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  selected_time_zone text;
+  effective_date date;
+  retained_history jsonb;
+begin
+  select coalesce(nullif(profile.time_zone, ''), 'Europe/Moscow')
+  into selected_time_zone
+  from public.profiles as profile
+  where profile.id = new.user_id;
+
+  selected_time_zone := coalesce(selected_time_zone, 'Europe/Moscow');
+
+  if tg_op = 'INSERT' then
+    new.inverted_logic_history := '[]'::jsonb;
+
+    if new.inverted_logic then
+      begin
+        effective_date := timezone(selected_time_zone, coalesce(new.created_at, now()))::date;
+      exception
+        when invalid_parameter_value then
+          effective_date := timezone('Europe/Moscow', coalesce(new.created_at, now()))::date;
+      end;
+
+      new.inverted_logic_history := jsonb_build_array(
+        jsonb_build_object(
+          'effective_on', effective_date,
+          'inverted_logic', true
+        )
+      );
+    end if;
+
+    return new;
+  end if;
+
+  new.inverted_logic_history := coalesce(old.inverted_logic_history, '[]'::jsonb);
+  if new.inverted_logic is not distinct from old.inverted_logic then
+    return new;
+  end if;
+
+  begin
+    effective_date := timezone(selected_time_zone, now())::date;
+  exception
+    when invalid_parameter_value then
+      effective_date := timezone('Europe/Moscow', now())::date;
+  end;
+
+  select coalesce(
+    jsonb_agg(history_entry.value order by history_entry.position),
+    '[]'::jsonb
+  )
+  into retained_history
+  from jsonb_array_elements(new.inverted_logic_history)
+    with ordinality as history_entry(value, position)
+  where history_entry.value ->> 'effective_on' <> effective_date::text;
+
+  new.inverted_logic_history := retained_history || jsonb_build_array(
+    jsonb_build_object(
+      'effective_on', effective_date,
+      'inverted_logic', new.inverted_logic
+    )
+  );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists maintain_task_inverted_logic_history on public.tasks;
+create trigger maintain_task_inverted_logic_history
+before insert or update on public.tasks
+for each row
+execute function public.maintain_task_inverted_logic_history();
+
 create or replace function public.prevent_marked_inverted_task_logic_change()
 returns trigger
 language plpgsql
 set search_path = public
 as $$
 declare
+  selected_time_zone text;
   user_today date;
 begin
-  if old.inverted_logic = true
-    and new.inverted_logic is distinct from old.inverted_logic then
-    select timezone(coalesce(nullif(profile.time_zone, ''), 'UTC'), now())::date
-    into user_today
+  if new.inverted_logic is distinct from old.inverted_logic then
+    select coalesce(nullif(profile.time_zone, ''), 'Europe/Moscow')
+    into selected_time_zone
     from public.profiles as profile
     where profile.id = old.user_id;
 
-    user_today := coalesce(user_today, current_date);
+    begin
+      user_today := timezone(coalesce(selected_time_zone, 'Europe/Moscow'), now())::date;
+    exception
+      when invalid_parameter_value then
+        user_today := timezone('Europe/Moscow', now())::date;
+    end;
 
     if exists (
       select 1

@@ -6,33 +6,24 @@ import {
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
-  pauseSupabaseAuth,
   requireSupabase,
-  resumeSupabaseAuth,
   supabaseConfigured,
 } from '../lib/supabase'
 import { AuthContext, type AuthContextValue } from './auth-context'
 const RECOVERY_REQUIRED_STORAGE_KEY = 'mlf:recovery-password-required'
-const GUEST_MODE_STORAGE_KEY = 'mlf:guest-mode'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isGuest, setIsGuest] = useState(
-    () => window.localStorage.getItem(GUEST_MODE_STORAGE_KEY) === 'true',
-  )
   const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(() => !isGuest && supabaseConfigured)
+  const [loading, setLoading] = useState(() => supabaseConfigured)
   const [recoveryRequired, setRecoveryRequired] = useState(
     () => window.sessionStorage.getItem(RECOVERY_REQUIRED_STORAGE_KEY) === 'true',
   )
 
   useEffect(() => {
-    if (isGuest || !supabaseConfigured) {
-      return
-    }
+    if (!supabaseConfigured) return
 
     let active = true
     const client = requireSupabase()
-    resumeSupabaseAuth()
     client.auth.getSession().then(({ data }) => {
       if (!active) return
       setSession(data.session)
@@ -54,27 +45,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false
       sub.subscription.unsubscribe()
     }
-  }, [isGuest])
+  }, [])
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user: session?.user ?? null,
       session,
       loading,
-      isGuest,
       recoveryRequired,
-      enterGuestMode() {
-        pauseSupabaseAuth()
-        window.localStorage.setItem(GUEST_MODE_STORAGE_KEY, 'true')
-        setSession(null)
-        setLoading(false)
-        setIsGuest(true)
-      },
-      exitGuestMode() {
-        window.localStorage.removeItem(GUEST_MODE_STORAGE_KEY)
-        setLoading(supabaseConfigured)
-        setIsGuest(false)
-      },
       async signIn(email, password) {
         const { error } = await requireSupabase().auth.signInWithPassword({
           email,
@@ -156,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw new Error('Пароль указан неверно')
       },
     }),
-    [session, loading, isGuest, recoveryRequired],
+    [session, loading, recoveryRequired],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

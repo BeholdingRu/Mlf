@@ -888,11 +888,11 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                   habit_days: String(task.habit_days),
                   inverted_logic: task.inverted_logic,
                 }
-                const inversionLockedToday = task.inverted_logic && completions.some(
+                const inversionLockedToday = completions.some(
                   (completion) => completion.task_id === task.id && completion.completed_on === today,
                 )
                 const effectiveEdit = inversionLockedToday
-                  ? { ...edit, inverted_logic: true }
+                  ? { ...edit, inverted_logic: task.inverted_logic }
                   : edit
                 return (
                   <li key={task.id} className={`task-editor-row${task.withdrawal_syndrome ? ' withdrawal-task-editor-row' : ''}`}>

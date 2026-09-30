@@ -1,4 +1,5 @@
 import { isoDateInTimeZone, localISODate, parseISODate } from './dates'
+import { normalizeTaskInvertedLogicHistory } from './task-inverted-logic-history'
 import type { Task, TaskCompletion } from './types'
 
 export function getRegularTaskProgress(
@@ -21,15 +22,29 @@ export function getRegularTaskProgress(
   )
   const cursor = parseISODate(createdOn)
   const lastDate = parseISODate(today)
+  const invertedLogicHistory = normalizeTaskInvertedLogicHistory(
+    task.inverted_logic_history,
+    task.inverted_logic,
+    today,
+  )
+  let historyIndex = 0
+  let invertedOnDate = false
   let progressDays = 0
-  let successfulDays = task.inverted_logic ? 0 : completedDates.size
+  let successfulDays = 0
   let missedDays = 0
   const missedDates: string[] = []
 
   while (cursor <= lastDate) {
     const date = localISODate(cursor)
+    while (
+      historyIndex < invertedLogicHistory.length
+      && invertedLogicHistory[historyIndex].effective_on <= date
+    ) {
+      invertedOnDate = invertedLogicHistory[historyIndex].inverted_logic
+      historyIndex += 1
+    }
     const marked = completedDates.has(date)
-    if (task.inverted_logic) {
+    if (invertedOnDate) {
       if (marked) {
         missedDays += 1
         missedDates.push(date)
@@ -39,6 +54,7 @@ export function getRegularTaskProgress(
         progressDays += 1
       }
     } else if (marked) {
+      successfulDays += 1
       progressDays += 1
     } else if (date < today) {
       missedDays += 1

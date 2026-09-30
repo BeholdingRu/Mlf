@@ -670,27 +670,6 @@ input:not([type]) {
   margin-top: 18px;
 }
 
-.guest-entry {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
-}
-
-.guest-entry p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.guest-mode-button {
-  width: 100%;
-  color: var(--ink);
-  font-weight: 700;
-}
-
 .banner {
   margin: 0;
   padding: 10px 12px;
@@ -911,41 +890,6 @@ nav {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 24px;
-}
-
-.topbar-context {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  min-width: 0;
-}
-
-.topbar-context > h1 {
-  flex: 0 1 auto;
-}
-
-.guest-mode-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-muted);
-  color: var(--moss-deep);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.guest-mode-badge-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--leaf);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--leaf) 18%, transparent);
 }
 
 .path-heading {
@@ -6685,22 +6629,6 @@ nav {
   width: auto;
 }
 
-.guest-storage-settings {
-  display: grid;
-  gap: 12px;
-}
-
-.guest-privacy-note {
-  line-height: 1.5;
-}
-
-.guest-storage-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .settings-block .toggle {
   display: flex;
   flex-direction: row;
@@ -6914,10 +6842,6 @@ nav {
     gap: 12px;
   }
 
-  .topbar-context {
-    width: 100%;
-  }
-
   .topbar h1 {
     font-size: 22px;
   }
@@ -7129,26 +7053,6 @@ nav {
 
   .topbar h1 {
     font-size: 20px;
-    width: 100%;
-  }
-
-  .topbar-context {
-    align-items: flex-start;
-    gap: 7px 10px;
-  }
-
-  .guest-mode-badge {
-    padding: 4px 8px;
-    font-size: 11px;
-  }
-
-  .guest-storage-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .guest-storage-actions .danger,
-  .guest-storage-actions .ghost {
     width: 100%;
   }
 

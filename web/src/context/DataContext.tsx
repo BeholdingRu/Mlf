@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from 'react'
 import { requireSupabase } from '../lib/supabase'
-import { localISODate } from '../lib/dates'
+import { isoDateInTimeZone, localISODate } from '../lib/dates'
 import type {
   FoodLog,
   MealPlanEntry,
@@ -31,6 +31,10 @@ import { isNutritionTask } from '../lib/nutrition-task'
 import { useAuth } from '../hooks/useAuth'
 import { DataContext, type DataContextValue } from './data-context'
 import { BIBLE_GROWTH_TOTAL_STEPS } from '../lib/bible-growth'
+import {
+  normalizeTaskInvertedLogicHistory,
+  recordTaskInvertedLogicChange,
+} from '../lib/task-inverted-logic-history'
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
@@ -206,10 +210,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       nextProfile = inserted.data as Profile
     }
 
+    const taskHistoryEffectiveOn = isoDateInTimeZone(nextProfile.time_zone)
     setProfile(nextProfile)
     setTasks(((tasksRes.data ?? []) as Task[]).map((task) => ({
       ...task,
       inverted_logic: task.inverted_logic ?? false,
+      inverted_logic_history: normalizeTaskInvertedLogicHistory(
+        task.inverted_logic_history,
+        task.inverted_logic ?? false,
+        taskHistoryEffectiveOn,
+      ),
     })))
     setCompletions((completionsRes.data ?? []) as TaskCompletion[])
     setWeightLogs((weightRes.data ?? []) as WeightLog[])
@@ -444,7 +454,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
         if (insError) throw insError
-        setTasks((prev) => [...prev, data as Task])
+        const insertedTask = data as Task
+        setTasks((prev) => [...prev, {
+          ...insertedTask,
+          inverted_logic_history: normalizeTaskInvertedLogicHistory(
+            insertedTask.inverted_logic_history,
+            insertedTask.inverted_logic,
+            isoDateInTimeZone(profile?.time_zone),
+          ),
+        }])
       },
       async updateTask(id, patch) {
         const currentTask = tasks.find((task) => task.id === id)
@@ -457,7 +475,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const markedToday = completions.some(
           (completion) => completion.task_id === id && completion.completed_on === localISODate(),
         )
-        if (currentTask?.inverted_logic && inversionChanged && markedToday) {
+        if (inversionChanged && markedToday) {
           throw new Error('Инверсию логики нельзя изменить после отметки задачи за сегодня')
         }
         const { data, error: updError } = await requireSupabase()
@@ -467,7 +485,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
         if (updError) throw updError
-        setTasks((prev) => prev.map((t) => (t.id === id ? (data as Task) : t)))
+        const updatedTask = data as Task
+        const effectiveOn = isoDateInTimeZone(profile?.time_zone)
+        const updatedHistory = Array.isArray(updatedTask.inverted_logic_history)
+          ? normalizeTaskInvertedLogicHistory(
+              updatedTask.inverted_logic_history,
+              updatedTask.inverted_logic,
+              effectiveOn,
+            )
+          : inversionChanged
+            ? recordTaskInvertedLogicChange(
+                currentTask?.inverted_logic_history ?? [],
+                updatedTask.inverted_logic,
+                effectiveOn,
+              )
+            : currentTask?.inverted_logic_history ?? []
+        setTasks((prev) => prev.map((task) => (task.id === id
+          ? { ...updatedTask, inverted_logic_history: updatedHistory }
+          : task)))
       },
       async restartWithdrawalTask(taskId) {
         const tomorrow = new Date()
@@ -479,7 +514,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
         if (updError) throw updError
-        setTasks((prev) => prev.map((task) => (task.id === taskId ? (data as Task) : task)))
+        const restartedTask = data as Task
+        setTasks((prev) => prev.map((task) => (task.id === taskId
+          ? {
+              ...restartedTask,
+              inverted_logic_history: Array.isArray(restartedTask.inverted_logic_history)
+                ? normalizeTaskInvertedLogicHistory(
+                    restartedTask.inverted_logic_history,
+                    restartedTask.inverted_logic,
+                    isoDateInTimeZone(profile?.time_zone),
+                  )
+                : task.inverted_logic_history,
+            }
+          : task)))
       },
       async deleteTask(id) {
         const { error: delError } = await requireSupabase().from('tasks').delete().eq('id', id)

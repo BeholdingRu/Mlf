@@ -1,5 +1,4 @@
 import { useState, type FormEvent } from 'react'
-import { GUEST_DATA_CLEAR_EVENT } from '../context/GuestDataProvider'
 import { useData } from '../hooks/useData'
 import { useAuth } from '../hooks/useAuth'
 import { getAuthErrorMessage } from '../lib/auth-errors'
@@ -39,7 +38,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     adminMode,
     setAdminMode,
   } = useData()
-  const { user, isGuest, signOut, exitGuestMode, changePassword, verifyPassword } = useAuth()
+  const { user, signOut, changePassword, verifyPassword } = useAuth()
   const [enabled, setEnabled] = useState(profile?.weight_enabled ?? false)
   const [error, setError] = useState<string | null>(null)
   const [passwordInfo, setPasswordInfo] = useState<string | null>(null)
@@ -56,7 +55,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [newPin, setNewPin] = useState('')
   const [newPinConfirmation, setNewPinConfirmation] = useState('')
   const [pinInfo, setPinInfo] = useState<string | null>(null)
-  const [guestDataInfo, setGuestDataInfo] = useState<string | null>(null)
   const [nutritionInfoOpen, setNutritionInfoOpen] = useState(false)
   const [theme, setTheme] = useState<ThemeId>(() =>
     profile ? normalizeTheme(profile.theme) : getSavedTheme(),
@@ -69,18 +67,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [annualCycleEnabled, setAnnualCycleEnabled] = useState(profile?.annual_cycle_enabled ?? false)
   const [shabbatTheme, setShabbatTheme] = useState<ShabbatThemeId>(() => normalizeShabbatTheme(profile?.shabbat_theme))
   const shabbatActive = isShabbatActive(profile)
-
-  function leaveGuestMode() {
-    onClose()
-    exitGuestMode()
-  }
-
-  function clearGuestData() {
-    if (!window.confirm('Удалить все данные гостевого режима с этого устройства? Отменить это действие нельзя.')) return
-
-    window.dispatchEvent(new Event(GUEST_DATA_CLEAR_EVENT))
-    setGuestDataInfo('Локальные данные гостевого режима удалены.')
-  }
 
   async function changeWeightVisibility(nextEnabled: boolean) {
     const previousEnabled = enabled
@@ -270,9 +256,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <p className="hint">
                 {shabbatActive
                   ? 'Во время Шаббата доступно праздничное оформление.'
-                  : isGuest
-                    ? 'Тема сохраняется только в этом браузере.'
-                    : 'Тема сохраняется в профиле и будет доступна на всех устройствах.'}
+                  : 'Тема сохраняется в профиле и будет доступна на всех устройствах.'}
               </p>
               <div className="theme-options" role="radiogroup" aria-label="Выбор темы">
                 {shabbatActive ? shabbatThemes.map((option) => (
@@ -434,25 +418,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         )}
 
         <section className="settings-block">
-          <h3>{isGuest ? 'Гостевой режим' : 'Профиль'}</h3>
-          {isGuest ? (
-            <div className="guest-storage-settings">
-              <p className="banner info guest-privacy-note">
-                Персональные данные сохраняются только на этом устройстве и не передаются в
-                облачную базу. Они не синхронизируются и могут быть удалены браузером.
-              </p>
-              {guestDataInfo && <p className="banner info">{guestDataInfo}</p>}
-              <div className="guest-storage-actions">
-                <button type="button" className="danger compact" onClick={clearGuestData}>
-                  Удалить локальные данные
-                </button>
-                <button type="button" className="ghost compact" onClick={leaveGuestMode}>
-                  Выйти из гостевого режима
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
+          <h3>Профиль</h3>
               <p className="email">{user?.email}</p>
               <div className="profile-security-actions">
                 <button
@@ -563,8 +529,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               <button type="button" className="danger compact settings-action" onClick={() => signOut()}>
                 Выйти из аккаунта
               </button>
-            </>
-          )}
         </section>
 
         {error && <p className="banner error">{error}</p>}
