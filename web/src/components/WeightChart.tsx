@@ -415,8 +415,8 @@ export function WeightChart({
 
         {hasChartData && <div className="chart-legend">
           <p>Минимум: <strong>{minValue.toFixed(1)} кг</strong></p>
-          <p>Максимум: <strong>{maxValue.toFixed(1)} кг</strong></p>
           <p>Разница: <strong>{(maxValue - minValue).toFixed(1)} кг</strong></p>
+          <p>Максимум: <strong>{maxValue.toFixed(1)} кг</strong></p>
         </div>}
       </div>
 
