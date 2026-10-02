@@ -8,8 +8,6 @@ import type {
   BibleVerse,
   DiaryStatisticsTargets,
   FoodLog,
-  MealPlanEntry,
-  MealType,
   MindfulnessCategory,
   MindfulnessNote,
   PathDay,
@@ -35,7 +33,6 @@ export type DataContextValue = {
   weightLogs: WeightLog[]
   foodLogs: FoodLog[]
   foodHistoryLogs: FoodLog[]
-  mealPlanEntries: MealPlanEntry[]
   bibleBookmarks: BibleBookmark[]
   bibleTreeProgress: BibleTreeProgress
   bibleTreeProgressDate: string | null
@@ -102,8 +99,6 @@ export type DataContextValue = {
   logFoodOnDate: (loggedOn: string, productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
   updateFoodLogProductName: (id: string, productName: string) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
-  addMealPlanEntry: (mealType: MealType, productName: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
-  deleteMealPlanEntry: (id: string) => Promise<void>
   addSavedProduct: (name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<void>
   updateSavedProduct: (id: string, name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<void>
   setSavedProductFavorite: (id: string, isFavorite: boolean) => Promise<void>

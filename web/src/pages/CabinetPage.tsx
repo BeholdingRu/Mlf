@@ -6,7 +6,6 @@ import { StatsView } from '../components/StatsView'
 import { CaloriesView } from '../components/CaloriesView'
 import { TrainingView } from '../components/TrainingView'
 import { DiaryView } from '../components/DiaryView'
-import { MediaView } from '../components/MediaView'
 import { PathView } from '../components/PathView'
 import { useData } from '../hooks/useData'
 import { useViewport } from '../hooks/useViewport'
@@ -20,7 +19,7 @@ import { getNextBibleLocation, isBibleReadingTask, type BibleNavigationTarget } 
 import { ADMIN_TEST_TIME_CHANGE_EVENT, getAdminTestTime } from '../lib/admin-test-time'
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
-const CABINET_TABS: CabinetTab[] = ['daily', 'calories', 'training', 'media', 'path', 'all', 'diary']
+const CABINET_TABS: CabinetTab[] = ['daily', 'calories', 'training', 'path', 'all', 'diary']
 
 function getSavedCabinetTab(): CabinetTab {
   if (window.matchMedia('(max-width: 768px)').matches) return 'calories'
@@ -95,9 +94,7 @@ export function CabinetPage() {
             ? 'Тренировки'
             : tab === 'diary'
               ? 'Дневник'
-              : tab === 'media'
-                ? 'Медиа'
-                : 'Путь'
+              : 'Путь'
 
   function continueBibleReading() {
     const nextLocation = getNextBibleLocation(
@@ -167,9 +164,6 @@ export function CabinetPage() {
           <div hidden={tab !== 'diary'}>
             <DiaryView />
           </div>
-        )}
-        {!loading && (
-          <MediaView compact={tab !== 'media'} />
         )}
         {!loading && (
           <div hidden={tab !== 'path'}>

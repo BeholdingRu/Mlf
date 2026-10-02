@@ -10,7 +10,6 @@ import { requireSupabase } from '../lib/supabase'
 import { isoDateInTimeZone, localISODate, millisecondsUntilNextDayInTimeZone } from '../lib/dates'
 import type {
   FoodLog,
-  MealPlanEntry,
   BibleBookmark,
   BibleTreeProgress,
   BibleVerse,
@@ -45,7 +44,6 @@ import {
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
-const PERMANENT_MEAL_PLAN_DATE = '1970-01-01'
 const EMPTY_BIBLE_TREE_PROGRESS: BibleTreeProgress = {
   progressSteps: 0,
   chaptersToday: 0,
@@ -103,7 +101,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
   const [foodHistoryLogs, setFoodHistoryLogs] = useState<FoodLog[]>([])
-  const [mealPlanEntries, setMealPlanEntries] = useState<MealPlanEntry[]>([])
   const [bibleBookmarks, setBibleBookmarks] = useState<BibleBookmark[]>([])
   const [bibleTreeProgress, setBibleTreeProgress] = useState<BibleTreeProgress>(EMPTY_BIBLE_TREE_PROGRESS)
   const [bibleTreeProgressDate, setBibleTreeProgressDate] = useState<string | null>(null)
@@ -167,7 +164,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .eq('user_id', userId)
           .order('logged_on', { ascending: false })
           .order('created_at'),
-        client.from('meal_plan_entries').select('*').eq('user_id', userId).order('created_at'),
         client.from('saved_products').select('*').eq('user_id', userId).order('name'),
         client.from('saved_exercises').select('*').eq('user_id', userId).order('name'),
         client.from('scheduled_exercises').select('*').eq('user_id', userId).order('planned_on').order('sort_order'),
@@ -182,7 +178,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, mealPlanRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes, bibleBookmarksRes] = responses
+    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes, bibleBookmarksRes] = responses
 
     const bookmarksTableMissing = bibleBookmarksRes.error?.code === '42P01'
       || bibleBookmarksRes.error?.code === 'PGRST205'
@@ -194,7 +190,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightRes.error?.message ||
       foodRes.error?.message ||
       foodHistoryRes.error?.message ||
-      mealPlanRes.error?.message ||
       productsRes.error?.message ||
       exercisesRes.error?.message ||
       scheduledExercisesRes.error?.message ||
@@ -273,7 +268,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     })
     setFoodLogs(normalizeFoodLogs(foodRes.data ?? []))
     setFoodHistoryLogs(normalizeFoodLogs(foodHistoryRes.data ?? []))
-    setMealPlanEntries((mealPlanRes.data ?? []) as MealPlanEntry[])
     setPathDayConfirmations((pathConfirmationsRes.data ?? []) as PathDayConfirmation[])
     setCourseLessonCompletions((courseLessonsRes.data ?? []) as CourseLessonCompletion[])
     setMindfulnessCategories((mindfulnessCategoriesRes.data ?? []) as MindfulnessCategory[])
@@ -558,7 +552,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightLogs,
       foodLogs,
       foodHistoryLogs,
-      mealPlanEntries,
       bibleBookmarks,
       bibleTreeProgress,
       bibleTreeProgressDate,
@@ -1268,34 +1261,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           await reconcileNutritionTaskDate(deletedFood.logged_on, nextHistoryLogs)
         }
       },
-      async addMealPlanEntry(mealType, productName, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
-        if (!user) return
-        const { data, error: insError } = await requireSupabase()
-          .from('meal_plan_entries')
-          .insert({
-            user_id: user.id,
-            planned_on: PERMANENT_MEAL_PLAN_DATE,
-            meal_type: mealType,
-            product_name: productName,
-            weight_grams: 100,
-            calories_per_100g: caloriesPer100g,
-            proteins_per_100g: proteinsPer100g,
-            fats_per_100g: fatsPer100g,
-            carbohydrates_per_100g: carbohydratesPer100g,
-          })
-          .select('*')
-          .single()
-        if (insError) throw insError
-        setMealPlanEntries((previous) => [...previous, data as MealPlanEntry])
-      },
-      async deleteMealPlanEntry(id) {
-        const { error: delError } = await requireSupabase()
-          .from('meal_plan_entries')
-          .delete()
-          .eq('id', id)
-        if (delError) throw delError
-        setMealPlanEntries((previous) => previous.filter((entry) => entry.id !== id))
-      },
       async addSavedProduct(name, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g, category, isFavorite) {
         if (!user) return
         const { data, error: insError } = await requireSupabase()
@@ -1474,7 +1439,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightLogs,
       foodLogs,
       foodHistoryLogs,
-      mealPlanEntries,
       bibleBookmarks,
       bibleTreeProgress,
       bibleTreeProgressDate,
