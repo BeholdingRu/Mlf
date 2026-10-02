@@ -4407,6 +4407,20 @@ nav {
   font-size: 15px;
 }
 
+.diary-macro-calculator-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.diary-macro-calculator-mode {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
 .diary-macro-calculator p {
   margin-top: 3px;
   color: var(--muted);
@@ -4439,7 +4453,8 @@ nav {
   font-size: 11px;
 }
 
-.diary-macro-calculator input {
+.diary-macro-calculator input,
+.diary-macro-calculator select {
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
@@ -4451,10 +4466,88 @@ nav {
   font: inherit;
 }
 
+.diary-macro-calculator-protein-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(84px, 0.5fr);
+  gap: 8px;
+}
+
+.diary-macro-calculator-protein-form > button,
+.diary-macro-calculator-protein-form > p {
+  grid-column: 1 / -1;
+}
+
+.diary-macro-calculator-protein-form > button {
+  width: 100%;
+}
+
+.diary-macro-calculator-product-select select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diary-macro-calculator-message,
+.diary-macro-calculator-error {
+  margin: 0;
+}
+
+.diary-macro-calculator-error {
+  color: var(--warn) !important;
+}
+
+.diary-macro-calculator-products {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.diary-macro-calculator-products > strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.diary-macro-calculator-products ul {
+  display: grid;
+  max-height: 220px;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.diary-macro-calculator-products li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.diary-macro-calculator-products li > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.diary-macro-calculator-product-name {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.diary-macro-calculator-products small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .diary-macro-calculator-total {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
   gap: 10px;
   padding: 9px 10px;
   border: 1px solid var(--line);
@@ -4462,14 +4555,32 @@ nav {
   background: var(--surface-muted);
 }
 
-.diary-macro-calculator-total span {
+.diary-macro-calculator-total > span {
   color: var(--muted);
   font-size: 12px;
 }
 
-.diary-macro-calculator-total strong {
+.diary-macro-calculator-total.calories-only {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.diary-macro-calculator-total.calories-only > strong {
   color: var(--moss-deep);
   font-size: 15px;
+  white-space: nowrap;
+}
+
+.diary-macro-calculator-total-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
+}
+
+.diary-macro-calculator-total-values strong {
+  color: var(--moss-deep);
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -4480,6 +4591,21 @@ nav {
 
   .diary-nutrition-statistics {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .diary-macro-calculator-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .diary-macro-calculator-mode {
+    width: 100%;
+  }
+
+  .diary-macro-calculator-protein-form {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

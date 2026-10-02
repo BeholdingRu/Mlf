@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useData } from '../hooks/useData'
-import type { DiaryStatisticsTargets } from '../lib/types'
+import type { DiaryStatisticsTargets, SavedProduct } from '../lib/types'
 import {
   dateTimeInputInTimeZone,
   getAdminTestTime,
@@ -1246,10 +1246,12 @@ export function DiaryView() {
               </div>
               </section>
               <MacroNutrientCalculator
-                key={`${profile?.daily_calories_norm ?? 'no-calorie-norm'}-${profile?.desired_weight ?? 'no-desired-weight'}-${macroCalculatorSettings.fatCaloriesPercent}-${macroCalculatorSettings.proteinWeightMultiplier}`}
+                key={`${profile?.id ?? 'no-user'}-${profile?.daily_calories_norm ?? 'no-calorie-norm'}-${profile?.desired_weight ?? 'no-desired-weight'}-${macroCalculatorSettings.fatCaloriesPercent}-${macroCalculatorSettings.proteinWeightMultiplier}`}
                 dailyCaloriesNorm={profile?.daily_calories_norm}
                 desiredWeight={profile?.desired_weight}
                 settings={macroCalculatorSettings}
+                savedProducts={savedProducts}
+                userId={profile?.id ?? null}
                 onBalanceValuesChange={setMacroCalculatorBalanceValues}
               />
             </div>
@@ -1453,6 +1455,26 @@ function isWeightTargetReached(actual: number, target: number) {
 }
 
 type MacroCalculatorKey = 'proteins' | 'fats' | 'carbohydrates'
+type MacroCalculatorMode = 'calculator' | 'protein'
+
+type MacroCalculatorProductEntry = {
+  id: string
+  productId: string
+  name: string
+  weightGrams: number
+  caloriesPer100g: number
+  proteinsPer100g: number
+  fatsPer100g: number
+  carbohydratesPer100g: number
+}
+
+type MacroCalculatorProductStorage = {
+  version: 1
+  userId: string
+  entries: MacroCalculatorProductEntry[]
+}
+
+const MACRO_CALCULATOR_PRODUCTS_STORAGE_PREFIX = 'mlf:macro-calculator-products:v1:'
 
 const MACRO_CALCULATOR_FIELDS: Array<{
   key: MacroCalculatorKey
@@ -1468,11 +1490,15 @@ function MacroNutrientCalculator({
   dailyCaloriesNorm,
   desiredWeight,
   settings,
+  savedProducts,
+  userId,
   onBalanceValuesChange,
 }: {
   dailyCaloriesNorm?: number | null
   desiredWeight?: number | null
   settings: MacroCalculatorSettings
+  savedProducts: SavedProduct[]
+  userId: string | null
   onBalanceValuesChange: (values: MacroCalculatorBalanceValues) => void
 }) {
   const [values, setValues] = useState<Record<MacroCalculatorKey, { grams: string; calories: string }>>(() => {
@@ -1511,6 +1537,18 @@ function MacroNutrientCalculator({
           },
     }
   })
+  const [mode, setMode] = useState<MacroCalculatorMode>('calculator')
+  const [selectedProductId, setSelectedProductId] = useState('')
+  const [productWeight, setProductWeight] = useState('')
+  const [productError, setProductError] = useState<string | null>(null)
+  const [productEntries, setProductEntries] = useState<MacroCalculatorProductEntry[]>(
+    () => loadMacroCalculatorProductEntries(userId),
+  )
+
+  const sortedSavedProducts = useMemo(
+    () => [...savedProducts].sort((first, second) => first.name.localeCompare(second.name, 'ru-RU')),
+    [savedProducts],
+  )
 
   const updateValue = (
     key: MacroCalculatorKey,
@@ -1531,56 +1569,196 @@ function MacroNutrientCalculator({
     }))
   }
 
-  const totalCalories = MACRO_CALCULATOR_FIELDS.reduce((total, field) => (
+  const manualCalories = MACRO_CALCULATOR_FIELDS.reduce((total, field) => (
     total + (parseCalculatorValue(values[field.key].calories) ?? 0)
   ), 0)
+  const productTotals = productEntries.reduce((totals, entry) => {
+    const portion = entry.weightGrams / 100
+    return {
+      calories: totals.calories + entry.caloriesPer100g * portion,
+      proteins: totals.proteins + entry.proteinsPer100g * portion,
+      fats: totals.fats + entry.fatsPer100g * portion,
+      carbohydrates: totals.carbohydrates + entry.carbohydratesPer100g * portion,
+    }
+  }, { calories: 0, proteins: 0, fats: 0, carbohydrates: 0 })
+  const remainingCalories = manualCalories - productTotals.calories
+  const remainingProteins = (parseCalculatorValue(values.proteins.grams) ?? 0) - productTotals.proteins
+  const remainingFats = (parseCalculatorValue(values.fats.grams) ?? 0) - productTotals.fats
+  const remainingCarbohydrates = (parseCalculatorValue(values.carbohydrates.grams) ?? 0)
+    - productTotals.carbohydrates
+
+  const addProteinProduct = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const product = savedProducts.find((item) => item.id === selectedProductId)
+    const weight = parseCalculatorValue(productWeight)
+    if (!product) {
+      setProductError('Выберите продукт')
+      return
+    }
+    if (weight === null || weight <= 0) {
+      setProductError('Укажите вес больше нуля')
+      return
+    }
+
+    setProductEntries((current) => [...current, {
+      id: createMacroCalculatorEntryId(),
+      productId: product.id,
+      name: product.name,
+      weightGrams: weight,
+      caloriesPer100g: product.calories_per_100g,
+      proteinsPer100g: product.proteins_per_100g,
+      fatsPer100g: product.fats_per_100g,
+      carbohydratesPer100g: product.carbohydrates_per_100g,
+    }])
+    setSelectedProductId('')
+    setProductWeight('')
+    setProductError(null)
+  }
+
+  useEffect(() => {
+    saveMacroCalculatorProductEntries(userId, productEntries)
+  }, [productEntries, userId])
 
   useEffect(() => {
     onBalanceValuesChange({
-      proteins: parseCalculatorValue(values.proteins.grams),
-      fats: parseCalculatorValue(values.fats.grams),
+      proteins: remainingProteins > 0 ? remainingProteins : null,
+      fats: remainingFats > 0 ? remainingFats : null,
     })
-  }, [onBalanceValuesChange, values.fats.grams, values.proteins.grams])
+  }, [onBalanceValuesChange, remainingFats, remainingProteins])
 
   return (
     <aside className="diary-macro-calculator" aria-labelledby="diary-macro-calculator-heading">
-      <div>
-        <h3 id="diary-macro-calculator-heading">Калькулятор КБЖУ</h3>
-        <p>Белки и углеводы × 4, жиры × 9</p>
+      <div className="diary-macro-calculator-head">
+        <div>
+          <h3 id="diary-macro-calculator-heading">Калькулятор КБЖУ</h3>
+          <p>Белки и углеводы × 4, жиры × 9</p>
+        </div>
+        <button
+          type="button"
+          className="primary compact diary-macro-calculator-mode"
+          aria-pressed={mode === 'protein'}
+          onClick={() => {
+            setMode((current) => current === 'calculator' ? 'protein' : 'calculator')
+            setProductError(null)
+          }}
+        >
+          {mode === 'calculator' ? 'Протеин' : 'Калькулятор'}
+        </button>
       </div>
-      <div className="diary-macro-calculator-fields">
-        {MACRO_CALCULATOR_FIELDS.map((field) => (
-          <div className="diary-macro-calculator-row" key={field.key}>
-            <label>
-              <span>{field.label}, г</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={values[field.key].grams}
-                onChange={(event) => updateValue(field.key, 'grams', event.target.value, field.calorieFactor)}
-                placeholder="0"
-                aria-label={`${field.label}, граммы`}
-              />
-            </label>
-            <span aria-hidden="true">=</span>
-            <label>
-              <span>Калории</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={values[field.key].calories}
-                onChange={(event) => updateValue(field.key, 'calories', event.target.value, field.calorieFactor)}
-                placeholder="0"
-                aria-label={`${field.label}, калории`}
-              />
-            </label>
+      {mode === 'calculator' ? (
+        <div className="diary-macro-calculator-fields">
+          {MACRO_CALCULATOR_FIELDS.map((field) => (
+            <div className="diary-macro-calculator-row" key={field.key}>
+              <label>
+                <span>{field.label}, г</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={values[field.key].grams}
+                  onChange={(event) => updateValue(field.key, 'grams', event.target.value, field.calorieFactor)}
+                  placeholder="0"
+                  aria-label={`${field.label}, граммы`}
+                />
+              </label>
+              <span aria-hidden="true">=</span>
+              <label>
+                <span>Калории</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={values[field.key].calories}
+                  onChange={(event) => updateValue(field.key, 'calories', event.target.value, field.calorieFactor)}
+                  placeholder="0"
+                  aria-label={`${field.label}, калории`}
+                />
+              </label>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <form className="diary-macro-calculator-protein-form" onSubmit={addProteinProduct}>
+          <label className="diary-macro-calculator-product-select">
+            <span>Продукт</span>
+            <select
+              value={selectedProductId}
+              onChange={(event) => {
+                setSelectedProductId(event.target.value)
+                setProductError(null)
+              }}
+              disabled={sortedSavedProducts.length === 0}
+            >
+              <option value="">Выберите продукт</option>
+              {sortedSavedProducts.map((product) => (
+                <option key={product.id} value={product.id}>{product.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Вес, г</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={productWeight}
+              onChange={(event) => {
+                setProductWeight(event.target.value)
+                setProductError(null)
+              }}
+              placeholder="0"
+              disabled={sortedSavedProducts.length === 0}
+            />
+          </label>
+          <button type="submit" className="primary compact" disabled={sortedSavedProducts.length === 0}>
+            Добавить
+          </button>
+          {sortedSavedProducts.length === 0 && <p className="diary-macro-calculator-message">Сохранённых продуктов пока нет</p>}
+          {productError && <p className="diary-macro-calculator-error">{productError}</p>}
+        </form>
+      )}
+      {productEntries.length > 0 && (
+        <div className="diary-macro-calculator-products">
+          <strong>Добавленные продукты</strong>
+          <ul>
+            {productEntries.map((entry) => {
+              const entryTotals = getMacroCalculatorEntryTotals(entry)
+              return (
+                <li key={entry.id}>
+                  <div>
+                    <span className="diary-macro-calculator-product-name">{entry.name} · {formatStatisticValue(entry.weightGrams, 1)} г</span>
+                    <small>
+                      К {formatStatisticValue(entryTotals.calories, 1)} ккал · Б {formatStatisticValue(entryTotals.proteins, 1)} г · Ж {formatStatisticValue(entryTotals.fats, 1)} г · У {formatStatisticValue(entryTotals.carbohydrates, 1)} г
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    className="delete-button"
+                    aria-label={`Удалить ${entry.name} из калькулятора`}
+                    title="Удалить"
+                    onClick={() => setProductEntries((current) => current.filter((item) => item.id !== entry.id))}
+                  >
+                    ×
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+      {mode === 'calculator' ? (
+        <div className="diary-macro-calculator-total calories-only">
+          <span>Всего калорий</span>
+          <strong>{formatStatisticValue(manualCalories, 1)} ккал</strong>
+        </div>
+      ) : (
+        <div className="diary-macro-calculator-total">
+          <span>Всего КБЖУ</span>
+          <div className="diary-macro-calculator-total-values">
+            <strong>К {formatStatisticValue(remainingCalories, 1)} ккал</strong>
+            <strong>Б {formatStatisticValue(remainingProteins, 1)} г</strong>
+            <strong>Ж {formatStatisticValue(remainingFats, 1)} г</strong>
+            <strong>У {formatStatisticValue(remainingCarbohydrates, 1)} г</strong>
           </div>
-        ))}
-      </div>
-      <div className="diary-macro-calculator-total">
-        <span>Всего калорий</span>
-        <strong>{formatStatisticValue(totalCalories, 1)} ккал</strong>
-      </div>
+        </div>
+      )}
     </aside>
   )
 }
@@ -1594,6 +1772,69 @@ function parseCalculatorValue(value: string) {
 
 function formatCalculatorInput(value: number) {
   return String(Math.round(value * 100) / 100).replace('.', ',')
+}
+
+function getMacroCalculatorProductStorageKey(userId: string) {
+  return `${MACRO_CALCULATOR_PRODUCTS_STORAGE_PREFIX}${userId}`
+}
+
+function loadMacroCalculatorProductEntries(userId: string | null): MacroCalculatorProductEntry[] {
+  if (!userId) return []
+  try {
+    const rawValue = window.localStorage.getItem(getMacroCalculatorProductStorageKey(userId))
+    if (!rawValue) return []
+    const stored = JSON.parse(rawValue) as Partial<MacroCalculatorProductStorage>
+    if (stored.version !== 1 || stored.userId !== userId || !Array.isArray(stored.entries)) return []
+    return stored.entries.filter(isMacroCalculatorProductEntry)
+  } catch {
+    return []
+  }
+}
+
+function saveMacroCalculatorProductEntries(userId: string | null, entries: MacroCalculatorProductEntry[]) {
+  if (!userId) return
+  const stored: MacroCalculatorProductStorage = { version: 1, userId, entries }
+  try {
+    window.localStorage.setItem(getMacroCalculatorProductStorageKey(userId), JSON.stringify(stored))
+  } catch {
+    // The calculator remains usable for the current session if browser storage is unavailable.
+  }
+}
+
+function isMacroCalculatorProductEntry(value: unknown): value is MacroCalculatorProductEntry {
+  if (!value || typeof value !== 'object') return false
+  const entry = value as Record<string, unknown>
+  return typeof entry.id === 'string'
+    && typeof entry.productId === 'string'
+    && typeof entry.name === 'string'
+    && entry.name.trim().length > 0
+    && isFiniteNonNegativeNumber(entry.weightGrams, true)
+    && isFiniteNonNegativeNumber(entry.caloriesPer100g)
+    && isFiniteNonNegativeNumber(entry.proteinsPer100g)
+    && isFiniteNonNegativeNumber(entry.fatsPer100g)
+    && isFiniteNonNegativeNumber(entry.carbohydratesPer100g)
+}
+
+function isFiniteNonNegativeNumber(value: unknown, positive = false): value is number {
+  return typeof value === 'number'
+    && Number.isFinite(value)
+    && (positive ? value > 0 : value >= 0)
+}
+
+function createMacroCalculatorEntryId() {
+  return typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function getMacroCalculatorEntryTotals(entry: MacroCalculatorProductEntry) {
+  const portion = entry.weightGrams / 100
+  return {
+    calories: entry.caloriesPer100g * portion,
+    proteins: entry.proteinsPer100g * portion,
+    fats: entry.fatsPer100g * portion,
+    carbohydrates: entry.carbohydratesPer100g * portion,
+  }
 }
 
 function getSavedProductMacro(
