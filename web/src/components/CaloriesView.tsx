@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '../hooks/useData'
 import { ProductsView } from './ProductsView'
 import { DEFAULT_PRODUCT_CATEGORY, PRODUCT_CATEGORIES, type ProductCategory } from '../lib/product-categories'
+import { getCalorieAdaptation } from '../lib/calorie-adaptation'
 
 type CaloriesSubTab = 'consumption' | 'products'
 
@@ -59,7 +60,18 @@ function getSavedFoodAddDraft(): FoodAddDraft | null {
 }
 
 export function CaloriesView() {
-  const { profile, foodLogs, savedProducts, addSavedProduct, setSavedProductFavorite, logFoodToday, deleteFoodLog, saveCaloriesNorm } = useData()
+  const {
+    profile,
+    weightLogs,
+    foodLogs,
+    savedProducts,
+    addSavedProduct,
+    setSavedProductFavorite,
+    logFoodToday,
+    deleteFoodLog,
+    saveCaloriesNorm,
+    saveCalorieAdaptationEnabled,
+  } = useData()
   const [foodAddDraft] = useState<FoodAddDraft | null>(getSavedFoodAddDraft)
   const [subTab, setSubTab] = useState<CaloriesSubTab>(getSavedCaloriesSubTab)
   const [productName, setProductName] = useState(foodAddDraft?.name ?? '')
@@ -76,16 +88,22 @@ export function CaloriesView() {
   const [submitting, setSubmitting] = useState(false)
   const [favoriteFoodId, setFavoriteFoodId] = useState<string | null>(null)
   const [savingNorm, setSavingNorm] = useState(false)
+  const [savingAdaptation, setSavingAdaptation] = useState(false)
   const [editingNorm, setEditingNorm] = useState(false)
   const [normError, setNormError] = useState<string | null>(null)
+  const [adaptationInfoOpen, setAdaptationInfoOpen] = useState(false)
   const [mobileCaloriesSummary, setMobileCaloriesSummary] = useState(
     () => window.matchMedia(MOBILE_CALORIES_SUMMARY_QUERY).matches,
   )
   const [caloriesSummaryExpanded, setCaloriesSummaryExpanded] = useState(false)
   const dailyNormInputRef = useRef<HTMLInputElement>(null)
+  const adaptationInfoRef = useRef<HTMLDivElement>(null)
+  const adaptationInfoButtonRef = useRef<HTMLButtonElement>(null)
 
-  const dailyNorm = profile?.daily_calories_norm ?? 0
-  const displayedDailyNorm = dailyNormInput ?? (profile?.daily_calories_norm != null ? String(profile.daily_calories_norm) : '')
+  const calorieAdaptation = getCalorieAdaptation(profile, weightLogs)
+  const dailyNorm = calorieAdaptation.effectiveNorm ?? 0
+  const editableDailyNorm = dailyNormInput ?? (calorieAdaptation.baseNorm != null ? String(calorieAdaptation.baseNorm) : '')
+  const displayedDailyNorm = calorieAdaptation.effectiveNorm != null ? String(calorieAdaptation.effectiveNorm) : ''
 
   const totalConsumed = foodLogs.reduce((sum, food) => {
     const consumed = (food.weight_grams / 100) * food.calories_per_100g
@@ -131,6 +149,28 @@ export function CaloriesView() {
   }, [])
 
   useEffect(() => {
+    if (!adaptationInfoOpen) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!adaptationInfoRef.current?.contains(event.target as Node)) {
+        setAdaptationInfoOpen(false)
+      }
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setAdaptationInfoOpen(false)
+      adaptationInfoButtonRef.current?.focus()
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [adaptationInfoOpen])
+
+  useEffect(() => {
     const isEmpty = !productName && !weightGrams && !caloriesPer100g && !proteinsPer100g
       && !fatsPer100g && !carbohydratesPer100g && productCategory === DEFAULT_PRODUCT_CATEGORY
     if (isEmpty) {
@@ -151,7 +191,7 @@ export function CaloriesView() {
   }, [caloriesPer100g, carbohydratesPer100g, fatsPer100g, productCategory, productName, proteinsPer100g, weightGrams])
 
   const handleSaveDailyNorm = async () => {
-    const parsed = displayedDailyNorm.trim() === '' ? null : Number(displayedDailyNorm.replace(',', '.'))
+    const parsed = editableDailyNorm.trim() === '' ? null : Number(editableDailyNorm.replace(',', '.'))
     if (parsed != null && (!Number.isFinite(parsed) || parsed <= 0)) {
       setNormError('Укажите положительное значение для дневной нормы калорий')
       return
@@ -174,6 +214,18 @@ export function CaloriesView() {
     setNormError(null)
     setEditingNorm(true)
     requestAnimationFrame(() => dailyNormInputRef.current?.focus())
+  }
+
+  const handleCalorieAdaptationChange = async (enabled: boolean) => {
+    setSavingAdaptation(true)
+    setNormError(null)
+    try {
+      await saveCalorieAdaptationEnabled(enabled)
+    } catch (err) {
+      setNormError(err instanceof Error ? err.message : 'Не удалось сохранить настройку адаптации')
+    } finally {
+      setSavingAdaptation(false)
+    }
   }
 
   const handleAddFood = async () => {
@@ -318,34 +370,65 @@ export function CaloriesView() {
             <div className="calories-info">
               {(!mobileCaloriesSummary || caloriesSummaryExpanded) && <div className="info-item calories-norm-card">
                 <label className="label" htmlFor="daily-calories-norm">Дневная норма калорий:</label>
-                <div className="daily-norm-editor">
-                  {editingNorm ? (
-                    <input
-                      id="daily-calories-norm"
-                      ref={dailyNormInputRef}
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={displayedDailyNorm}
-                      onChange={(e) => setDailyNormInput(e.target.value)}
+                <div className="daily-norm-controls" ref={adaptationInfoRef}>
+                  <div className="daily-norm-editor">
+                    {editingNorm ? (
+                      <input
+                        id="daily-calories-norm"
+                        ref={dailyNormInputRef}
+                        type="number"
+                        step="1"
+                        min="1"
+                        value={editableDailyNorm}
+                        onChange={(e) => setDailyNormInput(e.target.value)}
+                        disabled={savingNorm}
+                        placeholder="Не задана"
+                      />
+                    ) : (
+                      <span className="daily-norm-value">{displayedDailyNorm || '—'}</span>
+                    )}
+                    <button
+                      type="button"
+                      className={editingNorm ? 'primary compact daily-norm-action' : 'edit-button daily-norm-action'}
+                      onClick={editingNorm ? handleSaveDailyNorm : handleEditDailyNorm}
                       disabled={savingNorm}
-                      placeholder="Не задана"
-                    />
-                  ) : (
-                    <span className="daily-norm-value">{displayedDailyNorm || '—'}</span>
+                      aria-label={editingNorm ? undefined : 'Редактировать дневную норму калорий'}
+                      title={editingNorm ? undefined : 'Редактировать дневную норму калорий'}
+                    >
+                      {savingNorm ? 'Сохранение…' : editingNorm ? 'Сохранить' : '✎'}
+                    </button>
+                  </div>
+                  <div className="calorie-adaptation-control">
+                    <label className="calorie-adaptation-toggle">
+                      <input
+                        type="checkbox"
+                        checked={profile?.calorie_adaptation_enabled ?? false}
+                        disabled={savingAdaptation}
+                        onChange={(event) => void handleCalorieAdaptationChange(event.target.checked)}
+                      />
+                      <span>Адаптация</span>
+                    </label>
+                    <button
+                      ref={adaptationInfoButtonRef}
+                      type="button"
+                      className="info-button calorie-adaptation-info-button"
+                      aria-label="Информация об адаптации дневной нормы калорий"
+                      aria-expanded={adaptationInfoOpen}
+                      aria-controls="calorie-adaptation-info"
+                      aria-describedby={adaptationInfoOpen ? 'calorie-adaptation-info' : undefined}
+                      onClick={() => setAdaptationInfoOpen((open) => !open)}
+                    >
+                      i
+                    </button>
+                  </div>
+                  {adaptationInfoOpen && (
+                    <div id="calorie-adaptation-info" className="calorie-adaptation-info" role="tooltip">
+                      Если активно, изменение веса считается от момента сохранения нормы: за каждый набранный
+                      килограмм добавляется 10 ккал, за каждый потерянный — вычитается 10 ккал.
+                    </div>
                   )}
-                  <button
-                    type="button"
-                    className={editingNorm ? 'primary compact daily-norm-action' : 'edit-button daily-norm-action'}
-                    onClick={editingNorm ? handleSaveDailyNorm : handleEditDailyNorm}
-                    disabled={savingNorm}
-                    aria-label={editingNorm ? undefined : 'Редактировать дневную норму калорий'}
-                    title={editingNorm ? undefined : 'Редактировать дневную норму калорий'}
-                  >
-                    {savingNorm ? 'Сохранение…' : editingNorm ? 'Сохранить' : '✎'}
-                  </button>
                 </div>
-                {normError && <span className="daily-norm-error">{normError}</span>}
+                {normError && <span className="daily-norm-error" role="alert">{normError}</span>}
               </div>}
               {(!mobileCaloriesSummary || caloriesSummaryExpanded) && <div className="info-item consumption-card">
                 <div className="consumption-summary" aria-label="Потреблённые калории и сумма БЖУ">

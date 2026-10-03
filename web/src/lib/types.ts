@@ -21,6 +21,9 @@ export type Profile = {
   desired_weight: number | null
   weight_started_on: string | null
   daily_calories_norm: number | null
+  calorie_adaptation_enabled: boolean
+  calorie_adaptation_baseline_weight: number | null
+  calorie_adaptation_baseline_on: string | null
   theme: ThemeId
   font_scale: number
   time_zone: string | null

@@ -28,6 +28,7 @@ import type {
 } from '../lib/types'
 import { DEFAULT_PRODUCT_CATEGORY } from '../lib/product-categories'
 import { isNutritionTask } from '../lib/nutrition-task'
+import { getCalorieAdaptation } from '../lib/calorie-adaptation'
 import { isBibleReadingTask } from '../lib/bible-books'
 import {
   getBibleDailyReadingCount,
@@ -412,9 +413,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (
       !user
       || !profile?.weight_enabled
-      || profile.daily_calories_norm == null
       || loggedOn >= localISODate()
     ) return
+
+    const dailyCaloriesNorm = getCalorieAdaptation(profile, weightLogs, loggedOn).effectiveNorm
+    if (dailyCaloriesNorm === null) return
 
     const nutritionTasks = tasks.filter(isNutritionTask)
     if (!nutritionTasks.length) return
@@ -425,7 +428,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const client = requireSupabase()
 
     try {
-      if (totalCalories <= profile.daily_calories_norm) {
+      if (totalCalories <= dailyCaloriesNorm) {
         const results = await Promise.all(
           nutritionTasks.map((task) =>
             client
@@ -478,7 +481,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : 'Не удалось пересчитать статистику задачи питания',
       )
     }
-  }, [foodHistoryLogs, profile, tasks, user])
+  }, [foodHistoryLogs, profile, tasks, user, weightLogs])
 
   useEffect(() => {
     const yesterday = new Date()
@@ -808,11 +811,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
       async saveCaloriesNorm(norm) {
         if (!user || !profile) return
+        const currentWeight = getCalorieAdaptation(profile, weightLogs).currentWeight
+        const fallbackWeight = Number(profile.target_weight)
+        const baselineWeight = norm == null
+          ? null
+          : currentWeight ?? (Number.isFinite(fallbackWeight) && fallbackWeight > 0 ? fallbackWeight : null)
         const { data, error: updError } = await requireSupabase()
           .from('profiles')
           .update({
             daily_calories_norm: norm,
+            calorie_adaptation_baseline_weight: baselineWeight,
+            calorie_adaptation_baseline_on: norm == null ? null : localISODate(),
           })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
+      async saveCalorieAdaptationEnabled(enabled) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({ calorie_adaptation_enabled: enabled })
           .eq('id', user.id)
           .select('*')
           .single()

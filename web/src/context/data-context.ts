@@ -72,6 +72,7 @@ export type DataContextValue = {
   saveWeightVisibility: (enabled: boolean) => Promise<void>
   logTodayWeight: (value: number) => Promise<void>
   saveCaloriesNorm: (norm: number | null) => Promise<void>
+  saveCalorieAdaptationEnabled: (enabled: boolean) => Promise<void>
   saveDesiredWeight: (desired: number | null) => Promise<void>
   saveDiaryStatisticsTargets: (targets: DiaryStatisticsTargets) => Promise<void>
   saveTheme: (theme: ThemeId) => Promise<void>

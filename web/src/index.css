@@ -4268,6 +4268,14 @@ nav {
   }
 }
 
+.daily-norm-controls {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+}
+
 .daily-norm-editor {
   display: flex;
   flex-wrap: wrap;
@@ -4311,6 +4319,64 @@ nav {
 .daily-norm-action.edit-button {
   min-height: 24px;
   padding: 0;
+}
+
+.calorie-adaptation-control {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+}
+
+.calorie-adaptation-toggle {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.calorie-adaptation-toggle input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--moss);
+}
+
+.calorie-adaptation-toggle:has(input:disabled) {
+  color: var(--muted);
+  cursor: wait;
+}
+
+.calorie-adaptation-info-button.info-button {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.calorie-adaptation-info {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 8px);
+  right: 0;
+  box-sizing: border-box;
+  width: min(330px, 100%);
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .daily-norm-error {
@@ -6848,6 +6914,16 @@ nav {
 
   .daily-norm-editor {
     gap: 6px;
+  }
+
+  .daily-norm-controls {
+    gap: 6px 10px;
+  }
+
+  .calorie-adaptation-info {
+    position: static;
+    flex: 1 0 100%;
+    width: 100%;
   }
 
   .calories-tabs {

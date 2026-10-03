@@ -10,6 +10,7 @@ import {
   startAdminTestTime,
 } from '../lib/admin-test-time'
 import { localISODate, parseISODate } from '../lib/dates'
+import { getCalorieAdaptation } from '../lib/calorie-adaptation'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { getSunsetTime } from '../lib/sunset'
 import { getRegularTaskProgress } from '../lib/task-progress'
@@ -154,17 +155,18 @@ export function DiaryView() {
   const [adminFoodBusy, setAdminFoodBusy] = useState(false)
   const [adminFoodError, setAdminFoodError] = useState<string | null>(null)
   const statisticsTargets = profile?.diary_statistics_targets ?? {}
+  const { effectiveNorm: effectiveDailyCaloriesNorm } = getCalorieAdaptation(profile, weightLogs)
   const calculatedProteinTarget = typeof profile?.desired_weight === 'number' && profile.desired_weight > 0
     ? profile.desired_weight * macroCalculatorSettings.proteinWeightMultiplier
     : undefined
-  const calculatedFatTarget = typeof profile?.daily_calories_norm === 'number' && profile.daily_calories_norm > 0
-    ? (profile.daily_calories_norm * (macroCalculatorSettings.fatCaloriesPercent / 100)) / 9
+  const calculatedFatTarget = typeof effectiveDailyCaloriesNorm === 'number' && effectiveDailyCaloriesNorm > 0
+    ? (effectiveDailyCaloriesNorm * (macroCalculatorSettings.fatCaloriesPercent / 100)) / 9
     : undefined
-  const defaultCarbohydrateTarget = typeof profile?.daily_calories_norm === 'number'
-    && profile.daily_calories_norm > 0
+  const defaultCarbohydrateTarget = typeof effectiveDailyCaloriesNorm === 'number'
+    && effectiveDailyCaloriesNorm > 0
     && calculatedProteinTarget !== undefined
     && calculatedFatTarget !== undefined
-    ? (profile.daily_calories_norm - calculatedProteinTarget * 4 - calculatedFatTarget * 9) / 4
+    ? (effectiveDailyCaloriesNorm - calculatedProteinTarget * 4 - calculatedFatTarget * 9) / 4
     : undefined
   const calculatedCarbohydrateTarget = hasTarget(statisticsTargets.carbohydrates)
     ? statisticsTargets.carbohydrates
@@ -1119,7 +1121,7 @@ export function DiaryView() {
                 <>
                   <div className="diary-nutrition-statistics-grid">
                     {[
-                      { label: 'Калории', actual: nutritionPeriodStatistics.calories, target: profile?.daily_calories_norm ?? undefined, unit: 'ккал', digits: 0, calorieMultiplier: undefined, productFilter: undefined },
+                      { label: 'Калории', actual: nutritionPeriodStatistics.calories, target: effectiveDailyCaloriesNorm ?? undefined, unit: 'ккал', digits: 0, calorieMultiplier: undefined, productFilter: undefined },
                       { label: 'Белки', actual: nutritionPeriodStatistics.proteins, target: calculatedProteinTarget, unit: 'г', digits: 1, calorieMultiplier: 4, productFilter: 'proteins' as const },
                       { label: 'Жиры', actual: nutritionPeriodStatistics.fats, target: calculatedFatTarget, unit: 'г', digits: 1, calorieMultiplier: 9, productFilter: 'fats' as const },
                       { label: 'Углеводы', actual: nutritionPeriodStatistics.carbohydrates, target: calculatedCarbohydrateTarget, unit: 'г', digits: 1, calorieMultiplier: 4, productFilter: 'carbohydrates' as const },
@@ -1246,8 +1248,8 @@ export function DiaryView() {
               </div>
               </section>
               <MacroNutrientCalculator
-                key={`${profile?.id ?? 'no-user'}-${profile?.daily_calories_norm ?? 'no-calorie-norm'}-${profile?.desired_weight ?? 'no-desired-weight'}-${macroCalculatorSettings.fatCaloriesPercent}-${macroCalculatorSettings.proteinWeightMultiplier}`}
-                dailyCaloriesNorm={profile?.daily_calories_norm}
+                key={`${profile?.id ?? 'no-user'}-${effectiveDailyCaloriesNorm ?? 'no-calorie-norm'}-${profile?.desired_weight ?? 'no-desired-weight'}-${macroCalculatorSettings.fatCaloriesPercent}-${macroCalculatorSettings.proteinWeightMultiplier}`}
+                dailyCaloriesNorm={effectiveDailyCaloriesNorm}
                 desiredWeight={profile?.desired_weight}
                 settings={macroCalculatorSettings}
                 savedProducts={savedProducts}

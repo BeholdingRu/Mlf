@@ -22,6 +22,10 @@ create table if not exists public.profiles (
   desired_weight numeric(6, 1),
   weight_started_on date,
   daily_calories_norm numeric(6, 1),
+  calorie_adaptation_enabled boolean not null default false,
+  calorie_adaptation_baseline_weight numeric(6, 1)
+    check (calorie_adaptation_baseline_weight > 0),
+  calorie_adaptation_baseline_on date,
   theme text not null default 'green',
   font_scale numeric(3, 2) not null default 1 check (font_scale in (0.9, 1, 1.1, 1.2)),
   time_zone text,
