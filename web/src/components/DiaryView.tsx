@@ -110,6 +110,7 @@ export function DiaryView() {
   const [showProducts, setShowProducts] = useState(false)
   const [showNutritionStatistics, setShowNutritionStatistics] = useState(false)
   const [showNutritionPeriod, setShowNutritionPeriod] = useState(false)
+  const [showMonthSummary, setShowMonthSummary] = useState(false)
   const [showStatisticsSettings, setShowStatisticsSettings] = useState(false)
   const [showWeightTargetInfo, setShowWeightTargetInfo] = useState(false)
   const [activeMacroProductFilter, setActiveMacroProductFilter] = useState<MacroProductFilter | null>(null)
@@ -154,6 +155,23 @@ export function DiaryView() {
   const [adminFoodCarbohydrates, setAdminFoodCarbohydrates] = useState('')
   const [adminFoodBusy, setAdminFoodBusy] = useState(false)
   const [adminFoodError, setAdminFoodError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!showMonthSummary) return
+
+    const previousOverflow = document.body.style.overflow
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowMonthSummary(false)
+    }
+
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [showMonthSummary])
+
   const statisticsTargets = profile?.diary_statistics_targets ?? {}
   const { effectiveNorm: effectiveDailyCaloriesNorm } = getCalorieAdaptation(profile, weightLogs)
   const calculatedProteinTarget = typeof profile?.desired_weight === 'number' && profile.desired_weight > 0
@@ -359,6 +377,44 @@ export function DiaryView() {
   const monthDays = Array.from({ length: daysInMonth }, (_, index) => index + 1)
   const statisticsMonthStart = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), 1))
   const statisticsMonthEnd = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), daysInMonth))
+  const monthSummary = (() => {
+    const monthFoodLogs = foodHistoryLogs.filter(
+      (food) => food.logged_on >= statisticsMonthStart && food.logged_on <= statisticsMonthEnd,
+    )
+    const monthWeightLogs = weightLogs
+      .filter((log) => log.logged_on >= statisticsMonthStart && log.logged_on <= statisticsMonthEnd)
+      .sort((a, b) => a.logged_on.localeCompare(b.logged_on))
+    const monthCompletedExercises = scheduledExercises.filter(
+      (exercise) => exercise.completed
+        && exercise.planned_on >= statisticsMonthStart
+        && exercise.planned_on <= statisticsMonthEnd,
+    )
+
+    const calories = monthFoodLogs.reduce(
+      (sum, food) => sum + (food.weight_grams / 100) * food.calories_per_100g,
+      0,
+    )
+    const firstWeight = monthWeightLogs[0]
+    const lastWeight = monthWeightLogs[monthWeightLogs.length - 1]
+    const weightChange = firstWeight && lastWeight && firstWeight.logged_on !== lastWeight.logged_on
+      ? lastWeight.value - firstWeight.value
+      : null
+    const workedWeight = monthCompletedExercises.reduce(
+      (sum, exercise) => sum + (getWorkedWeight(exercise) ?? 0),
+      0,
+    )
+
+    return {
+      calories,
+      foodDays: new Set(monthFoodLogs.map((food) => food.logged_on)).size,
+      firstWeight,
+      lastWeight,
+      weightChange,
+      weightMeasurements: monthWeightLogs.length,
+      workedWeight,
+      completedExercises: monthCompletedExercises.length,
+    }
+  })()
   const today = adminMode && testDate ? testDate : localISODate()
 
   const previousMonth = () => {
@@ -640,9 +696,21 @@ export function DiaryView() {
             <button type="button" className="calendar-nav" onClick={previousMonth} aria-label="Предыдущий месяц">
               ←
             </button>
-            <h2>
-              {MONTHS[activeMonth.getMonth()]} {activeMonth.getFullYear()}
-            </h2>
+            <div className="calendar-title">
+              <h2>
+                {MONTHS[activeMonth.getMonth()]} {activeMonth.getFullYear()}
+              </h2>
+              <button
+                type="button"
+                className="info-button calendar-month-info-button"
+                aria-label={`Сводка за ${MONTHS[activeMonth.getMonth()].toLocaleLowerCase('ru-RU')} ${activeMonth.getFullYear()}`}
+                aria-expanded={showMonthSummary}
+                aria-controls="diary-month-summary"
+                onClick={() => setShowMonthSummary((open) => !open)}
+              >
+                i
+              </button>
+            </div>
             <button type="button" className="calendar-nav" onClick={nextMonth} aria-label="Следующий месяц">
               →
             </button>
@@ -1342,12 +1410,127 @@ export function DiaryView() {
           </section>
         </div>
       </div>
+      {showMonthSummary && (
+        <div className="modal-overlay" role="presentation" onClick={() => setShowMonthSummary(false)}>
+          <section
+            id="diary-month-summary"
+            className="modal-content diary-month-summary-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="diary-month-summary-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="diary-month-summary-head">
+              <div>
+                <h3 id="diary-month-summary-title">Итоги месяца</h3>
+                <div className="diary-month-summary-period">
+                  <button
+                    type="button"
+                    className="calendar-nav"
+                    onClick={previousMonth}
+                    aria-label="Показать итоги предыдущего месяца"
+                  >
+                    ←
+                  </button>
+                  <span aria-live="polite">
+                    {MONTHS[activeMonth.getMonth()]} {activeMonth.getFullYear()}
+                  </span>
+                  <button
+                    type="button"
+                    className="calendar-nav"
+                    onClick={nextMonth}
+                    aria-label="Показать итоги следующего месяца"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="icon-close"
+                aria-label="Закрыть сводку за месяц"
+                onClick={() => setShowMonthSummary(false)}
+                autoFocus
+              >
+                ×
+              </button>
+            </header>
+            <div className="exercise-statistics-table-wrap">
+              <table className="exercise-statistics-table diary-month-summary-table">
+                <thead>
+                  <tr>
+                    <th>Показатель</th>
+                    <th>Значение</th>
+                    <th>Данные</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Потреблено калорий</th>
+                    <td>{Math.round(monthSummary.calories).toLocaleString('ru-RU')} ккал</td>
+                    <td>{formatTrackedDays(monthSummary.foodDays)}</td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Изменение веса</th>
+                    <td>{monthSummary.weightChange === null ? 'Недостаточно данных' : formatMonthWeightChange(monthSummary.weightChange)}</td>
+                    <td>
+                      {monthSummary.firstWeight && monthSummary.lastWeight
+                        ? `${formatWeight(monthSummary.firstWeight.value)} → ${formatWeight(monthSummary.lastWeight.value)} кг · ${formatMeasurements(monthSummary.weightMeasurements)}`
+                        : 'Нет замеров'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">Вес выполненных тренировок</th>
+                    <td>{formatWeight(monthSummary.workedWeight)} кг</td>
+                    <td>{formatCompletedExercises(monthSummary.completedExercises)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
     </section>
   )
 }
 
 function formatWeight(value: number) {
   return Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
+}
+
+function formatMonthWeightChange(value: number) {
+  if (value === 0) return '0 кг'
+  return `${value > 0 ? '+' : '−'}${formatWeight(Math.abs(value))} кг`
+}
+
+function formatTrackedDays(value: number) {
+  const lastTwoDigits = value % 100
+  const lastDigit = value % 10
+  const word = lastTwoDigits >= 11 && lastTwoDigits <= 14
+    ? 'дней с записями'
+    : lastDigit === 1
+      ? 'день с записями'
+      : lastDigit >= 2 && lastDigit <= 4
+        ? 'дня с записями'
+        : 'дней с записями'
+  return `${value} ${word}`
+}
+
+function formatMeasurements(value: number) {
+  const lastTwoDigits = value % 100
+  const lastDigit = value % 10
+  const word = lastTwoDigits >= 11 && lastTwoDigits <= 14
+    ? 'замеров'
+    : lastDigit === 1
+      ? 'замер'
+      : lastDigit >= 2 && lastDigit <= 4
+        ? 'замера'
+        : 'замеров'
+  return `${value} ${word}`
+}
+
+function formatCompletedExercises(value: number) {
+  return `Выполнено упражнений: ${value}`
 }
 
 function formatPeriodDate(value: string) {
