@@ -28,9 +28,14 @@ type ChartPoint = {
 
 const CHART_LEFT = 52
 const CHART_RIGHT_PADDING = 52
+const FULLSCREEN_FIRST_POINT_INSET = 48
 const CHART_HEIGHT = 258
 const FULLSCREEN_CHART_HEIGHT = 344
 const CHART_GRID_SECTIONS = 6
+const FORECAST_MONTHS = 12
+const MINIMUM_FORECAST_DAYS = 28
+const MONTHLY_TREND_RETENTION = 0.94
+const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 
 function selectEvenlySpacedLogs(logs: WeightLog[], maximum = 7) {
   if (logs.length <= maximum) return logs
@@ -53,6 +58,12 @@ function formatDayAndMonth(iso: string) {
     day: '2-digit',
     month: '2-digit',
   }).format(parseISODate(iso))
+}
+
+function formatMonthAndYear(iso: string) {
+  const date = parseISODate(iso)
+  const month = new Intl.DateTimeFormat('ru-RU', { month: 'long' }).format(date)
+  return `${month} ${date.getFullYear()}`
 }
 
 function formatWeightDifference(value: number, previousValue?: number) {
@@ -86,6 +97,85 @@ function selectMonthlyLogs(logs: WeightLog[]) {
   return [...firstLogByMonth.values()]
 }
 
+function addMonthsClamped(iso: string, months: number) {
+  const source = parseISODate(iso)
+  const targetYear = source.getFullYear()
+  const targetMonth = source.getMonth() + months
+  const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate()
+  const target = new Date(targetYear, targetMonth, Math.min(source.getDate(), lastDay))
+  const year = target.getFullYear()
+  const month = String(target.getMonth() + 1).padStart(2, '0')
+  const day = String(target.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function createWeightForecast(
+  logs: WeightLog[],
+  startDate: string | null,
+  startWeight: number | null,
+  desiredWeight: number | null,
+) {
+  const valuesByDate = new Map<string, number>()
+  if (startDate && startWeight != null) valuesByDate.set(startDate, startWeight)
+  for (const log of logs) valuesByDate.set(log.logged_on, log.value)
+
+  const history = [...valuesByDate.entries()]
+    .map(([date, value]) => ({ date, value }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+  if (history.length < 2) return null
+
+  const firstDate = parseISODate(history[0].date)
+  const lastDate = parseISODate(history[history.length - 1].date)
+  const spanDays = Math.round((lastDate.getTime() - firstDate.getTime()) / DAY_IN_MILLISECONDS)
+  if (spanDays < MINIMUM_FORECAST_DAYS) return null
+
+  const samples = history.map((point) => ({
+    x: (parseISODate(point.date).getTime() - firstDate.getTime()) / DAY_IN_MILLISECONDS,
+    y: point.value,
+  }))
+  const count = samples.length
+  const sumX = samples.reduce((sum, sample) => sum + sample.x, 0)
+  const sumY = samples.reduce((sum, sample) => sum + sample.y, 0)
+  const sumXY = samples.reduce((sum, sample) => sum + sample.x * sample.y, 0)
+  const sumXSquare = samples.reduce((sum, sample) => sum + sample.x ** 2, 0)
+  const denominator = count * sumXSquare - sumX ** 2
+  if (denominator === 0) return null
+
+  const dailyTrend = (count * sumXY - sumX * sumY) / denominator
+  const lastHistoryPoint = history[history.length - 1]
+  const directionToGoal = desiredWeight != null && desiredWeight > 0
+    ? Math.sign(desiredWeight - lastHistoryPoint.value)
+    : 0
+  let previousForecastDate = parseISODate(lastHistoryPoint.date)
+  let forecastWeight = lastHistoryPoint.value
+  let firstMonthChange = 0
+  const points: ChartPoint[] = Array.from({ length: FORECAST_MONTHS }, (_, index) => {
+    const date = addMonthsClamped(lastHistoryPoint.date, index + 1)
+    const forecastDate = parseISODate(date)
+    const intervalDays = (forecastDate.getTime() - previousForecastDate.getTime()) / DAY_IN_MILLISECONDS
+    const retainedTrend = MONTHLY_TREND_RETENTION ** (index + 1)
+    const intervalChange = dailyTrend * intervalDays * retainedTrend
+    const previousWeight = forecastWeight
+    forecastWeight += intervalChange
+    if (desiredWeight != null && directionToGoal > 0) {
+      forecastWeight = Math.min(forecastWeight, desiredWeight)
+    } else if (desiredWeight != null && directionToGoal < 0) {
+      forecastWeight = Math.max(forecastWeight, desiredWeight)
+    } else if (desiredWeight != null && desiredWeight > 0) {
+      forecastWeight = desiredWeight
+    }
+    previousForecastDate = forecastDate
+    if (index === 0) firstMonthChange = forecastWeight - previousWeight
+    return {
+      date,
+      value: forecastWeight,
+      label: 'Прогноз',
+    }
+  })
+
+  return { points, firstMonthChange }
+}
+
 export function WeightChart({
   logs,
   startDate,
@@ -101,6 +191,8 @@ export function WeightChart({
   const [fullscreen, setFullscreen] = useState(false)
   const [weekdayFilterEnabled, setWeekdayFilterEnabled] = useState(initialWeekdayFilterEnabled)
   const [monthFilterEnabled, setMonthFilterEnabled] = useState(initialMonthFilterEnabled)
+  const [modelingEnabled, setModelingEnabled] = useState(false)
+  const [modelingError, setModelingError] = useState<string | null>(null)
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null)
   const chartGraphRef = useRef<HTMLDivElement>(null)
   const { width: viewportWidth } = useViewport()
@@ -115,7 +207,7 @@ export function WeightChart({
       }
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [forceAllPoints, logs, weekdayFilterEnabled, monthFilterEnabled, filterWeekday])
+  }, [forceAllPoints, logs, weekdayFilterEnabled, monthFilterEnabled, modelingEnabled, filterWeekday])
 
   useEffect(() => {
     if (!fullscreen || forceAllPoints) return
@@ -132,17 +224,22 @@ export function WeightChart({
   }
 
   const sorted = [...logs].sort((a, b) => a.logged_on.localeCompare(b.logged_on))
-  const filteredLogs = monthFilterEnabled
+  const forecast = createWeightForecast(sorted, startDate, startWeight, desiredWeight)
+  const filteredLogs = modelingEnabled
+    ? sorted
+    : monthFilterEnabled
     ? selectMonthlyLogs(sorted)
     : weekdayFilterEnabled
       ? sorted.filter((log) => isSelectedWeekday(log.logged_on, filterWeekday))
       : sorted
   const compactWeekdayView = weekdayFilterEnabled && !forceAllPoints && !fullscreen
   const includeStartPoint = startWeight != null && !compactWeekdayView && (
-    monthFilterEnabled || !weekdayFilterEnabled || isSelectedWeekday(startDate, filterWeekday)
+    modelingEnabled || monthFilterEnabled || !weekdayFilterEnabled || isSelectedWeekday(startDate, filterWeekday)
   )
   const maximumLogPoints = Math.max(0, 7 - (includeStartPoint ? 1 : 0))
-  const visibleLogs = forceAllPoints || fullscreen
+  const visibleLogs = modelingEnabled
+    ? sorted
+    : forceAllPoints || fullscreen
     ? filteredLogs
     : weekdayFilterEnabled
       ? filteredLogs.slice(-7)
@@ -153,19 +250,34 @@ export function WeightChart({
   const firstDate = parseISODate(startDate)
   const lastDate = sorted.length > 0 ? parseISODate(sorted[sorted.length - 1].logged_on) : firstDate
   const totalDays = daysInclusive(firstDate, lastDate)
-  const scaleLogs = compactWeekdayView ? visibleLogs : filteredLogs
-  const allValues = includeStartPoint ? [startWeight, ...scaleLogs.map((log) => log.value)] : scaleLogs.map((log) => log.value)
+  const forecastPoints = modelingEnabled && forecast ? forecast.points : []
+  const currentWeight = sorted.length > 0 ? sorted[sorted.length - 1].value : startWeight
+  const chartPoints = visibleLogs.map((log) => ({ date: log.logged_on, value: log.value, label: 'Вес' }))
+  const startPoint = includeStartPoint ? { date: startDate, value: startWeight, label: 'Стартовый вес' } : null
+  const allHistoricalPoints = startPoint ? [startPoint, ...chartPoints] : chartPoints
+  const historicalPoints = modelingEnabled ? allHistoricalPoints.slice(-1) : allHistoricalPoints
+  const renderedPoints = [...historicalPoints, ...forecastPoints]
+  const goalReachedForecastIndex = modelingEnabled
+    && desiredWeight != null
+    && desiredWeight > 0
+    && currentWeight != null
+    && Math.abs(currentWeight - desiredWeight) > 0.005
+    ? forecastPoints.findIndex((point) => Math.abs(point.value - desiredWeight) < 0.005)
+    : -1
+  const recordedValues = [
+    ...(startWeight != null ? [startWeight] : []),
+    ...sorted.map((log) => log.value),
+  ]
+  const recordedMinimum = recordedValues.length > 0 ? Math.min(...recordedValues) : 0
+  const recordedMaximum = recordedValues.length > 0 ? Math.max(...recordedValues) : 0
+  const allValues = renderedPoints.map((point) => point.value)
   const hasChartData = allValues.length > 0
 
   const minValue = hasChartData ? Math.min(...allValues) : 0
   const maxValue = hasChartData ? Math.max(...allValues) : 1
   const range = maxValue - minValue || 1
-  const currentWeight = sorted.length > 0 ? sorted[sorted.length - 1].value : startWeight
-  const chartPoints = visibleLogs.map((log) => ({ date: log.logged_on, value: log.value, label: 'Вес' }))
-  const startPoint = includeStartPoint ? { date: startDate, value: startWeight, label: 'Стартовый вес' } : null
-  const renderedPoints = startPoint ? [startPoint, ...chartPoints] : chartPoints
   const chartWidth = forceAllPoints
-    ? Math.max(900, renderedPoints.length * 104)
+    ? Math.max(900, renderedPoints.length * (modelingEnabled ? 128 : 104))
     : compactMobileChart
       ? 440
       : 600
@@ -174,9 +286,10 @@ export function WeightChart({
     : compactMobileChart
       ? 300
       : CHART_HEIGHT
+  const chartPlotLeft = forceAllPoints ? CHART_LEFT + FULLSCREEN_FIRST_POINT_INSET : CHART_LEFT
   const chartRight = chartWidth - CHART_RIGHT_PADDING
   const chartTop = 58
-  const chartBottom = 34
+  const chartBottom = modelingEnabled ? 48 : 34
   const graphHeight = chartHeight - chartTop - chartBottom
   const gridRatios = Array.from(
     { length: CHART_GRID_SECTIONS + 1 },
@@ -192,7 +305,7 @@ export function WeightChart({
 
   const pointPosition = (point: ChartPoint, index: number) => {
     return {
-      x: CHART_LEFT + (index / Math.max(renderedPoints.length - 1, 1)) * (chartRight - CHART_LEFT),
+      x: chartPlotLeft + (index / Math.max(renderedPoints.length - 1, 1)) * (chartRight - chartPlotLeft),
       y: chartTop + ((maxValue - point.value) / range) * graphHeight,
     }
   }
@@ -200,10 +313,10 @@ export function WeightChart({
   function handleChartMouseMove(event: MouseEvent<SVGSVGElement>) {
     const bounds = event.currentTarget.getBoundingClientRect()
     const cursorX = ((event.clientX - bounds.left) / bounds.width) * chartWidth
-    const step = (chartRight - CHART_LEFT) / Math.max(renderedPoints.length - 1, 1)
+    const step = (chartRight - chartPlotLeft) / Math.max(renderedPoints.length - 1, 1)
     const pointIndex = Math.min(
       renderedPoints.length - 1,
-      Math.max(0, Math.floor((cursorX - CHART_LEFT) / step)),
+      Math.max(0, Math.floor((cursorX - chartPlotLeft) / step)),
     )
     setHoveredPoint(renderedPoints[pointIndex] ?? null)
   }
@@ -228,7 +341,9 @@ export function WeightChart({
                     setWeekdayFilterEnabled(nextEnabled)
                     if (nextEnabled) {
                       setMonthFilterEnabled(false)
+                      setModelingEnabled(false)
                     }
+                    setModelingError(null)
                     setHoveredPoint(null)
                   }}
                 >
@@ -242,11 +357,38 @@ export function WeightChart({
                     onClick={() => {
                       const nextEnabled = !monthFilterEnabled
                       setMonthFilterEnabled(nextEnabled)
-                      if (nextEnabled) setWeekdayFilterEnabled(false)
+                      if (nextEnabled) {
+                        setWeekdayFilterEnabled(false)
+                        setModelingEnabled(false)
+                      }
+                      setModelingError(null)
                       setHoveredPoint(null)
                     }}
                   >
                     Фильтр:месяц
+                  </button>
+                )}
+                {forceAllPoints && (
+                  <button
+                    type="button"
+                    className={modelingEnabled ? 'chart-filter-button active' : 'chart-filter-button'}
+                    aria-pressed={modelingEnabled}
+                    onClick={() => {
+                      if (modelingEnabled) {
+                        setModelingEnabled(false)
+                        setModelingError(null)
+                      } else if (!forecast) {
+                        setModelingError('Недостаточно данных, нужно 4 недели для прогноза')
+                      } else {
+                        setModelingEnabled(true)
+                        setWeekdayFilterEnabled(false)
+                        setMonthFilterEnabled(false)
+                        setModelingError(null)
+                      }
+                      setHoveredPoint(null)
+                    }}
+                  >
+                    Моделирование
                   </button>
                 )}
                 {forceAllPoints && onCloseFullscreen && (
@@ -263,14 +405,18 @@ export function WeightChart({
             )}
           </div>
           <p className="chart-meta">
-            {monthFilterEnabled
+            {modelingEnabled
+              ? <>Исторических записей: <strong>{filteredLogs.length}</strong> | Прогноз: <strong>{FORECAST_MONTHS} месяцев</strong></>
+              : <>{monthFilterEnabled
               ? 'Записей по месяцам'
               : weekdayFilterEnabled
                 ? `Записей ${selectedWeekday.recordsLabel}`
                 : 'Дней зафиксировано'}: <strong>{filteredLogs.length}</strong>
+              </>}
             {forceAllPoints && <> | Прошло дней с первой записи: <strong>{totalDays}</strong></>}
-            {!fullscreen && renderedPoints.length < filteredLogs.length + (includeStartPoint ? 1 : 0) && ` | На графике: ${renderedPoints.length}`}
+            {!modelingEnabled && !fullscreen && renderedPoints.length < filteredLogs.length + (includeStartPoint ? 1 : 0) && ` | На графике: ${renderedPoints.length}`}
           </p>
+          {modelingError && <p className="chart-modeling-error" role="alert">{modelingError}</p>}
         </div>
 
         <div ref={chartGraphRef} className="chart-graph">
@@ -326,9 +472,9 @@ export function WeightChart({
               )
             })}
 
-            {renderedPoints.length > 1 && (
+            {historicalPoints.length > 1 && (
               <polyline
-                points={renderedPoints.map((point, index) => {
+                points={historicalPoints.map((point, index) => {
                   const { x, y } = pointPosition(point, index)
                   return `${x},${y}`
                 }).join(' ')}
@@ -339,17 +485,54 @@ export function WeightChart({
               />
             )}
 
+            {forecastPoints.map((point, index) => {
+              const { x, y } = pointPosition(point, historicalPoints.length + index)
+              return (
+                <line
+                  key={`forecast-guide-${point.date}`}
+                  x1={x}
+                  y1={y + 5}
+                  x2={x}
+                  y2={chartHeight - chartBottom}
+                  stroke="var(--training-marker)"
+                  strokeWidth={index === goalReachedForecastIndex ? 2 : 1}
+                  opacity={index === goalReachedForecastIndex ? 0.8 : 0.35}
+                  vectorEffect="non-scaling-stroke"
+                />
+              )
+            })}
+
+            {forecastPoints.length > 0 && historicalPoints.length > 0 && (
+              <polyline
+                className="chart-forecast-line"
+                points={[
+                  { point: historicalPoints[historicalPoints.length - 1], index: historicalPoints.length - 1 },
+                  ...forecastPoints.map((point, index) => ({ point, index: historicalPoints.length + index })),
+                ].map(({ point, index }) => {
+                  const { x, y } = pointPosition(point, index)
+                  return `${x},${y}`
+                }).join(' ')}
+                fill="none"
+                stroke="var(--training-marker)"
+                strokeWidth="2"
+                strokeDasharray="7,5"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+
             {renderedPoints.map((point, index) => {
               const { x, y } = pointPosition(point, index)
+              const isGoalReachedMonth = point.label === 'Прогноз'
+                && index - historicalPoints.length === goalReachedForecastIndex
               return (
                 <circle
                   key={`${point.label}-${point.date}`}
                   cx={x}
                   cy={y}
-                  r={point.label === 'Стартовый вес' ? 4 : 3}
-                  fill="var(--moss)"
-                  stroke={point.label === 'Стартовый вес' ? 'var(--chart-point-border)' : 'none'}
-                  strokeWidth="1"
+                  r={isGoalReachedMonth ? 5 : point.label === 'Стартовый вес' ? 4 : 3}
+                  fill={point.label === 'Прогноз' ? 'var(--training-marker)' : 'var(--moss)'}
+                  stroke={isGoalReachedMonth ? 'var(--surface)' : point.label === 'Стартовый вес' ? 'var(--chart-point-border)' : 'none'}
+                  strokeWidth={isGoalReachedMonth ? 2 : 1}
                   vectorEffect="non-scaling-stroke"
                   tabIndex={0}
                   onMouseEnter={() => setHoveredPoint(point)}
@@ -361,8 +544,11 @@ export function WeightChart({
 
             {renderedPoints.map((point, index) => {
               const { x, y } = pointPosition(point, index)
+              const isGoalReachedMonth = point.label === 'Прогноз'
+                && index - historicalPoints.length === goalReachedForecastIndex
               return (
                 <g key={`label-${point.label}-${point.date}`}>
+                  {isGoalReachedMonth && <title>Прогнозируемое достижение цели</title>}
                   <text className="chart-point-details" x={x} y={y - 26.4} textAnchor="middle" fill="var(--ink)">
                     <tspan className="chart-point-weight" x={x} fill={getWeightGoalColor(point.value, desiredWeight)}>
                       {point.value.toFixed(1)} кг
@@ -374,9 +560,36 @@ export function WeightChart({
                       )}
                     </tspan>
                   </text>
-                  <text className="chart-point-details chart-point-date" x={x} y={y + 16.8} textAnchor="middle" fill="var(--ink)">
-                    <tspan x={x}>{formatDayAndMonth(point.date)}</tspan>
-                    <tspan x={x} dy="13.2">{parseISODate(point.date).getFullYear()}</tspan>
+                  {isGoalReachedMonth && (
+                    <rect
+                      x={x - 60}
+                      y={chartHeight - 28}
+                      width="120"
+                      height="24"
+                      rx="8"
+                      fill="var(--training-marker)"
+                      fillOpacity="0.22"
+                      stroke="var(--training-marker)"
+                      strokeOpacity="0.8"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )}
+                  <text
+                    className="chart-point-details chart-point-date"
+                    x={x}
+                    y={modelingEnabled ? chartHeight - (point.label === 'Прогноз' ? 10 : 23) : y + 16.8}
+                    textAnchor="middle"
+                    fill="var(--ink)"
+                    fontWeight={isGoalReachedMonth ? 800 : undefined}
+                  >
+                    {point.label === 'Прогноз' ? (
+                      <tspan x={x}>{formatMonthAndYear(point.date)}</tspan>
+                    ) : (
+                      <>
+                        <tspan x={x}>{formatDayAndMonth(point.date)}</tspan>
+                        <tspan x={x} dy="13.2">{parseISODate(point.date).getFullYear()}</tspan>
+                      </>
+                    )}
                   </text>
                 </g>
               )
@@ -414,9 +627,15 @@ export function WeightChart({
         )}
 
         {hasChartData && <div className="chart-legend">
-          <p>Минимум: <strong>{minValue.toFixed(1)} кг</strong></p>
-          <p>Разница: <strong>{(maxValue - minValue).toFixed(1)} кг</strong></p>
-          <p>Максимум: <strong>{maxValue.toFixed(1)} кг</strong></p>
+          <p>Минимум: <strong>{recordedMinimum.toFixed(1)} кг</strong></p>
+          <div className="chart-legend-pair">
+            <p>Разница: <strong>{(recordedMaximum - recordedMinimum).toFixed(1)} кг</strong></p>
+            <p>Суток: <strong>{totalDays}</strong></p>
+          </div>
+          <p>Максимум: <strong>{recordedMaximum.toFixed(1)} кг</strong></p>
+          {modelingEnabled && forecast && (
+            <p className="chart-forecast-legend">Первый месяц прогноза: <strong>{forecast.firstMonthChange >= 0 ? '+' : ''}{forecast.firstMonthChange.toFixed(1)} кг</strong></p>
+          )}
         </div>}
       </div>
 

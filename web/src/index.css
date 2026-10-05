@@ -4093,6 +4093,17 @@ nav {
   margin-top: 12px;
 }
 
+.chart-modeling-error {
+  margin: 8px 0 0;
+  color: var(--warn);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.chart-forecast-legend {
+  color: var(--training-marker);
+}
+
 .exercise-double-volume-setting {
   display: grid;
   gap: 8px;
@@ -6198,6 +6209,12 @@ nav {
 .chart-legend p {
   margin: 0;
   color: var(--muted);
+}
+
+.chart-legend-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
 }
 
 .diary-food-name-row {
