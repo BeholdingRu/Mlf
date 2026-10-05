@@ -1344,7 +1344,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (delError) throw delError
         setSavedProducts((prev) => prev.filter((product) => product.id !== id))
       },
-      async addSavedExercise(name, category, exerciseType, restTimerEnabled) {
+      async addSavedExercise(name, category, exerciseType, restTimerEnabled, doubleVolume) {
         if (!user) return
         const { data, error: insError } = await requireSupabase()
           .from('saved_exercises')
@@ -1354,6 +1354,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             category,
             exercise_type: exerciseType,
             rest_timer_enabled: restTimerEnabled,
+            double_volume: doubleVolume,
           })
           .select('*')
           .single()
@@ -1362,13 +1363,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           [...prev, data as SavedExercise].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
         )
       },
-      async updateSavedExercise(id, name, exerciseType, restTimerEnabled) {
+      async updateSavedExercise(id, name, exerciseType, restTimerEnabled, doubleVolume) {
+        const previousExercise = savedExercises.find((exercise) => exercise.id === id)
         const { data, error: updError } = await requireSupabase()
           .from('saved_exercises')
           .update({
             name,
             exercise_type: exerciseType,
             rest_timer_enabled: restTimerEnabled,
+            double_volume: doubleVolume,
           })
           .eq('id', id)
           .select('*')
@@ -1378,6 +1381,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           prev.map((exercise) => (exercise.id === id ? (data as SavedExercise) : exercise))
             .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
         )
+        if (previousExercise && Boolean(previousExercise.double_volume) !== doubleVolume) {
+          setScheduledExercises((prev) => prev.map((exercise) => (
+            exercise.user_id === previousExercise.user_id
+            && exercise.category === previousExercise.category
+            && exercise.exercise_name === previousExercise.name
+              ? { ...exercise, double_volume: doubleVolume }
+              : exercise
+          )))
+        }
       },
       async deleteSavedExercise(id) {
         const { error: delError } = await requireSupabase()
@@ -1399,6 +1411,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             category: exercise.category,
             exercise_type: exercise.exercise_type,
             rest_timer_enabled: exercise.rest_timer_enabled,
+            double_volume: exercise.double_volume,
             sort_order: dayExercises.length,
           })
           .select('*')

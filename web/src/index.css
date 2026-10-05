@@ -4093,6 +4093,63 @@ nav {
   margin-top: 12px;
 }
 
+.exercise-double-volume-setting {
+  display: grid;
+  gap: 8px;
+}
+
+.exercise-double-volume-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exercise-double-volume-control .toggle {
+  flex: 0 1 auto;
+}
+
+.exercise-option-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.exercise-option-toggle input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.exercise-option-toggle span {
+  line-height: 1.35;
+}
+
+.exercise-edit-modal {
+  display: grid;
+  max-width: 560px;
+  gap: 16px;
+}
+
+.modal-content.exercise-edit-modal h3 {
+  margin: 0;
+}
+
+.exercise-edit-modal .modal-actions {
+  margin-top: 4px;
+}
+
+.exercise-double-volume-info {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--info-bg);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .training-planner > .exercise-statistics {
   grid-column: 1 / -1;
 }

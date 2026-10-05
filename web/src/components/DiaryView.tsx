@@ -2157,8 +2157,9 @@ function formatMeasurementCount(value: number) {
   return `${value} ${word}`
 }
 
-function getWorkedWeight(exercise: { exercise_type: string; weight_kg: number | null; repetitions: number | null; sets: number | null }) {
+function getWorkedWeight(exercise: { exercise_type: string; weight_kg: number | null; repetitions: number | null; sets: number | null; double_volume: boolean }) {
   if (exercise.exercise_type !== 'Свободные веса / в блоке') return null
   if (exercise.weight_kg === null || exercise.repetitions === null || exercise.sets === null) return null
-  return exercise.weight_kg * exercise.repetitions * exercise.sets
+  const multiplier = exercise.double_volume ? 2 : 1
+  return exercise.weight_kg * exercise.repetitions * exercise.sets * multiplier
 }

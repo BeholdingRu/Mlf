@@ -205,6 +205,7 @@ export type SavedExercise = {
   category: ExerciseCategory
   exercise_type: ExerciseType
   rest_timer_enabled: boolean
+  double_volume: boolean
 }
 
 export type ScheduledExercise = {
@@ -215,6 +216,7 @@ export type ScheduledExercise = {
   category: ExerciseCategory
   exercise_type: ExerciseType
   rest_timer_enabled: boolean
+  double_volume: boolean
   sort_order: number
   weight_kg: number | null
   repetitions: number | null

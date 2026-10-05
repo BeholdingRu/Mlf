@@ -569,6 +569,7 @@ create table if not exists public.saved_exercises (
   exercise_type text not null default 'Свободные веса / в блоке'
     check (exercise_type in ('Свободные веса / в блоке', 'Собственный вес')),
   rest_timer_enabled boolean not null default true,
+  double_volume boolean not null default false,
   created_at timestamptz not null default now(),
   unique (user_id, category, name)
 );
@@ -581,6 +582,7 @@ create table if not exists public.scheduled_exercises (
   category text not null check (category in ('Спина', 'Грудь', 'Плечи', 'Руки', 'Ноги', 'Кор')),
   exercise_type text not null check (exercise_type in ('Свободные веса / в блоке', 'Собственный вес')),
   rest_timer_enabled boolean not null default true,
+  double_volume boolean not null default false,
   sort_order integer not null default 0 check (sort_order >= 0),
   weight_kg numeric(7, 1) check (weight_kg >= 0),
   repetitions integer check (repetitions > 0),
@@ -590,6 +592,29 @@ create table if not exists public.scheduled_exercises (
   completed boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+create or replace function public.sync_saved_exercise_double_volume()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  if new.double_volume is distinct from old.double_volume then
+    update public.scheduled_exercises
+    set double_volume = new.double_volume
+    where user_id = old.user_id
+      and category = old.category
+      and exercise_name = old.name;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists sync_saved_exercise_double_volume_after_update on public.saved_exercises;
+create trigger sync_saved_exercise_double_volume_after_update
+  after update of double_volume on public.saved_exercises
+  for each row execute function public.sync_saved_exercise_double_volume();
 
 create index if not exists tasks_user_id_idx on public.tasks (user_id, sort_order);
 create index if not exists completions_user_on_idx on public.task_completions (user_id, completed_on);

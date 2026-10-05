@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useData } from '../hooks/useData'
 import { localISODate, parseISODate } from '../lib/dates'
 import type { ExerciseCategory, ExerciseType, SavedExercise, ScheduledExercise } from '../lib/types'
@@ -25,6 +25,7 @@ type ExerciseDraft = {
   name: string
   exerciseType: ExerciseType
   restTimerEnabled: boolean
+  doubleVolume: boolean
 }
 
 function getSavedExerciseDraft(): ExerciseDraft | null {
@@ -48,6 +49,7 @@ function getSavedExerciseDraft(): ExerciseDraft | null {
       name: draft.name,
       exerciseType: draft.exerciseType as ExerciseType,
       restTimerEnabled: draft.restTimerEnabled,
+      doubleVolume: draft.doubleVolume === true,
     }
   } catch {
     window.sessionStorage.removeItem(EXERCISE_DRAFT_STORAGE_KEY)
@@ -85,11 +87,13 @@ export function TrainingView() {
   const [name, setName] = useState(exerciseDraft?.name ?? '')
   const [exerciseType, setExerciseType] = useState<ExerciseType>(exerciseDraft?.exerciseType ?? EXERCISE_TYPES[0])
   const [restTimerEnabled, setRestTimerEnabled] = useState(exerciseDraft?.restTimerEnabled ?? true)
+  const [doubleVolume, setDoubleVolume] = useState(exerciseDraft?.doubleVolume ?? false)
   const [persistExerciseDraft, setPersistExerciseDraft] = useState(Boolean(exerciseDraft))
   const [editingExercise, setEditingExercise] = useState<SavedExercise | null>(null)
   const [editName, setEditName] = useState('')
   const [editExerciseType, setEditExerciseType] = useState<ExerciseType>(EXERCISE_TYPES[0])
   const [editRestTimerEnabled, setEditRestTimerEnabled] = useState(false)
+  const [editDoubleVolume, setEditDoubleVolume] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [plannedDate, setPlannedDate] = useState(() => localISODate())
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -146,9 +150,10 @@ export function TrainingView() {
       name,
       exerciseType,
       restTimerEnabled,
+      doubleVolume,
     }
     window.sessionStorage.setItem(EXERCISE_DRAFT_STORAGE_KEY, JSON.stringify(draft))
-  }, [exerciseType, name, persistExerciseDraft, restTimerEnabled, selectedCategory])
+  }, [doubleVolume, exerciseType, name, persistExerciseDraft, restTimerEnabled, selectedCategory])
 
   const selectCategory = (category: ExerciseCategory) => {
     window.sessionStorage.removeItem(EXERCISE_DRAFT_STORAGE_KEY)
@@ -156,6 +161,7 @@ export function TrainingView() {
     setName('')
     setExerciseType(EXERCISE_TYPES[0])
     setRestTimerEnabled(true)
+    setDoubleVolume(false)
     setPersistExerciseDraft(true)
   }
 
@@ -167,10 +173,11 @@ export function TrainingView() {
 
     setSubmitting(true)
     try {
-      await addSavedExercise(name.trim(), selectedCategory, exerciseType, restTimerEnabled)
+      await addSavedExercise(name.trim(), selectedCategory, exerciseType, restTimerEnabled, doubleVolume)
       setName('')
       setExerciseType(EXERCISE_TYPES[0])
       setRestTimerEnabled(true)
+      setDoubleVolume(false)
       setPersistExerciseDraft(false)
     } catch (err) {
       console.error('Error adding exercise:', err)
@@ -185,6 +192,7 @@ export function TrainingView() {
     setEditName(exercise.name)
     setEditExerciseType(exercise.exercise_type)
     setEditRestTimerEnabled(exercise.rest_timer_enabled)
+    setEditDoubleVolume(Boolean(exercise.double_volume))
   }
 
   const handleEditCancel = () => {
@@ -192,6 +200,7 @@ export function TrainingView() {
     setEditName('')
     setEditExerciseType(EXERCISE_TYPES[0])
     setEditRestTimerEnabled(false)
+    setEditDoubleVolume(false)
   }
 
   const handleEditSave = async () => {
@@ -207,6 +216,7 @@ export function TrainingView() {
         editName.trim(),
         editExerciseType,
         editRestTimerEnabled,
+        editDoubleVolume,
       )
       handleEditCancel()
     } catch (err) {
@@ -300,6 +310,7 @@ export function TrainingView() {
                     <div className="food-name">{index + 1}. {exercise.exercise_name}</div>
                     <div className="food-info">
                       {exercise.category} · {exercise.exercise_type} · Таймер отдыха: {exercise.rest_timer_enabled ? 'включен' : 'выключен'}
+                      {exercise.double_volume && ' · Объём работы: двойной'}
                     </div>
                     <WorkoutExerciseFields
                       exercise={exercise}
@@ -434,6 +445,7 @@ export function TrainingView() {
                         <div className="food-name">{index + 1}. {exercise.exercise_name}</div>
                         <div className="food-info">
                           {exercise.category} · {exercise.exercise_type} · Таймер отдыха: {exercise.rest_timer_enabled ? 'включен' : 'выключен'}
+                          {exercise.double_volume && ' · Объём работы: двойной'}
                         </div>
                         <WorkoutExerciseFields
                           exercise={exercise}
@@ -537,7 +549,7 @@ export function TrainingView() {
                 ))}
               </select>
             </div>
-            <label className="toggle">
+            <label className="toggle exercise-option-toggle">
               <input
                 type="checkbox"
                 checked={restTimerEnabled}
@@ -546,6 +558,11 @@ export function TrainingView() {
               />
               <span>Таймер отдыха между подходами</span>
             </label>
+            <DoubleVolumeToggle
+              checked={doubleVolume}
+              onChange={setDoubleVolume}
+              disabled={submitting}
+            />
             <button type="button" className="add-button" onClick={handleAddExercise} disabled={submitting}>
               {submitting ? 'Сохранение...' : 'Сохранить упражнение'}
             </button>
@@ -563,6 +580,7 @@ export function TrainingView() {
                       <div className="food-name">{exercise.name}</div>
                       <div className="food-info">
                         {exercise.exercise_type} · Таймер отдыха: {exercise.rest_timer_enabled ? 'включен' : 'выключен'}
+                        {exercise.double_volume && ' · Объём работы: двойной'}
                       </div>
                     </div>
                     <div className="food-actions">
@@ -594,7 +612,7 @@ export function TrainingView() {
       )}
       {editingExercise && (
         <div className="modal-overlay" onClick={handleEditCancel}>
-          <div className="modal-content" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-content exercise-edit-modal" onClick={(event) => event.stopPropagation()}>
             <h3>Редактировать упражнение</h3>
             <div className="form-group">
               <label htmlFor="edit-exercise-name">Название упражнения</label>
@@ -619,7 +637,7 @@ export function TrainingView() {
                 ))}
               </select>
             </div>
-            <label className="toggle">
+            <label className="toggle exercise-option-toggle">
               <input
                 type="checkbox"
                 checked={editRestTimerEnabled}
@@ -628,6 +646,11 @@ export function TrainingView() {
               />
               <span>Таймер отдыха между подходами</span>
             </label>
+            <DoubleVolumeToggle
+              checked={editDoubleVolume}
+              onChange={setEditDoubleVolume}
+              disabled={submitting}
+            />
             <div className="modal-actions">
               <button type="button" className="save-button" onClick={handleEditSave} disabled={submitting}>
                 {submitting ? 'Сохранение...' : 'Сохранить'}
@@ -1072,7 +1095,50 @@ function formatCountdown(totalSeconds: number) {
 function getWorkedWeight(exercise: ScheduledExercise) {
   if (exercise.exercise_type !== 'Свободные веса / в блоке') return null
   if (exercise.weight_kg === null || exercise.repetitions === null || exercise.sets === null) return null
-  return exercise.weight_kg * exercise.repetitions * exercise.sets
+  const multiplier = exercise.double_volume ? 2 : 1
+  return exercise.weight_kg * exercise.repetitions * exercise.sets * multiplier
+}
+
+type DoubleVolumeToggleProps = {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  disabled: boolean
+}
+
+function DoubleVolumeToggle({ checked, onChange, disabled }: DoubleVolumeToggleProps) {
+  const [infoOpen, setInfoOpen] = useState(false)
+  const infoId = useId()
+
+  return (
+    <div className="exercise-double-volume-setting">
+      <div className="exercise-double-volume-control">
+        <label className="toggle exercise-option-toggle">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(event) => onChange(event.target.checked)}
+            disabled={disabled}
+          />
+          <span>Удвоить объём</span>
+        </label>
+        <button
+          type="button"
+          className="info-button"
+          aria-label="Подробнее об удвоении объёма"
+          aria-expanded={infoOpen}
+          aria-controls={infoId}
+          onClick={() => setInfoOpen((open) => !open)}
+        >
+          i
+        </button>
+      </div>
+      {infoOpen && (
+        <p id={infoId} className="exercise-double-volume-info">
+          Для упражнений где поочереди зайдествованы руки или ноги будет учитываться двойной объем работы
+        </p>
+      )}
+    </div>
+  )
 }
 
 function formatWeight(value: number) {

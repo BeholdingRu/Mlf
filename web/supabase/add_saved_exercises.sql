@@ -7,6 +7,7 @@ create table if not exists public.saved_exercises (
   exercise_type text not null default 'Свободные веса / в блоке'
     check (exercise_type in ('Свободные веса / в блоке', 'Собственный вес')),
   rest_timer_enabled boolean not null default true,
+  double_volume boolean not null default false,
   created_at timestamptz not null default now(),
   unique (user_id, category, name)
 );
@@ -14,10 +15,12 @@ create table if not exists public.saved_exercises (
 alter table public.saved_exercises
   add column if not exists exercise_type text not null default 'Свободные веса / в блоке'
     check (exercise_type in ('Свободные веса / в блоке', 'Собственный вес')),
-  add column if not exists rest_timer_enabled boolean not null default true;
+  add column if not exists rest_timer_enabled boolean not null default true,
+  add column if not exists double_volume boolean not null default false;
 
 alter table public.saved_exercises
-  alter column rest_timer_enabled set default true;
+  alter column rest_timer_enabled set default true,
+  alter column double_volume set default false;
 
 create index if not exists saved_exercises_user_category_name_idx
   on public.saved_exercises (user_id, category, name);

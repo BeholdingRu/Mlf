@@ -8,6 +8,7 @@ create table if not exists public.scheduled_exercises (
   category text not null check (category in ('Спина', 'Грудь', 'Плечи', 'Руки', 'Ноги', 'Кор')),
   exercise_type text not null check (exercise_type in ('Свободные веса / в блоке', 'Собственный вес')),
   rest_timer_enabled boolean not null default true,
+  double_volume boolean not null default false,
   sort_order integer not null default 0 check (sort_order >= 0),
   weight_kg numeric(7, 1) check (weight_kg >= 0),
   repetitions integer check (repetitions > 0),
@@ -19,6 +20,7 @@ create table if not exists public.scheduled_exercises (
 );
 
 alter table public.scheduled_exercises
+  add column if not exists double_volume boolean not null default false,
   add column if not exists weight_kg numeric(7, 1) check (weight_kg >= 0),
   add column if not exists repetitions integer check (repetitions > 0),
   add column if not exists sets integer check (sets > 0),
