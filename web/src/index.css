@@ -4783,6 +4783,136 @@ nav {
   gap: 6px;
 }
 
+.diary-nutrition-quick-period {
+  min-width: 112px;
+  height: 34px;
+  padding: 6px 28px 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--moss-deep);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  color-scheme: light dark;
+}
+
+.modal-content.diary-period-details-modal {
+  display: flex;
+  flex-direction: column;
+  width: fit-content;
+  max-width: 1080px;
+  max-height: min(90dvh, 760px);
+  overflow: hidden;
+}
+
+.diary-period-details-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.modal-content.diary-period-details-modal .diary-period-details-head h3,
+.diary-period-details-head p {
+  margin: 0;
+}
+
+.diary-period-details-head p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.diary-period-details-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.diary-period-details-table {
+  width: 972px;
+  min-width: 972px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.diary-period-details-table thead {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  background: var(--line);
+}
+
+.diary-period-details-table thead th {
+  position: static;
+}
+
+.diary-period-details-table .diary-period-details-average-row > * {
+  background: color-mix(in srgb, var(--surface) 76%, var(--moss) 24%);
+  font-weight: 800;
+}
+
+.diary-average-comparison {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.diary-average-difference {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.diary-average-trend {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
+}
+
+.diary-average-trend.down {
+  border-top: 7px solid var(--moss-deep);
+}
+
+.diary-average-trend.up {
+  border-bottom: 7px solid var(--moss-deep);
+}
+
+.diary-period-weight-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diary-period-weight-range-trend {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
+}
+
+.diary-period-weight-range-trend.down {
+  border-top: 7px solid var(--moss-deep);
+}
+
+.diary-period-weight-range-trend.up {
+  border-bottom: 7px solid var(--moss-deep);
+}
+
+.diary-period-weight-target {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .diary-statistics-settings-button {
   display: grid;
   place-items: center;
@@ -7318,8 +7448,35 @@ nav {
 
   .diary-nutrition-statistics-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
     width: 100%;
+  }
+
+  .diary-nutrition-quick-period {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .diary-period-picker-button {
+    grid-column: 1 / 3;
+  }
+
+  .diary-nutrition-statistics-actions .diary-statistics-settings-button {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    align-self: stretch;
+    height: auto;
+  }
+
+  .modal-content.diary-period-details-modal {
+    max-width: 100%;
+    max-height: calc(100dvh - 24px);
+    padding: 16px;
+  }
+
+  .diary-period-details-head {
+    gap: 10px;
+    margin-bottom: 12px;
   }
 
   .diary-nutrition-statistics-actions .compact {

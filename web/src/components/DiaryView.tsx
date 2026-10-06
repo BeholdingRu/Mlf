@@ -32,6 +32,10 @@ const MONTHS = [
 ]
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+const QUICK_NUTRITION_PERIOD_DAYS = [7, 14, 21, 28, 56] as const
+
+type QuickNutritionPeriodDays = typeof QUICK_NUTRITION_PERIOD_DAYS[number]
+type NutritionPeriodPreset = QuickNutritionPeriodDays | 'current-month'
 
 type StatisticsNumericTargetKey =
   | 'carbohydrates'
@@ -58,6 +62,13 @@ type MacroCalculatorSettingsForm = {
 type MacroCalculatorBalanceValues = {
   proteins: number | null
   fats: number | null
+}
+
+type MacroCalculatorTargetValues = {
+  calories: number | null
+  proteins: number | null
+  fats: number | null
+  carbohydrates: number | null
 }
 
 const DEFAULT_MACRO_CALCULATOR_SETTINGS: MacroCalculatorSettings = {
@@ -105,11 +116,16 @@ export function DiaryView() {
     (latest, record) => (!latest || record.logged_on > latest ? record.logged_on : latest),
     null,
   )
+  const earliestDate = [...foodHistoryLogs, ...weightLogs].reduce<string | null>(
+    (earliest, record) => (!earliest || record.logged_on < earliest ? record.logged_on : earliest),
+    null,
+  )
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [visibleMonth, setVisibleMonth] = useState<Date | null>(null)
   const [showProducts, setShowProducts] = useState(false)
   const [showNutritionStatistics, setShowNutritionStatistics] = useState(false)
   const [showNutritionPeriod, setShowNutritionPeriod] = useState(false)
+  const [showNutritionPeriodDetails, setShowNutritionPeriodDetails] = useState(false)
   const [showMonthSummary, setShowMonthSummary] = useState(false)
   const [showStatisticsSettings, setShowStatisticsSettings] = useState(false)
   const [showWeightTargetInfo, setShowWeightTargetInfo] = useState(false)
@@ -129,9 +145,16 @@ export function DiaryView() {
     proteins: null,
     fats: null,
   })
+  const [macroCalculatorTargetValues, setMacroCalculatorTargetValues] = useState<MacroCalculatorTargetValues>({
+    calories: null,
+    proteins: null,
+    fats: null,
+    carbohydrates: null,
+  })
   const [statisticsSettingsBusy, setStatisticsSettingsBusy] = useState(false)
   const [statisticsSettingsError, setStatisticsSettingsError] = useState<string | null>(null)
   const [nutritionCalendarSelection, setNutritionCalendarSelection] = useState<'start' | 'end'>('start')
+  const [nutritionPeriodPreset, setNutritionPeriodPreset] = useState<NutritionPeriodPreset | null>('current-month')
   const [nutritionPeriodFrom, setNutritionPeriodFrom] = useState(() => {
     const today = parseISODate(actualToday)
     return localISODate(new Date(today.getFullYear(), today.getMonth(), 1))
@@ -157,11 +180,14 @@ export function DiaryView() {
   const [adminFoodError, setAdminFoodError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!showMonthSummary) return
+    if (!showMonthSummary && !showNutritionPeriodDetails) return
 
     const previousOverflow = document.body.style.overflow
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setShowMonthSummary(false)
+      if (event.key === 'Escape') {
+        setShowMonthSummary(false)
+        setShowNutritionPeriodDetails(false)
+      }
     }
 
     document.body.style.overflow = 'hidden'
@@ -170,7 +196,7 @@ export function DiaryView() {
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', closeOnEscape)
     }
-  }, [showMonthSummary])
+  }, [showMonthSummary, showNutritionPeriodDetails])
 
   const statisticsTargets = profile?.diary_statistics_targets ?? {}
   const { effectiveNorm: effectiveDailyCaloriesNorm } = getCalorieAdaptation(profile, weightLogs)
@@ -369,8 +395,94 @@ export function DiaryView() {
       lastDate: lastLog.logged_on,
       measurements: periodLogs.length,
       selectedDays,
+      elapsedDays,
     }
   }, [nutritionPeriodFrom, nutritionPeriodTo, weightLogs])
+  const sevenDayWeightTrendColor = weightPeriodStatistics
+    && weightPeriodStatistics.selectedDays >= 7
+    && hasTarget(statisticsTargets.weight7Days)
+    ? getTargetDeviationColor(
+        weightPeriodStatistics.averageDailyChange * 7,
+        statisticsTargets.weight7Days,
+      )
+    : undefined
+  const nutritionPeriodDetails = useMemo(() => {
+    if (!nutritionPeriodFrom || !nutritionPeriodTo || nutritionPeriodFrom > nutritionPeriodTo) return []
+
+    const rowsByDate = new Map<string, {
+      date: string
+      weight: number | null
+      hasNutrition: boolean
+      calories: number
+      proteins: number
+      fats: number
+      carbohydrates: number
+    }>()
+    const getRow = (date: string) => {
+      const existing = rowsByDate.get(date)
+      if (existing) return existing
+      const row = {
+        date,
+        weight: null,
+        hasNutrition: false,
+        calories: 0,
+        proteins: 0,
+        fats: 0,
+        carbohydrates: 0,
+      }
+      rowsByDate.set(date, row)
+      return row
+    }
+
+    foodHistoryLogs.forEach((food) => {
+      if (food.logged_on < nutritionPeriodFrom || food.logged_on > nutritionPeriodTo) return
+      const row = getRow(food.logged_on)
+      const multiplier = food.weight_grams / 100
+      row.hasNutrition = true
+      row.calories += multiplier * food.calories_per_100g
+      row.proteins += multiplier * food.proteins_per_100g
+      row.fats += multiplier * food.fats_per_100g
+      row.carbohydrates += multiplier * food.carbohydrates_per_100g
+    })
+    weightLogs.forEach((weight) => {
+      if (weight.logged_on < nutritionPeriodFrom || weight.logged_on > nutritionPeriodTo) return
+      getRow(weight.logged_on).weight = weight.value
+    })
+
+    return [...rowsByDate.values()].sort((first, second) => first.date.localeCompare(second.date))
+  }, [foodHistoryLogs, nutritionPeriodFrom, nutritionPeriodTo, weightLogs])
+  const nutritionPeriodDetailAverages = useMemo(() => {
+    const weightRows = nutritionPeriodDetails.filter((row) => row.weight !== null)
+    const nutritionRows = nutritionPeriodDetails.filter((row) => row.hasNutrition)
+    const nutritionDayCount = nutritionRows.length
+    const weightValues = weightRows.map((row) => row.weight as number)
+    const firstWeight = weightValues[0] ?? null
+    const lastWeight = weightValues[weightValues.length - 1] ?? null
+
+    return {
+      firstWeight,
+      lastWeight,
+      weightDecreased: firstWeight !== null && lastWeight !== null && lastWeight < firstWeight,
+      calories: nutritionDayCount > 0
+        ? nutritionRows.reduce((sum, row) => sum + row.calories, 0) / nutritionDayCount
+        : null,
+      proteins: nutritionDayCount > 0
+        ? nutritionRows.reduce((sum, row) => sum + row.proteins, 0) / nutritionDayCount
+        : null,
+      fats: nutritionDayCount > 0
+        ? nutritionRows.reduce((sum, row) => sum + row.fats, 0) / nutritionDayCount
+        : null,
+      carbohydrates: nutritionDayCount > 0
+        ? nutritionRows.reduce((sum, row) => sum + row.carbohydrates, 0) / nutritionDayCount
+        : null,
+    }
+  }, [nutritionPeriodDetails])
+  const targetWeightAtPeriodEnd = nutritionPeriodDetailAverages.firstWeight !== null
+    && weightPeriodStatistics
+    && hasTarget(statisticsTargets.weight7Days)
+    ? nutritionPeriodDetailAverages.firstWeight
+      + (statisticsTargets.weight7Days / 7) * weightPeriodStatistics.elapsedDays
+    : null
   const firstWeekday = (activeMonth.getDay() + 6) % 7
   const daysInMonth = new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 0).getDate()
   const emptyDays = Array.from({ length: firstWeekday })
@@ -425,11 +537,41 @@ export function DiaryView() {
     setVisibleMonth(new Date(activeMonth.getFullYear(), activeMonth.getMonth() + 1, 1))
   }
 
+  const selectCurrentMonthNutritionPeriod = () => {
+    const currentDate = parseISODate(actualToday)
+    const monthStart = localISODate(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
+    setNutritionPeriodPreset('current-month')
+    setNutritionPeriodFrom(monthStart)
+    setNutritionPeriodTo(actualToday)
+    setNutritionCalendarSelection('start')
+    setShowNutritionPeriod(false)
+    setVisibleMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
+  }
+
+  const selectQuickNutritionPeriod = (days: QuickNutritionPeriodDays) => {
+    const periodEnd = latestDate ?? actualToday
+    const requestedStartDate = parseISODate(periodEnd)
+    requestedStartDate.setDate(requestedStartDate.getDate() - days + 1)
+    const requestedStart = localISODate(requestedStartDate)
+    const periodStart = earliestDate && earliestDate > requestedStart
+      ? earliestDate
+      : requestedStart
+
+    setNutritionPeriodPreset(days)
+    setNutritionPeriodFrom(periodStart)
+    setNutritionPeriodTo(periodEnd)
+    setNutritionCalendarSelection('start')
+    setShowNutritionPeriod(false)
+    const endDate = parseISODate(periodEnd)
+    setVisibleMonth(new Date(endDate.getFullYear(), endDate.getMonth(), 1))
+  }
+
   const selectDay = (day: number) => {
     const date = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day)
     const selectedIsoDate = localISODate(date)
 
     if (showNutritionStatistics && showNutritionPeriod) {
+      setNutritionPeriodPreset(null)
       if (nutritionCalendarSelection === 'start') {
         setNutritionPeriodFrom(selectedIsoDate)
         setNutritionPeriodTo(selectedIsoDate)
@@ -798,7 +940,10 @@ export function DiaryView() {
                 <button
                   type="button"
                   className="primary compact"
-                  onClick={() => setShowNutritionStatistics((open) => !open)}
+                  onClick={() => {
+                    if (!showNutritionStatistics) selectCurrentMonthNutritionPeriod()
+                    setShowNutritionStatistics((open) => !open)
+                  }}
                   aria-expanded={showNutritionStatistics}
                 >
                   Статистика КБЖУ/вес
@@ -981,7 +1126,36 @@ export function DiaryView() {
                 <div className="diary-nutrition-statistics-actions">
                   <button
                     type="button"
-                    className="primary compact"
+                    className="primary compact diary-period-details-button"
+                    onClick={() => setShowNutritionPeriodDetails(true)}
+                    aria-haspopup="dialog"
+                  >
+                    Детали
+                  </button>
+                  <select
+                    className="diary-nutrition-quick-period"
+                    value={nutritionPeriodPreset ?? ''}
+                    onChange={(event) => {
+                      if (event.target.value === 'current-month') {
+                        selectCurrentMonthNutritionPeriod()
+                        return
+                      }
+                      const days = Number(event.target.value)
+                      if (QUICK_NUTRITION_PERIOD_DAYS.includes(days as QuickNutritionPeriodDays)) {
+                        selectQuickNutritionPeriod(days as QuickNutritionPeriodDays)
+                      }
+                    }}
+                    aria-label="Быстрый выбор периода статистики"
+                  >
+                    <option value="">Период</option>
+                    <option value="current-month">Текущий месяц</option>
+                    {QUICK_NUTRITION_PERIOD_DAYS.map((days) => (
+                      <option key={days} value={days}>{formatDaysCount(days)}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="primary compact diary-period-picker-button"
                     onClick={() => {
                       setShowNutritionPeriod((open) => {
                         if (!open) setNutritionCalendarSelection('start')
@@ -1162,6 +1336,7 @@ export function DiaryView() {
                       value={nutritionPeriodFrom}
                       max={actualToday}
                       onChange={(event) => {
+                        setNutritionPeriodPreset(null)
                         setNutritionPeriodFrom(event.target.value)
                         setNutritionCalendarSelection('start')
                       }}
@@ -1174,6 +1349,7 @@ export function DiaryView() {
                       value={nutritionPeriodTo}
                       max={actualToday}
                       onChange={(event) => {
+                        setNutritionPeriodPreset(null)
                         setNutritionPeriodTo(event.target.value)
                         setNutritionCalendarSelection('start')
                       }}
@@ -1290,7 +1466,7 @@ export function DiaryView() {
                         return (
                           <div key={days}>
                             <StatisticValueComparison
-                              label={days === 1 ? 'За сутки' : `За ${days} суток`}
+                              label={days === 1 ? 'За сутки' : `За ${formatDaysCount(days)}`}
                               actual={change}
                               actualText={`${formatSignedWeight(change)} кг`}
                               target={target}
@@ -1323,6 +1499,7 @@ export function DiaryView() {
                 savedProducts={savedProducts}
                 userId={profile?.id ?? null}
                 onBalanceValuesChange={setMacroCalculatorBalanceValues}
+                onTargetValuesChange={setMacroCalculatorTargetValues}
               />
             </div>
           )}
@@ -1490,12 +1667,128 @@ export function DiaryView() {
           </section>
         </div>
       )}
+      {showNutritionPeriodDetails && (
+        <div className="modal-overlay" role="presentation" onClick={() => setShowNutritionPeriodDetails(false)}>
+          <section
+            className="modal-content diary-period-details-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="diary-period-details-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="diary-period-details-head">
+              <div>
+                <h3 id="diary-period-details-title">Детали за период</h3>
+                <p>{formatPeriodDate(nutritionPeriodFrom)} — {formatPeriodDate(nutritionPeriodTo)}</p>
+              </div>
+              <button
+                type="button"
+                className="icon-close"
+                aria-label="Закрыть детали за период"
+                onClick={() => setShowNutritionPeriodDetails(false)}
+                autoFocus
+              >
+                ×
+              </button>
+            </header>
+            {nutritionPeriodDetails.length === 0 ? (
+              <p className="diary-nutrition-statistics-empty">За выбранный период записей нет.</p>
+            ) : (
+              <div className="exercise-statistics-table-wrap diary-period-details-table-wrap">
+                <table className="exercise-statistics-table diary-period-details-table">
+                  <thead>
+                    <tr>
+                      <th>Дата</th>
+                      <th>Вес</th>
+                      <th>Калории за сутки</th>
+                      <th>Белки</th>
+                      <th>Жиры</th>
+                      <th>Углеводы</th>
+                    </tr>
+                    <tr className="diary-period-details-average-row">
+                      <th scope="row">Среднее</th>
+                      <td>{formatPeriodWeightRange(
+                        nutritionPeriodDetailAverages.firstWeight,
+                        nutritionPeriodDetailAverages.lastWeight,
+                        nutritionPeriodDetailAverages.weightDecreased,
+                        sevenDayWeightTrendColor,
+                        targetWeightAtPeriodEnd,
+                      )}</td>
+                      <td>{formatAverageWithTarget(nutritionPeriodDetailAverages.calories, macroCalculatorTargetValues.calories, 0, 'ккал')}</td>
+                      <td>{formatAverageWithTarget(nutritionPeriodDetailAverages.proteins, macroCalculatorTargetValues.proteins, 1, 'г')}</td>
+                      <td>{formatAverageWithTarget(nutritionPeriodDetailAverages.fats, macroCalculatorTargetValues.fats, 1, 'г')}</td>
+                      <td>{formatAverageWithTarget(nutritionPeriodDetailAverages.carbohydrates, macroCalculatorTargetValues.carbohydrates, 1, 'г')}</td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nutritionPeriodDetails.map((row) => (
+                      <tr key={row.date}>
+                        <th scope="row">{formatPeriodDate(row.date)}</th>
+                        <td>{row.weight === null ? '—' : formatWeight(row.weight)}</td>
+                        <td>{row.hasNutrition ? `${Math.round(row.calories).toLocaleString('ru-RU')} ккал` : '—'}</td>
+                        <td>{row.hasNutrition ? `${formatStatisticValue(row.proteins, 1)} г` : '—'}</td>
+                        <td>{row.hasNutrition ? `${formatStatisticValue(row.fats, 1)} г` : '—'}</td>
+                        <td>{row.hasNutrition ? `${formatStatisticValue(row.carbohydrates, 1)} г` : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
     </section>
   )
 }
 
+function formatDaysCount(value: number) {
+  const absoluteValue = Math.abs(value)
+  const usesSingularForm = absoluteValue % 10 === 1 && absoluteValue % 100 !== 11
+  return `${value} ${usesSingularForm ? 'сутки' : 'суток'}`
+}
+
 function formatWeight(value: number) {
   return Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 1 })
+}
+
+function formatPeriodWeightRange(
+  first: number | null,
+  last: number | null,
+  decreased: boolean,
+  trendColor?: string,
+  targetWeight?: number | null,
+) {
+  if (first === null || last === null) return '—'
+  const unchanged = first === last
+  return (
+    <span
+      className="diary-period-weight-range"
+      aria-label={`Первый вес ${formatWeight(first)}, последний вес ${formatWeight(last)}`}
+    >
+      <span>{formatWeight(first)}</span>
+      {unchanged ? (
+        <span aria-hidden="true">=</span>
+      ) : (
+        <span
+          className={`diary-period-weight-range-trend ${decreased ? 'down' : 'up'}`}
+          style={trendColor
+            ? decreased ? { borderTopColor: trendColor } : { borderBottomColor: trendColor }
+            : undefined}
+          aria-hidden="true"
+        />
+      )}
+      <span>{formatWeight(last)}</span>
+      {targetWeight !== null && targetWeight !== undefined && (
+        <span
+          className="diary-period-weight-target"
+          title="Расчётный вес по цели изменения за 7 суток"
+        >
+          ({formatWeight(targetWeight)})
+        </span>
+      )}
+    </span>
+  )
 }
 
 function formatMonthWeightChange(value: number) {
@@ -1613,6 +1906,47 @@ function formatStatisticValue(value: number, maximumFractionDigits: number) {
   })
 }
 
+function formatAverageWithTarget(
+  actual: number | null,
+  target: number | null,
+  fractionDigits: number,
+  unit: string,
+) {
+  if (actual === null) return '—'
+  const actualText = `${formatStatisticValue(actual, fractionDigits)} ${unit}`
+  if (target === null) return actualText
+
+  const difference = Number((actual - target).toFixed(fractionDigits))
+  const differenceText = formatStatisticValue(Math.abs(difference), fractionDigits)
+  const differenceLabel = difference > 0
+    ? `выше цели на ${differenceText}`
+    : difference < 0
+      ? `ниже цели на ${differenceText}`
+      : 'соответствует цели'
+  return (
+    <span
+      className="diary-average-comparison"
+      aria-label={`${actualText}, ${differenceLabel}`}
+    >
+      <span>{actualText}</span>
+      <span className="diary-average-difference">
+        {'('}
+        {difference !== 0 && (
+          <span
+            className={`diary-average-trend ${difference < 0 ? 'down' : 'up'}`}
+            style={difference < 0
+              ? { borderTopColor: getAverageDeviationColor(actual, target) }
+              : { borderBottomColor: getAverageDeviationColor(actual, target) }}
+            aria-hidden="true"
+          />
+        )}
+        {differenceText}
+        {')'}
+      </span>
+    </span>
+  )
+}
+
 function formatSignedWeight(value: number) {
   if (Math.abs(value) < 0.005) return '0,0'
   const formatted = Math.abs(value).toLocaleString('ru-RU', {
@@ -1631,6 +1965,13 @@ function getTargetDeviationColor(actual: number, target: number) {
 function getDeviationColor(actual: number, target: number) {
   const deviation = Math.abs(actual - target) / Math.abs(target)
   const colorProgress = Math.min(1, deviation / 0.5)
+  const hue = Math.round(120 * (1 - colorProgress))
+  return `hsl(${hue} 72% 44%)`
+}
+
+function getAverageDeviationColor(actual: number, target: number) {
+  const deviation = Math.abs(actual - target) / Math.abs(target)
+  const colorProgress = Math.min(1, Math.max(0, (deviation - 0.1) / 0.2))
   const hue = Math.round(120 * (1 - colorProgress))
   return `hsl(${hue} 72% 44%)`
 }
@@ -1678,6 +2019,7 @@ function MacroNutrientCalculator({
   savedProducts,
   userId,
   onBalanceValuesChange,
+  onTargetValuesChange,
 }: {
   dailyCaloriesNorm?: number | null
   desiredWeight?: number | null
@@ -1685,6 +2027,7 @@ function MacroNutrientCalculator({
   savedProducts: SavedProduct[]
   userId: string | null
   onBalanceValuesChange: (values: MacroCalculatorBalanceValues) => void
+  onTargetValuesChange: (values: MacroCalculatorTargetValues) => void
 }) {
   const [values, setValues] = useState<Record<MacroCalculatorKey, { grams: string; calories: string }>>(() => {
     const defaultFatCalories = typeof dailyCaloriesNorm === 'number' && dailyCaloriesNorm > 0
@@ -1810,6 +2153,18 @@ function MacroNutrientCalculator({
       fats: remainingFats > 0 ? remainingFats : null,
     })
   }, [onBalanceValuesChange, remainingFats, remainingProteins])
+
+  useEffect(() => {
+    const proteins = parseCalculatorValue(values.proteins.grams)
+    const fats = parseCalculatorValue(values.fats.grams)
+    const carbohydrates = parseCalculatorValue(values.carbohydrates.grams)
+    onTargetValuesChange({
+      calories: manualCalories > 0 ? manualCalories : null,
+      proteins: proteins !== null && proteins > 0 ? proteins : null,
+      fats: fats !== null && fats > 0 ? fats : null,
+      carbohydrates: carbohydrates !== null && carbohydrates > 0 ? carbohydrates : null,
+    })
+  }, [manualCalories, onTargetValuesChange, values.carbohydrates.grams, values.fats.grams, values.proteins.grams])
 
   return (
     <aside className="diary-macro-calculator" aria-labelledby="diary-macro-calculator-heading">
