@@ -1714,7 +1714,12 @@ export function DiaryView() {
                         sevenDayWeightTrendColor,
                         targetWeightAtPeriodEnd,
                       )}</td>
-                      <td>{formatAverageWithTarget(nutritionPeriodDetailAverages.calories, macroCalculatorTargetValues.calories, 0, 'ккал')}</td>
+                      <td>{formatAverageCaloriesWithWeightTarget(
+                        nutritionPeriodDetailAverages.calories,
+                        nutritionPeriodDetailAverages.lastWeight,
+                        targetWeightAtPeriodEnd,
+                        weightPeriodStatistics?.selectedDays ?? null,
+                      )}</td>
                       <td>{formatAverageWithTarget(nutritionPeriodDetailAverages.proteins, macroCalculatorTargetValues.proteins, 1, 'г')}</td>
                       <td>{formatAverageWithTarget(nutritionPeriodDetailAverages.fats, macroCalculatorTargetValues.fats, 1, 'г')}</td>
                       <td>{formatAverageWithTarget(nutritionPeriodDetailAverages.carbohydrates, macroCalculatorTargetValues.carbohydrates, 1, 'г')}</td>
@@ -1947,6 +1952,53 @@ function formatAverageWithTarget(
   )
 }
 
+function formatAverageCaloriesWithWeightTarget(
+  averageCalories: number | null,
+  actualWeight: number | null,
+  targetWeight: number | null,
+  selectedDays: number | null,
+) {
+  if (averageCalories === null) return '—'
+  const actualText = formatStatisticValue(averageCalories, 0)
+  if (actualWeight === null || targetWeight === null || selectedDays === null || selectedDays < 1) {
+    return actualText
+  }
+
+  const weightDifference = actualWeight - targetWeight
+  const calorieAdjustment = Math.round(Math.abs(weightDifference) / selectedDays * 6500)
+  const direction = weightDifference > 0 ? 'down' : weightDifference < 0 ? 'up' : null
+  const directionLabel = direction === 'down'
+    ? 'снизить'
+    : direction === 'up'
+      ? 'увеличить'
+      : 'коррекция не требуется'
+  const adjustmentText = formatStatisticValue(calorieAdjustment, 0)
+  const adjustmentColor = getCalorieAdjustmentColor(calorieAdjustment, averageCalories)
+
+  return (
+    <span
+      className="diary-average-comparison"
+      aria-label={`${actualText}, ${directionLabel} на ${adjustmentText} калорий за сутки`}
+    >
+      <span>{actualText}</span>
+      <span className="diary-average-difference">
+        {'('}
+        {direction && calorieAdjustment > 0 && (
+          <span
+            className={`diary-average-trend ${direction}`}
+            style={direction === 'down'
+              ? { borderTopColor: adjustmentColor }
+              : { borderBottomColor: adjustmentColor }}
+            aria-hidden="true"
+          />
+        )}
+        {adjustmentText}
+        {')'}
+      </span>
+    </span>
+  )
+}
+
 function formatSignedWeight(value: number) {
   if (Math.abs(value) < 0.005) return '0,0'
   const formatted = Math.abs(value).toLocaleString('ru-RU', {
@@ -1971,6 +2023,15 @@ function getDeviationColor(actual: number, target: number) {
 
 function getAverageDeviationColor(actual: number, target: number) {
   const deviation = Math.abs(actual - target) / Math.abs(target)
+  const colorProgress = Math.min(1, Math.max(0, (deviation - 0.1) / 0.2))
+  const hue = Math.round(120 * (1 - colorProgress))
+  return `hsl(${hue} 72% 44%)`
+}
+
+function getCalorieAdjustmentColor(adjustment: number, averageCalories: number) {
+  const deviation = averageCalories === 0
+    ? 1
+    : Math.abs(adjustment) / Math.abs(averageCalories)
   const colorProgress = Math.min(1, Math.max(0, (deviation - 0.1) / 0.2))
   const hue = Math.round(120 * (1 - colorProgress))
   return `hsl(${hue} 72% 44%)`
