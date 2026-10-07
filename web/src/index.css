@@ -6396,6 +6396,67 @@ nav {
   font-size: 12px;
 }
 
+.diary-admin-norm-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.2fr) auto;
+  align-items: end;
+  gap: 10px 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.diary-admin-norm-form > label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.diary-admin-norm-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diary-admin-norm-input input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font: inherit;
+}
+
+.diary-admin-norm-input > span {
+  flex-shrink: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.diary-admin-norm-hint {
+  align-self: center;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.diary-admin-norm-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.diary-admin-norm-form > .diary-food-name-error {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .diary-admin-food-form {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -6458,6 +6519,15 @@ nav {
   .diary-admin-food-saved,
   .diary-admin-food-actions {
     grid-column: 1 / -1;
+  }
+
+  .diary-admin-norm-form {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .diary-admin-norm-actions > button {
+    flex: 1;
   }
 }
 

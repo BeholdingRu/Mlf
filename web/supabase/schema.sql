@@ -48,6 +48,132 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.calorie_norm_history (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  effective_on date not null,
+  daily_calories_norm numeric(6, 1),
+  daily_calories_norm_override numeric(6, 1),
+  calorie_adaptation_enabled boolean not null default false,
+  calorie_adaptation_baseline_weight numeric(6, 1),
+  calorie_adaptation_baseline_on date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, effective_on),
+  check (daily_calories_norm is null or daily_calories_norm > 0),
+  check (
+    calorie_adaptation_baseline_weight is null
+    or calorie_adaptation_baseline_weight > 0
+  )
+);
+
+alter table public.calorie_norm_history
+  add column if not exists daily_calories_norm_override numeric(6, 1);
+
+alter table public.calorie_norm_history
+  drop constraint if exists calorie_norm_history_daily_calories_norm_override_check;
+alter table public.calorie_norm_history
+  add constraint calorie_norm_history_daily_calories_norm_override_check
+  check (daily_calories_norm_override is null or daily_calories_norm_override > 0);
+
+create or replace function public.profile_local_date(
+  selected_time_zone text,
+  selected_instant timestamptz default now()
+)
+returns date
+language plpgsql
+stable
+security invoker
+set search_path = public
+as $$
+begin
+  return timezone(
+    coalesce(nullif(selected_time_zone, ''), 'Europe/Moscow'),
+    selected_instant
+  )::date;
+exception
+  when invalid_parameter_value then
+    return timezone('Europe/Moscow', selected_instant)::date;
+end;
+$$;
+
+create or replace function public.record_calorie_norm_history()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  selected_time_zone text;
+  effective_date date;
+begin
+  selected_time_zone := new.time_zone;
+  effective_date := public.profile_local_date(selected_time_zone, now());
+
+  insert into public.calorie_norm_history (
+    user_id,
+    effective_on,
+    daily_calories_norm,
+    daily_calories_norm_override,
+    calorie_adaptation_enabled,
+    calorie_adaptation_baseline_weight,
+    calorie_adaptation_baseline_on,
+    updated_at
+  )
+  values (
+    new.id,
+    effective_date,
+    new.daily_calories_norm,
+    null,
+    new.calorie_adaptation_enabled,
+    new.calorie_adaptation_baseline_weight,
+    new.calorie_adaptation_baseline_on,
+    now()
+  )
+  on conflict (user_id, effective_on) do update
+  set
+    daily_calories_norm = excluded.daily_calories_norm,
+    daily_calories_norm_override = null,
+    calorie_adaptation_enabled = excluded.calorie_adaptation_enabled,
+    calorie_adaptation_baseline_weight = excluded.calorie_adaptation_baseline_weight,
+    calorie_adaptation_baseline_on = excluded.calorie_adaptation_baseline_on,
+    updated_at = now();
+
+  return new;
+end;
+$$;
+
+drop trigger if exists record_calorie_norm_history_after_change on public.profiles;
+create trigger record_calorie_norm_history_after_change
+  after update of
+    daily_calories_norm,
+    calorie_adaptation_enabled,
+    calorie_adaptation_baseline_weight,
+    calorie_adaptation_baseline_on
+  on public.profiles
+  for each row execute function public.record_calorie_norm_history();
+
+insert into public.calorie_norm_history (
+  user_id,
+  effective_on,
+  daily_calories_norm,
+  calorie_adaptation_enabled,
+  calorie_adaptation_baseline_weight,
+  calorie_adaptation_baseline_on
+)
+select
+  profile.id,
+  coalesce(
+    profile.calorie_adaptation_baseline_on,
+    public.profile_local_date(profile.time_zone, now())
+  ),
+  profile.daily_calories_norm,
+  profile.calorie_adaptation_enabled,
+  profile.calorie_adaptation_baseline_weight,
+  profile.calorie_adaptation_baseline_on
+from public.profiles as profile
+where profile.daily_calories_norm is not null
+on conflict (user_id, effective_on) do nothing;
+
 create table if not exists public.user_roles (
   user_id uuid primary key references auth.users (id) on delete cascade,
   role text not null check (role = 'admin'),
@@ -699,6 +825,7 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 alter table public.profiles enable row level security;
+alter table public.calorie_norm_history enable row level security;
 alter table public.registration_access_codes enable row level security;
 alter table public.user_roles enable row level security;
 alter table public.tasks enable row level security;
@@ -716,6 +843,8 @@ alter table public.scheduled_exercises enable row level security;
 
 revoke all on table public.user_roles from anon, authenticated;
 revoke all on table public.registration_access_codes from anon, authenticated;
+revoke all on table public.calorie_norm_history from anon;
+grant select, insert, update on table public.calorie_norm_history to authenticated;
 revoke all on function public.is_admin() from public;
 revoke all on function public.is_valid_registration_code(text) from public;
 grant execute on function public.is_admin() to authenticated;
@@ -732,6 +861,12 @@ create policy "profiles_insert_own" on public.profiles
 drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles
   for update using (auth.uid() = id);
+
+drop policy if exists "calorie_norm_history_all_own" on public.calorie_norm_history;
+create policy "calorie_norm_history_all_own" on public.calorie_norm_history
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 drop policy if exists "tasks_all_own" on public.tasks;
 create policy "tasks_all_own" on public.tasks

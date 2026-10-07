@@ -7,7 +7,12 @@ import {
   type ReactNode,
 } from 'react'
 import { requireSupabase } from '../lib/supabase'
-import { isoDateInTimeZone, localISODate, millisecondsUntilNextDayInTimeZone } from '../lib/dates'
+import {
+  isoDateInTimeZone,
+  localISODate,
+  millisecondsUntilNextDayInTimeZone,
+  parseISODate,
+} from '../lib/dates'
 import type {
   FoodLog,
   BibleBookmark,
@@ -57,6 +62,23 @@ type BibleTreeProgressRpcRow = {
   progress_steps: number
   chapters_today: number
   started_on: string | null
+}
+
+type CalorieNormHistoryRow = {
+  user_id: string
+  effective_on: string
+  daily_calories_norm: number | null
+  daily_calories_norm_override?: number | null
+  calorie_adaptation_enabled: boolean
+  calorie_adaptation_baseline_weight: number | null
+  calorie_adaptation_baseline_on: string | null
+}
+
+function isCalorieNormHistoryMissing(error: { code?: string; message?: string } | null) {
+  return error?.code === '42P01'
+    || error?.code === 'PGRST205'
+    || error?.message?.includes('relation "public.calorie_norm_history" does not exist') === true
+    || error?.message?.includes("Could not find the table 'public.calorie_norm_history'") === true
 }
 
 function isBibleTreeFeatureMissing(error: { code?: string; message?: string } | null) {
@@ -127,6 +149,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     () => window.sessionStorage.getItem(ADMIN_MODE_STORAGE_KEY) === 'true',
   )
   const bibleCompletionPendingRef = useRef(new Set<string>())
+  const nutritionReconciliationQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const nutritionCatchUpSignatureRef = useRef<string | null>(null)
   const bibleChaptersReadToday = bibleDailyReading.userId === (userId ?? null)
     && bibleDailyReading.date === bibleReadingDate
     ? bibleDailyReading.count
@@ -150,7 +174,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     setLoading(true)
     const client = requireSupabase()
-    const today = localISODate()
     let responses
     try {
       responses = await withDataLoadTimeout(Promise.all([
@@ -160,7 +183,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         client.from('weight_logs').select('*').eq('user_id', userId).order('logged_on', {
           ascending: false,
         }),
-        client.from('daily_food_logs').select('*').eq('user_id', userId).eq('logged_on', today),
         client
           .from('daily_food_logs')
           .select('*')
@@ -181,7 +203,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    const [profileRes, tasksRes, completionsRes, weightRes, foodRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes, bibleBookmarksRes] = responses
+    const [profileRes, tasksRes, completionsRes, weightRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes, bibleBookmarksRes] = responses
 
     const bookmarksTableMissing = bibleBookmarksRes.error?.code === '42P01'
       || bibleBookmarksRes.error?.code === 'PGRST205'
@@ -191,7 +213,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       tasksRes.error?.message ||
       completionsRes.error?.message ||
       weightRes.error?.message ||
-      foodRes.error?.message ||
       foodHistoryRes.error?.message ||
       productsRes.error?.message ||
       exercisesRes.error?.message ||
@@ -272,8 +293,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         carbohydrates_per_100g: lacksNutrition ? savedProduct?.carbohydrates_per_100g ?? 0 : food.carbohydrates_per_100g,
       }
     })
-    setFoodLogs(normalizeFoodLogs(foodRes.data ?? []))
-    setFoodHistoryLogs(normalizeFoodLogs(foodHistoryRes.data ?? []))
+    const normalizedFoodHistory = normalizeFoodLogs(foodHistoryRes.data ?? [])
+    const profileToday = isoDateInTimeZone(nextProfile.time_zone)
+    setFoodLogs(normalizedFoodHistory.filter((food) => food.logged_on === profileToday))
+    setFoodHistoryLogs(normalizedFoodHistory)
     setPathDayConfirmations((pathConfirmationsRes.data ?? []) as PathDayConfirmation[])
     setCourseLessonCompletions((courseLessonsRes.data ?? []) as CourseLessonCompletion[])
     setMindfulnessCategories((mindfulnessCategoriesRes.data ?? []) as MindfulnessCategory[])
@@ -402,103 +425,334 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     let timeout: number
     const scheduleRefreshAtMidnight = () => {
-      const now = new Date()
-      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
       timeout = window.setTimeout(async () => {
         await refresh()
         scheduleRefreshAtMidnight()
-      }, nextMidnight.getTime() - now.getTime())
+      }, millisecondsUntilNextDayInTimeZone(profile?.time_zone) + 50)
     }
 
     scheduleRefreshAtMidnight()
     return () => window.clearTimeout(timeout)
-  }, [refresh, userId])
+  }, [profile?.time_zone, refresh, userId])
 
-  const reconcileNutritionTaskDate = useCallback(async (
+  const resolveCalorieNormForDate = useCallback(async (
     loggedOn: string,
-    historyLogs = foodHistoryLogs,
+    { allowLegacyNormFallback = false }: { allowLegacyNormFallback?: boolean } = {},
   ) => {
-    if (
-      !user
-      || !profile?.weight_enabled
-      || loggedOn >= localISODate()
-    ) return
+    if (!user || !profile) return null
 
-    const dailyCaloriesNorm = getCalorieAdaptation(profile, weightLogs, loggedOn).effectiveNorm
-    if (dailyCaloriesNorm === null) return
-
-    const nutritionTasks = tasks.filter(isNutritionTask)
-    if (!nutritionTasks.length) return
-
-    const totalCalories = historyLogs
-      .filter((log) => log.logged_on === loggedOn)
-      .reduce((sum, log) => sum + (log.weight_grams / 100) * log.calories_per_100g, 0)
     const client = requireSupabase()
+    const historyResult = await client
+      .from('calorie_norm_history')
+      .select('*')
+      .eq('user_id', user.id)
+      .lte('effective_on', loggedOn)
+      .order('effective_on', { ascending: false })
 
-    try {
-      if (totalCalories <= dailyCaloriesNorm) {
-        const results = await Promise.all(
-          nutritionTasks.map((task) =>
-            client
-              .from('task_completions')
-              .upsert(
-                {
-                  task_id: task.id,
-                  user_id: user.id,
-                  completed_on: loggedOn,
-                },
-                { onConflict: 'task_id,completed_on' },
-              )
-              .select('*')
-              .single(),
-          ),
-        )
-        const failedResult = results.find((result) => result.error)
-        if (failedResult?.error) throw failedResult.error
-
-        const automaticCompletions = results.map((result) => result.data as TaskCompletion)
-        const automaticTaskIds = new Set(automaticCompletions.map((completion) => completion.task_id))
-        setCompletions((previous) => [
-          ...previous.filter((completion) => !(
-            automaticTaskIds.has(completion.task_id)
-            && completion.completed_on === loggedOn
-          )),
-          ...automaticCompletions,
-        ])
-        return
-      }
-
-      const nutritionTaskIds = nutritionTasks.map((task) => task.id)
-      const { error: deleteError } = await client
-        .from('task_completions')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('completed_on', loggedOn)
-        .in('task_id', nutritionTaskIds)
-      if (deleteError) throw deleteError
-
-      const nutritionTaskIdSet = new Set(nutritionTaskIds)
-      setCompletions((previous) => previous.filter((completion) => !(
-        nutritionTaskIdSet.has(completion.task_id)
-        && completion.completed_on === loggedOn
-      )))
-    } catch (reconcileError) {
-      setError(
-        reconcileError instanceof Error
-          ? reconcileError.message
-          : 'Не удалось пересчитать статистику задачи питания',
-      )
+    if (historyResult.error && !isCalorieNormHistoryMissing(historyResult.error)) {
+      throw historyResult.error
     }
-  }, [foodHistoryLogs, profile, tasks, user, weightLogs])
+
+    const historyRows = historyResult.error
+      ? []
+      : historyResult.data as CalorieNormHistoryRow[]
+    const history = historyRows[0] ?? null
+    const dailyOverride = historyRows.find((row) => (
+      row.effective_on === loggedOn
+      && row.daily_calories_norm_override != null
+    ))?.daily_calories_norm_override
+    if (dailyOverride != null) return Number(dailyOverride)
+
+    const currentNormAppliesToDate = Boolean(
+      profile.calorie_adaptation_baseline_on
+      && profile.calorie_adaptation_baseline_on <= loggedOn,
+    )
+    if (!history && !currentNormAppliesToDate && !allowLegacyNormFallback) return null
+
+    const normProfile = history
+      ? {
+          ...profile,
+          daily_calories_norm: history.daily_calories_norm === null
+            ? null
+            : Number(history.daily_calories_norm),
+          calorie_adaptation_enabled: history.calorie_adaptation_enabled,
+          calorie_adaptation_baseline_weight: history.calorie_adaptation_baseline_weight === null
+            ? null
+            : Number(history.calorie_adaptation_baseline_weight),
+          calorie_adaptation_baseline_on: history.calorie_adaptation_baseline_on,
+        }
+      : profile
+    const dailyCaloriesNorm = getCalorieAdaptation(normProfile, weightLogs, loggedOn).effectiveNorm
+
+    if (!history && !historyResult.error && currentNormAppliesToDate) {
+      const fallbackEffectiveOn = profile.calorie_adaptation_baseline_on
+        && profile.calorie_adaptation_baseline_on <= loggedOn
+        ? profile.calorie_adaptation_baseline_on
+        : loggedOn
+      const { error: snapshotError } = await client
+        .from('calorie_norm_history')
+        .upsert(
+          {
+            user_id: user.id,
+            effective_on: fallbackEffectiveOn,
+            daily_calories_norm: profile.daily_calories_norm,
+            calorie_adaptation_enabled: profile.calorie_adaptation_enabled,
+            calorie_adaptation_baseline_weight: profile.calorie_adaptation_baseline_weight,
+            calorie_adaptation_baseline_on: profile.calorie_adaptation_baseline_on,
+          },
+          { onConflict: 'user_id,effective_on', ignoreDuplicates: true },
+        )
+      if (snapshotError && !isCalorieNormHistoryMissing(snapshotError)) throw snapshotError
+    }
+
+    return dailyCaloriesNorm
+  }, [profile, user, weightLogs])
+
+  const reconcileNutritionTaskDate = useCallback((
+    loggedOn: string,
+    { allowLegacyNormFallback = false }: { allowLegacyNormFallback?: boolean } = {},
+  ) => {
+    const runReconciliation = async () => {
+      if (
+        !user
+        || !profile?.weight_enabled
+        || loggedOn >= isoDateInTimeZone(profile?.time_zone)
+      ) return
+
+      const nutritionTasks = tasks.filter((task) => (
+        isNutritionTask(task)
+        && isoDateInTimeZone(profile.time_zone, new Date(task.created_at)) <= loggedOn
+      ))
+      if (!nutritionTasks.length) return
+
+      const client = requireSupabase()
+
+      try {
+        const dailyCaloriesNorm = await resolveCalorieNormForDate(loggedOn, {
+          allowLegacyNormFallback,
+        })
+        if (dailyCaloriesNorm === null) return
+
+        const { data: dayFoodLogs, error: dayFoodError } = await client
+          .from('daily_food_logs')
+          .select('weight_grams,calories_per_100g')
+          .eq('user_id', user.id)
+          .eq('logged_on', loggedOn)
+        if (dayFoodError) throw dayFoodError
+        const totalCalories = (dayFoodLogs ?? []).reduce(
+          (sum, log) => sum + (Number(log.weight_grams) / 100) * Number(log.calories_per_100g),
+          0,
+        )
+
+        if (totalCalories <= dailyCaloriesNorm) {
+          const results = await Promise.all(
+            nutritionTasks.map((task) =>
+              client
+                .from('task_completions')
+                .upsert(
+                  {
+                    task_id: task.id,
+                    user_id: user.id,
+                    completed_on: loggedOn,
+                  },
+                  { onConflict: 'task_id,completed_on' },
+                )
+                .select('*')
+                .single(),
+            ),
+          )
+          const failedResult = results.find((result) => result.error)
+          if (failedResult?.error) throw failedResult.error
+
+          const automaticCompletions = results.map((result) => result.data as TaskCompletion)
+          const automaticTaskIds = new Set(automaticCompletions.map((completion) => completion.task_id))
+          setCompletions((previous) => [
+            ...previous.filter((completion) => !(
+              automaticTaskIds.has(completion.task_id)
+              && completion.completed_on === loggedOn
+            )),
+            ...automaticCompletions,
+          ])
+          return
+        }
+
+        const nutritionTaskIds = nutritionTasks.map((task) => task.id)
+        const { error: deleteError } = await client
+          .from('task_completions')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('completed_on', loggedOn)
+          .in('task_id', nutritionTaskIds)
+        if (deleteError) throw deleteError
+
+        const nutritionTaskIdSet = new Set(nutritionTaskIds)
+        setCompletions((previous) => previous.filter((completion) => !(
+          nutritionTaskIdSet.has(completion.task_id)
+          && completion.completed_on === loggedOn
+        )))
+      } catch (reconcileError) {
+        setError(
+          reconcileError instanceof Error
+            ? reconcileError.message
+            : 'Не удалось пересчитать статистику задачи питания',
+        )
+        throw reconcileError
+      }
+    }
+
+    const queuedReconciliation = nutritionReconciliationQueueRef.current.then(
+      runReconciliation,
+      runReconciliation,
+    )
+    nutritionReconciliationQueueRef.current = queuedReconciliation.catch(() => undefined)
+    return queuedReconciliation
+  }, [profile, resolveCalorieNormForDate, tasks, user])
+
+  const getCalorieNormOnDate = useCallback(
+    (loggedOn: string) => resolveCalorieNormForDate(loggedOn, { allowLegacyNormFallback: true }),
+    [resolveCalorieNormForDate],
+  )
+
+  const saveCalorieNormOnDate = useCallback(async (loggedOn: string, norm: number) => {
+    if (!user || !profile || !isAdmin || !adminMode) {
+      throw new Error('Редактирование нормы доступно только в режиме администратора')
+    }
+    if (loggedOn >= isoDateInTimeZone(profile.time_zone)) {
+      throw new Error('Можно изменить норму только для прошедшей даты')
+    }
+    if (!Number.isFinite(norm) || norm <= 0) {
+      throw new Error('Укажите положительное значение нормы калорий')
+    }
+
+    const client = requireSupabase()
+    const historyResult = await client
+      .from('calorie_norm_history')
+      .select('*')
+      .eq('user_id', user.id)
+      .lte('effective_on', loggedOn)
+      .order('effective_on', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (historyResult.error) {
+      if (isCalorieNormHistoryMissing(historyResult.error)) {
+        throw new Error('Сначала выполните обновлённый файл add_calorie_norm_history.sql в Supabase')
+      }
+      throw historyResult.error
+    }
+
+    const history = historyResult.data as CalorieNormHistoryRow | null
+    const { error: saveError } = await client
+      .from('calorie_norm_history')
+      .upsert(
+        {
+          user_id: user.id,
+          effective_on: loggedOn,
+          daily_calories_norm: history
+            ? history.daily_calories_norm
+            : profile.daily_calories_norm,
+          daily_calories_norm_override: norm,
+          calorie_adaptation_enabled: history
+            ? history.calorie_adaptation_enabled
+            : profile.calorie_adaptation_enabled,
+          calorie_adaptation_baseline_weight: history
+            ? history.calorie_adaptation_baseline_weight
+            : profile.calorie_adaptation_baseline_weight,
+          calorie_adaptation_baseline_on: history
+            ? history.calorie_adaptation_baseline_on
+            : profile.calorie_adaptation_baseline_on,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,effective_on' },
+      )
+    if (saveError) {
+      if (
+        saveError.code === 'PGRST204'
+        || saveError.code === '42703'
+        || saveError.message?.includes('daily_calories_norm_override')
+      ) {
+        throw new Error('Повторно выполните обновлённый файл add_calorie_norm_history.sql в Supabase')
+      }
+      throw saveError
+    }
+
+    await reconcileNutritionTaskDate(loggedOn, { allowLegacyNormFallback: true })
+  }, [adminMode, isAdmin, profile, reconcileNutritionTaskDate, user])
 
   useEffect(() => {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
+    if (!profile) return
+    const today = isoDateInTimeZone(profile.time_zone)
+    const yesterdayDate = parseISODate(today)
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+    const yesterday = localISODate(yesterdayDate)
+    const firstTrackedDate = profile.calorie_adaptation_baseline_on
+    const datesToReconcile = new Set([yesterday])
+    if (firstTrackedDate && firstTrackedDate < today) {
+      datesToReconcile.add(firstTrackedDate)
+    }
+    const legacyFallbackDate = firstTrackedDate
+      ? foodHistoryLogs.reduce<string | null>((latest, log) => (
+          log.logged_on < firstTrackedDate && (!latest || log.logged_on > latest)
+            ? log.logged_on
+            : latest
+        ), null)
+      : null
+    if (legacyFallbackDate) datesToReconcile.add(legacyFallbackDate)
+    const nutritionTaskSignature = tasks
+      .filter(isNutritionTask)
+      .map((task) => `${task.id}:${task.created_at}`)
+      .sort()
+      .join(',')
+    const latestWeightSignature = weightLogs
+      .map((log) => `${log.logged_on}:${log.value}`)
+      .sort()
+      .join(',')
+    const historicalFoodSignature = foodHistoryLogs
+      .filter((log) => datesToReconcile.has(log.logged_on))
+      .map((log) => `${log.id}:${log.weight_grams}:${log.calories_per_100g}`)
+      .sort()
+      .join(',')
+    const catchUpSignature = [
+      user?.id ?? '',
+      today,
+      firstTrackedDate ?? '',
+      profile.daily_calories_norm ?? '',
+      profile.calorie_adaptation_enabled,
+      profile.calorie_adaptation_baseline_weight ?? '',
+      nutritionTaskSignature,
+      latestWeightSignature,
+      historicalFoodSignature,
+    ].join('|')
+    if (nutritionCatchUpSignatureRef.current === catchUpSignature) return
+    nutritionCatchUpSignatureRef.current = catchUpSignature
+
+    let retryTimer: number | undefined
+    let cancelled = false
+    const runCatchUp = () => Promise.all(
+      [...datesToReconcile]
+        .sort((left, right) => left.localeCompare(right))
+        .map((date) => reconcileNutritionTaskDate(date, {
+          allowLegacyNormFallback: date === legacyFallbackDate,
+        })),
+    )
     const timer = window.setTimeout(() => {
-      void reconcileNutritionTaskDate(localISODate(yesterday))
+      void runCatchUp().catch(() => {
+        if (cancelled) return
+        nutritionCatchUpSignatureRef.current = null
+        retryTimer = window.setTimeout(() => {
+          if (cancelled) return
+          nutritionCatchUpSignatureRef.current = catchUpSignature
+          void runCatchUp().catch(() => {
+            nutritionCatchUpSignatureRef.current = null
+          })
+        }, 3_000)
+      })
     }, 0)
-    return () => window.clearTimeout(timer)
-  }, [reconcileNutritionTaskDate])
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+      window.clearTimeout(retryTimer)
+    }
+  }, [foodHistoryLogs, profile, reconcileNutritionTaskDate, tasks, user?.id, weightLogs])
 
   useEffect(() => {
     if (!user || !profile) return
@@ -606,6 +860,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       adminMode: isAdmin && adminMode,
       setAdminMode,
       refresh,
+      getCalorieNormOnDate,
+      saveCalorieNormOnDate,
       async completeToday(taskId) {
         if (!user) return
         const task = tasks.find((item) => item.id === taskId)
@@ -855,7 +1111,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .update({
             daily_calories_norm: norm,
             calorie_adaptation_baseline_weight: baselineWeight,
-            calorie_adaptation_baseline_on: norm == null ? null : localISODate(),
+            calorie_adaptation_baseline_on: norm == null
+              ? null
+              : isoDateInTimeZone(profile.time_zone),
           })
           .eq('id', user.id)
           .select('*')
@@ -1238,7 +1496,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
       async logFoodToday(productName, weightGrams, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
         if (!user) return
-        const today = localISODate()
+        const today = isoDateInTimeZone(profile?.time_zone)
         const { data, error: insError } = await requireSupabase()
           .from('daily_food_logs')
           .insert({
@@ -1261,7 +1519,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!user || !isAdmin || !adminMode) {
           throw new Error('Добавление доступно только в режиме администратора')
         }
-        if (loggedOn >= localISODate()) {
+        if (loggedOn >= isoDateInTimeZone(profile?.time_zone)) {
           throw new Error('Выберите прошедшую календарную дату')
         }
         const { data, error: insError } = await requireSupabase()
@@ -1282,7 +1540,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const insertedFood = data as FoodLog
         const nextHistoryLogs = [...foodHistoryLogs, insertedFood]
         setFoodHistoryLogs(nextHistoryLogs)
-        await reconcileNutritionTaskDate(loggedOn, nextHistoryLogs)
+        await reconcileNutritionTaskDate(loggedOn, { allowLegacyNormFallback: true })
       },
       async updateFoodLogProductName(id, productName) {
         if (!user || !isAdmin || !adminMode) {
@@ -1300,7 +1558,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const nextHistoryLogs = foodHistoryLogs.map((food) => food.id === id ? updatedFood : food)
         setFoodLogs((previous) => previous.map((food) => food.id === id ? updatedFood : food))
         setFoodHistoryLogs(nextHistoryLogs)
-        await reconcileNutritionTaskDate(updatedFood.logged_on, nextHistoryLogs)
+        await reconcileNutritionTaskDate(updatedFood.logged_on, { allowLegacyNormFallback: true })
       },
       async deleteFoodLog(id) {
         if (!user) return
@@ -1315,7 +1573,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const nextHistoryLogs = foodHistoryLogs.filter((food) => food.id !== id)
         setFoodHistoryLogs(nextHistoryLogs)
         if (deletedFood) {
-          await reconcileNutritionTaskDate(deletedFood.logged_on, nextHistoryLogs)
+          await reconcileNutritionTaskDate(deletedFood.logged_on, { allowLegacyNormFallback: true })
         }
       },
       async addSavedProduct(name, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g, category, isFavorite) {
@@ -1526,6 +1784,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       adminMode,
       setAdminMode,
       refresh,
+      getCalorieNormOnDate,
+      saveCalorieNormOnDate,
       reconcileNutritionTaskDate,
       user,
     ],

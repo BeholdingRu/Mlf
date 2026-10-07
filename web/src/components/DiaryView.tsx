@@ -9,7 +9,7 @@ import {
   saveAdminTestDateTime,
   startAdminTestTime,
 } from '../lib/admin-test-time'
-import { localISODate, parseISODate } from '../lib/dates'
+import { isoDateInTimeZone, localISODate, parseISODate } from '../lib/dates'
 import { getCalorieAdaptation } from '../lib/calorie-adaptation'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { getSunsetTime } from '../lib/sunset'
@@ -87,11 +87,13 @@ export function DiaryView() {
     savedProducts,
     profile,
     saveDiaryStatisticsTargets,
+    getCalorieNormOnDate,
+    saveCalorieNormOnDate,
     logFoodOnDate,
     updateFoodLogProductName,
     deleteFoodLog,
   } = useData()
-  const actualToday = localISODate()
+  const actualToday = isoDateInTimeZone(profile?.time_zone)
   const [testDateTime, setTestDateTime] = useState(
     () => getSavedAdminTestDateTime() || dateTimeInputInTimeZone(new Date(), profile?.time_zone),
   )
@@ -178,6 +180,12 @@ export function DiaryView() {
   const [adminFoodCarbohydrates, setAdminFoodCarbohydrates] = useState('')
   const [adminFoodBusy, setAdminFoodBusy] = useState(false)
   const [adminFoodError, setAdminFoodError] = useState<string | null>(null)
+  const [adminCalorieNormFormOpen, setAdminCalorieNormFormOpen] = useState(false)
+  const [adminCalorieNorm, setAdminCalorieNorm] = useState<number | null>(null)
+  const [adminCalorieNormInput, setAdminCalorieNormInput] = useState('')
+  const [adminCalorieNormLoading, setAdminCalorieNormLoading] = useState(false)
+  const [adminCalorieNormSaving, setAdminCalorieNormSaving] = useState(false)
+  const [adminCalorieNormError, setAdminCalorieNormError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!showMonthSummary && !showNutritionPeriodDetails) return
@@ -286,6 +294,42 @@ export function DiaryView() {
     const date = initialDate ? parseISODate(initialDate) : new Date()
     return new Date(date.getFullYear(), date.getMonth(), 1)
   })()
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!adminMode || !activeSelectedDate || activeSelectedDate >= actualToday) {
+      return undefined
+    }
+
+    const loadCalorieNorm = async () => {
+      await Promise.resolve()
+      if (cancelled) return
+
+      setAdminCalorieNormLoading(true)
+      setAdminCalorieNormError(null)
+      try {
+        const norm = await getCalorieNormOnDate(activeSelectedDate)
+        if (cancelled) return
+        setAdminCalorieNorm(norm)
+        setAdminCalorieNormInput(norm === null ? '' : String(norm))
+      } catch (loadError) {
+        if (cancelled) return
+        setAdminCalorieNorm(null)
+        setAdminCalorieNormInput('')
+        setAdminCalorieNormError(
+          loadError instanceof Error ? loadError.message : 'Не удалось загрузить норму калорий',
+        )
+      } finally {
+        if (!cancelled) setAdminCalorieNormLoading(false)
+      }
+    }
+    void loadCalorieNorm()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeSelectedDate, actualToday, adminMode, getCalorieNormOnDate])
 
   const selectedLogs = activeSelectedDate
     ? foodHistoryLogs.filter((food) => food.logged_on === activeSelectedDate)
@@ -593,6 +637,8 @@ export function DiaryView() {
     setFoodNameEditError(null)
     setAdminFoodFormOpen(false)
     setAdminFoodError(null)
+    setAdminCalorieNormFormOpen(false)
+    setAdminCalorieNormError(null)
   }
 
   const selectAdminSavedProduct = (productId: string) => {
@@ -616,6 +662,38 @@ export function DiaryView() {
     setAdminFoodFats('')
     setAdminFoodCarbohydrates('')
     setAdminFoodError(null)
+  }
+
+  const saveAdminCalorieNorm = async () => {
+    if (
+      !adminMode
+      || !activeSelectedDate
+      || activeSelectedDate >= actualToday
+      || adminCalorieNormLoading
+      || adminCalorieNormSaving
+    ) return
+
+    const parsedNorm = Number(adminCalorieNormInput.replace(',', '.'))
+    if (!Number.isFinite(parsedNorm) || parsedNorm <= 0 || parsedNorm > 99_999.9) {
+      setAdminCalorieNormError('Введите норму калорий от 1 до 99 999,9')
+      return
+    }
+    const normalizedNorm = Math.round(parsedNorm * 10) / 10
+
+    setAdminCalorieNormSaving(true)
+    setAdminCalorieNormError(null)
+    try {
+      await saveCalorieNormOnDate(activeSelectedDate, normalizedNorm)
+      setAdminCalorieNorm(normalizedNorm)
+      setAdminCalorieNormInput(String(normalizedNorm))
+      setAdminCalorieNormFormOpen(false)
+    } catch (saveError) {
+      setAdminCalorieNormError(
+        saveError instanceof Error ? saveError.message : 'Не удалось сохранить норму калорий',
+      )
+    } finally {
+      setAdminCalorieNormSaving(false)
+    }
   }
 
   const addFoodToSelectedDate = async () => {
@@ -929,8 +1007,28 @@ export function DiaryView() {
                     type="button"
                     className="primary compact"
                     onClick={() => {
+                      setAdminCalorieNormFormOpen((open) => !open)
+                      setAdminCalorieNormError(null)
+                      setAdminFoodFormOpen(false)
+                    }}
+                    disabled={adminCalorieNormLoading || adminCalorieNormSaving}
+                    aria-expanded={adminCalorieNormFormOpen}
+                  >
+                    {adminCalorieNormLoading
+                      ? 'Загрузка нормы…'
+                      : adminCalorieNorm === null
+                        ? 'Указать норму калорий'
+                        : `Норма: ${adminCalorieNorm.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ккал`}
+                  </button>
+                )}
+                {adminMode && activeSelectedDate && activeSelectedDate < actualToday && (
+                  <button
+                    type="button"
+                    className="primary compact"
+                    onClick={() => {
                       setAdminFoodFormOpen((open) => !open)
                       setAdminFoodError(null)
+                      setAdminCalorieNormFormOpen(false)
                     }}
                     aria-expanded={adminFoodFormOpen}
                   >
@@ -960,6 +1058,64 @@ export function DiaryView() {
                 )}
               </div>
             </div>
+            {adminMode && adminCalorieNormFormOpen && activeSelectedDate && activeSelectedDate < actualToday && (
+              <form
+                className="diary-admin-norm-form"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void saveAdminCalorieNorm()
+                }}
+              >
+                <label htmlFor="diary-admin-calorie-norm">
+                  Норма калорий на {formatPeriodDate(activeSelectedDate)}
+                  <span className="diary-admin-norm-input">
+                    <input
+                      id="diary-admin-calorie-norm"
+                      type="number"
+                      min="1"
+                      max="99999.9"
+                      step="0.1"
+                      inputMode="decimal"
+                      value={adminCalorieNormInput}
+                      onChange={(event) => {
+                        setAdminCalorieNormInput(event.target.value)
+                        setAdminCalorieNormError(null)
+                      }}
+                      disabled={adminCalorieNormLoading || adminCalorieNormSaving}
+                      autoFocus
+                    />
+                    <span>ккал</span>
+                  </span>
+                </label>
+                <p className="diary-admin-norm-hint">
+                  Изменение действует только для выбранной даты. После сохранения статус питания пересчитается автоматически.
+                </p>
+                <div className="diary-admin-norm-actions">
+                  <button
+                    type="submit"
+                    className="primary compact"
+                    disabled={adminCalorieNormLoading || adminCalorieNormSaving}
+                  >
+                    {adminCalorieNormSaving ? 'Сохранение…' : 'Сохранить'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost compact"
+                    disabled={adminCalorieNormSaving}
+                    onClick={() => {
+                      setAdminCalorieNormInput(adminCalorieNorm === null ? '' : String(adminCalorieNorm))
+                      setAdminCalorieNormError(null)
+                      setAdminCalorieNormFormOpen(false)
+                    }}
+                  >
+                    Отмена
+                  </button>
+                </div>
+                {adminCalorieNormError && (
+                  <p className="diary-food-name-error">{adminCalorieNormError}</p>
+                )}
+              </form>
+            )}
             {adminMode && adminFoodFormOpen && activeSelectedDate && activeSelectedDate < actualToday && (
               <form
                 className="diary-admin-food-form"
