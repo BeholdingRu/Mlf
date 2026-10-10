@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import type { Feature, SheetData } from 'write-excel-file/browser'
 import { useData } from '../hooks/useData'
 import {
   DEFAULT_PRODUCT_CATEGORY,
@@ -66,6 +67,147 @@ type ShoppingListResult = {
     name: string
     weightGrams: number
   }>
+}
+
+type ImportedShoppingValues = {
+  purchaseWeight?: number
+  price?: number
+  note?: string
+  backgroundColors?: Partial<Record<number, string>>
+}
+
+const HIDDEN_PRODUCT_ID_COLUMN_INDEX = 6
+const HIDE_PRODUCT_ID_COLUMN_FEATURE: Feature<File | Blob | ArrayBuffer> = {
+  files: {
+    transform: {
+      'xl/worksheets/sheet{id}.xml': {
+        transformElementAttributes(tagName, attributes, index) {
+          if (tagName === 'col' && index === HIDDEN_PRODUCT_ID_COLUMN_INDEX) {
+            return { ...attributes, hidden: 1 }
+          }
+          return attributes
+        },
+      },
+    },
+  },
+}
+
+const XLSX_INDEXED_COLORS = [
+  '000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF',
+  '000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF',
+  '800000', '008000', '000080', '808000', '800080', '008080', 'C0C0C0', '808080',
+]
+
+function applyColorTint(hexColor: string, tint: number): string {
+  const channels = [0, 2, 4].map((offset) => Number.parseInt(hexColor.slice(offset, offset + 2), 16))
+  const tinted = channels.map((channel) => Math.round(
+    tint < 0 ? channel * (1 + tint) : channel * (1 - tint) + 255 * tint,
+  ))
+  return tinted.map((channel) => Math.max(0, Math.min(255, channel)).toString(16).padStart(2, '0')).join('').toUpperCase()
+}
+
+async function readShoppingCellBackgrounds(file: File): Promise<Map<number, Partial<Record<number, string>>>> {
+  const { strFromU8, unzipSync } = await import('fflate')
+  const archive = unzipSync(new Uint8Array(await file.arrayBuffer()))
+  const readXml = (path: string) => {
+    const contents = archive[path]
+    if (!contents) return null
+    return new DOMParser().parseFromString(strFromU8(contents), 'application/xml')
+  }
+  const getElements = (document: Document | Element, localName: string) => (
+    Array.from(document.getElementsByTagNameNS('*', localName))
+  )
+
+  const themeDocument = readXml('xl/theme/theme1.xml')
+  const themeColorOrder = [
+    'lt1', 'dk1', 'lt2', 'dk2',
+    'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6',
+    'hlink', 'folHlink',
+  ]
+  const colorScheme = themeDocument ? getElements(themeDocument, 'clrScheme')[0] : undefined
+  const themeColors = themeColorOrder.map((colorName) => {
+    const entry = colorScheme
+      ? Array.from(colorScheme.children).find((child) => child.localName === colorName)
+      : undefined
+    const color = entry?.firstElementChild
+    return color?.getAttribute('lastClr') ?? color?.getAttribute('val') ?? undefined
+  })
+  const resolveColor = (color: Element | undefined): string | undefined => {
+    if (!color) return undefined
+    const rgb = color.getAttribute('rgb')
+    let resolved = rgb && /^[0-9a-f]{8}$/i.test(rgb) ? rgb.slice(2) : undefined
+    if (!resolved) {
+      const indexed = Number(color.getAttribute('indexed'))
+      if (Number.isInteger(indexed)) resolved = XLSX_INDEXED_COLORS[indexed]
+    }
+    if (!resolved) {
+      const theme = Number(color.getAttribute('theme'))
+      if (Number.isInteger(theme)) resolved = themeColors[theme]
+    }
+    if (!resolved || !/^[0-9a-f]{6}$/i.test(resolved)) return undefined
+    const tint = Number(color.getAttribute('tint'))
+    return `#${Number.isFinite(tint) && tint !== 0 ? applyColorTint(resolved, tint) : resolved.toUpperCase()}`
+  }
+
+  const stylesDocument = readXml('xl/styles.xml')
+  if (!stylesDocument) return new Map()
+  const fills = Array.from(getElements(stylesDocument, 'fills')[0]?.children ?? [])
+    .filter((element) => element.localName === 'fill')
+    .map((fill) => {
+      const pattern = getElements(fill, 'patternFill')[0]
+      if (!pattern || pattern.getAttribute('patternType') !== 'solid') return undefined
+      return resolveColor(getElements(pattern, 'fgColor')[0])
+    })
+  const styleColors = Array.from(getElements(stylesDocument, 'cellXfs')[0]?.children ?? [])
+    .filter((element) => element.localName === 'xf')
+    .map((style) => fills[Number(style.getAttribute('fillId') ?? 0)])
+
+  let worksheetPath = 'xl/worksheets/sheet1.xml'
+  const workbookDocument = readXml('xl/workbook.xml')
+  const relationshipsDocument = readXml('xl/_rels/workbook.xml.rels')
+  const shoppingSheet = workbookDocument
+    ? getElements(workbookDocument, 'sheet').find((sheet) => sheet.getAttribute('name') === 'Закупки')
+    : undefined
+  const relationId = shoppingSheet?.getAttribute('r:id')
+    ?? shoppingSheet?.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id')
+  const relationship = relationshipsDocument && relationId
+    ? getElements(relationshipsDocument, 'Relationship').find((item) => item.getAttribute('Id') === relationId)
+    : undefined
+  const relationshipTarget = relationship?.getAttribute('Target')?.replace(/\\/g, '/')
+  if (relationshipTarget) {
+    const rawPath = relationshipTarget.startsWith('/')
+      ? relationshipTarget.slice(1)
+      : relationshipTarget.startsWith('xl/')
+        ? relationshipTarget
+        : `xl/${relationshipTarget}`
+    const pathParts: string[] = []
+    for (const part of rawPath.split('/')) {
+      if (part === '..') pathParts.pop()
+      else if (part && part !== '.') pathParts.push(part)
+    }
+    worksheetPath = pathParts.join('/')
+  }
+
+  const worksheetDocument = readXml(worksheetPath)
+  if (!worksheetDocument) return new Map()
+  const rowColors = new Map<number, Partial<Record<number, string>>>()
+  for (const cell of getElements(worksheetDocument, 'c')) {
+    const address = cell.getAttribute('r')?.match(/^([A-Z]+)(\d+)$/i)
+    if (!address) continue
+    const columnIndex = [...address[1].toUpperCase()].reduce(
+      (result, character) => result * 26 + character.charCodeAt(0) - 64,
+      0,
+    ) - 1
+    if (columnIndex < 0 || columnIndex > 5) continue
+    const backgroundColor = styleColors[Number(cell.getAttribute('s') ?? 0)]
+    if (!backgroundColor) continue
+    const rowNumber = Number(address[2])
+    rowColors.set(rowNumber, {
+      ...rowColors.get(rowNumber),
+      [columnIndex]: backgroundColor,
+    })
+  }
+  return rowColors
 }
 
 const EMPTY_PRODUCT_DRAFT: MealProductDraft = {
@@ -836,7 +978,10 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
   const [shoppingCalendarPickingEnd, setShoppingCalendarPickingEnd] = useState(false)
   const [shoppingError, setShoppingError] = useState<string | null>(null)
   const [shoppingResult, setShoppingResult] = useState<ShoppingListResult | null>(null)
+  const [shoppingExportError, setShoppingExportError] = useState<string | null>(null)
+  const [exportingShoppingList, setExportingShoppingList] = useState(false)
   const planPickerRef = useRef<HTMLDivElement>(null)
+  const shoppingImportInputRef = useRef<HTMLInputElement>(null)
 
   const sortedMeals = useMemo(
     () => [...savedMeals].sort((left, right) => right.created_at.localeCompare(left.created_at)),
@@ -942,6 +1087,277 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
     }
     window.addEventListener('afterprint', clearPrintMode, { once: true })
     window.print()
+  }
+
+  const handleExportShoppingList = async (
+    importedValues: ReadonlyMap<string, ImportedShoppingValues> = new Map(),
+  ) => {
+    if (!shoppingResult || exportingShoppingList) return
+
+    setExportingShoppingList(true)
+    setShoppingExportError(null)
+    try {
+      const { default: writeExcelFile } = await import('write-excel-file/browser')
+      const dateFormatter = new Intl.DateTimeFormat('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+      const fromLabel = dateFormatter.format(new Date(`${shoppingResult.from}T12:00:00`))
+      const toLabel = dateFormatter.format(new Date(`${shoppingResult.to}T12:00:00`))
+      const borderStyle = {
+        borderColor: '#D7D0C0',
+        borderStyle: 'thin' as const,
+      }
+      const firstProductRow = 4
+      const lastProductRow = firstProductRow + shoppingResult.items.length - 1
+      const productRows: SheetData = shoppingResult.items.map((item, index) => {
+        const excelRow = firstProductRow + index
+        const imported = importedValues.get(item.productId)
+        return [
+          {
+            value: item.name,
+            wrap: true,
+            backgroundColor: imported?.backgroundColors?.[0],
+            ...borderStyle,
+          },
+          {
+            value: item.weightGrams,
+            type: Number,
+            format: '#,##0.##',
+            align: 'right' as const,
+            backgroundColor: imported?.backgroundColors?.[1],
+            ...borderStyle,
+          },
+          {
+            ...(imported?.purchaseWeight === undefined ? {} : {
+              value: imported.purchaseWeight,
+              type: Number,
+              format: '#,##0.##',
+            }),
+            backgroundColor: imported?.backgroundColors?.[2] ?? '#FFFDF8',
+            ...borderStyle,
+          },
+          {
+            ...(imported?.price === undefined ? {} : {
+              value: imported.price,
+              type: Number,
+              format: '#,##0.00',
+            }),
+            backgroundColor: imported?.backgroundColors?.[3] ?? '#FFFDF8',
+            ...borderStyle,
+          },
+          {
+            value: `=IF(OR(C${excelRow}="",D${excelRow}="",C${excelRow}=0),"",D${excelRow}/C${excelRow}*B${excelRow})`,
+            type: 'Formula' as const,
+            format: '#,##0.00',
+            align: 'right' as const,
+            backgroundColor: imported?.backgroundColors?.[4],
+            ...borderStyle,
+          },
+          {
+            value: imported?.note,
+            backgroundColor: imported?.backgroundColors?.[5] ?? '#FFFDF8',
+            align: 'right' as const,
+            wrap: true,
+            ...borderStyle,
+          },
+          {
+            value: item.productId,
+            textColor: '#FFFFFF',
+          },
+        ]
+      })
+      const sheetData: SheetData = [
+        [{
+          value: 'MLF — Список закупок',
+          columnSpan: 7,
+          height: 28,
+          align: 'center',
+          alignVertical: 'center',
+          fontSize: 16,
+          fontWeight: 'bold',
+          textColor: '#2C4D32',
+          backgroundColor: '#E7EFE3',
+          ...borderStyle,
+        }],
+        [{
+          value: `Период: ${fromLabel} — ${toLabel}`,
+          columnSpan: 7,
+          height: 22,
+          align: 'center',
+          textColor: '#5D6B57',
+          ...borderStyle,
+        }],
+        [
+          {
+            value: 'Продукт',
+            fontWeight: 'bold',
+            backgroundColor: '#E7EFE3',
+            textColor: '#2C4D32',
+            ...borderStyle,
+          },
+          {
+            value: 'Вес, г',
+            align: 'right',
+            fontWeight: 'bold',
+            backgroundColor: '#E7EFE3',
+            textColor: '#2C4D32',
+            ...borderStyle,
+          },
+          {
+            value: 'Вес покупки',
+            align: 'center',
+            fontWeight: 'bold',
+            backgroundColor: '#E7EFE3',
+            textColor: '#2C4D32',
+            ...borderStyle,
+          },
+          {
+            value: 'Цена',
+            align: 'center',
+            fontWeight: 'bold',
+            backgroundColor: '#E7EFE3',
+            textColor: '#2C4D32',
+            ...borderStyle,
+          },
+          {
+            value: 'Расчёт',
+            align: 'center',
+            fontWeight: 'bold',
+            backgroundColor: '#E7EFE3',
+            textColor: '#2C4D32',
+            ...borderStyle,
+          },
+          {
+            value: 'Примечание',
+            align: 'center',
+            fontWeight: 'bold',
+            backgroundColor: '#E7EFE3',
+            textColor: '#2C4D32',
+            ...borderStyle,
+          },
+          {
+            value: 'ID продукта',
+          },
+        ],
+        ...productRows,
+        [
+          {
+            value: 'Всего',
+            columnSpan: 4,
+            align: 'right',
+            fontWeight: 'bold',
+            backgroundColor: '#E7EFE3',
+            textColor: '#2C4D32',
+            ...borderStyle,
+          },
+          null,
+          null,
+          null,
+          {
+            value: `=SUM(E${firstProductRow}:E${lastProductRow})`,
+            type: 'Formula',
+            format: '#,##0.00',
+            align: 'right' as const,
+            fontWeight: 'bold',
+            backgroundColor: '#E7EFE3',
+            textColor: '#2C4D32',
+            ...borderStyle,
+          },
+          {
+            backgroundColor: '#E7EFE3',
+            ...borderStyle,
+          },
+          null,
+        ],
+      ]
+
+      await writeExcelFile(
+        sheetData,
+        {
+          sheet: 'Закупки',
+          columns: [
+            { width: 42 },
+            { width: 16 },
+            { width: 18 },
+            { width: 16 },
+            { width: 11 },
+            { width: 34 },
+            { width: 1 },
+          ],
+          showGridLines: false,
+        },
+        {
+          fontFamily: 'Arial',
+          fontSize: 11,
+          features: [HIDE_PRODUCT_ID_COLUMN_FEATURE],
+        },
+      ).toFile(`Закупки_${shoppingResult.from}_${shoppingResult.to}.xlsx`)
+    } catch (error) {
+      setShoppingExportError(error instanceof Error ? error.message : 'Не удалось экспортировать список закупок')
+    } finally {
+      setExportingShoppingList(false)
+    }
+  }
+
+  const handleImportShoppingValues = async (file: File) => {
+    if (!shoppingResult || exportingShoppingList) return
+
+    setShoppingExportError(null)
+    try {
+      const { readSheet } = await import('read-excel-file/browser')
+      const [rows, rowBackgrounds] = await Promise.all([
+        readSheet(file, 'Закупки'),
+        readShoppingCellBackgrounds(file),
+      ])
+      const normalizeHeader = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('ru-RU')
+      const headerRowIndex = rows.findIndex((row) => (
+        row.some((cell) => normalizeHeader(cell) === 'id продукта')
+      ))
+      if (headerRowIndex < 0) {
+        throw new Error('В выбранном файле нет идентификаторов продуктов. Сначала создайте новый экспорт Excel.')
+      }
+
+      const headers = rows[headerRowIndex].map(normalizeHeader)
+      const productIdColumn = headers.indexOf('id продукта')
+      const purchaseWeightColumn = headers.indexOf('вес покупки')
+      const priceColumn = headers.indexOf('цена')
+      const noteColumn = headers.indexOf('примечание')
+      if (productIdColumn < 0 || purchaseWeightColumn < 0 || priceColumn < 0 || noteColumn < 0) {
+        throw new Error('В выбранном файле отсутствуют необходимые служебные колонки')
+      }
+
+      const parseImportedNumber = (value: unknown): number | undefined => {
+        if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+        if (typeof value !== 'string' || value.trim() === '') return undefined
+        const parsed = Number(value.replace(/\s/g, '').replace(',', '.'))
+        return Number.isFinite(parsed) ? parsed : undefined
+      }
+      const importedValues = new Map<string, ImportedShoppingValues>()
+      for (const [rowOffset, row] of rows.slice(headerRowIndex + 1).entries()) {
+        const productId = String(row[productIdColumn] ?? '').trim()
+        if (!productId) continue
+        const noteValue = row[noteColumn]
+        importedValues.set(productId, {
+          purchaseWeight: parseImportedNumber(row[purchaseWeightColumn]),
+          price: parseImportedNumber(row[priceColumn]),
+          note: noteValue === null || noteValue === undefined || String(noteValue).trim() === ''
+            ? undefined
+            : String(noteValue),
+          backgroundColors: rowBackgrounds.get(headerRowIndex + rowOffset + 2),
+        })
+      }
+
+      const matchedProducts = shoppingResult.items.filter((item) => importedValues.has(item.productId)).length
+      if (matchedProducts === 0) {
+        throw new Error('В выбранном файле нет продуктов из текущего списка закупок')
+      }
+
+      await handleExportShoppingList(importedValues)
+    } catch (error) {
+      setShoppingExportError(error instanceof Error ? error.message : 'Не удалось прочитать предыдущий Excel-файл')
+    }
   }
 
   const handleScheduleMealGroup = async () => {
@@ -1111,6 +1527,7 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
     }
 
     setShoppingError(null)
+    setShoppingExportError(null)
     setShoppingResult({ from: shoppingFrom, to: shoppingTo, items })
   }
 
@@ -1425,7 +1842,35 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
                 </tbody>
               </table>
             </div>
+            {shoppingExportError && <p className="meal-menu-error" role="alert">{shoppingExportError}</p>}
             <div className="meal-menu-shopping-modal-actions">
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => void handleExportShoppingList()}
+                disabled={exportingShoppingList}
+              >
+                {exportingShoppingList ? 'Экспорт…' : 'Экспорт в Excel'}
+              </button>
+              <input
+                ref={shoppingImportInputRef}
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                hidden
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0]
+                  event.currentTarget.value = ''
+                  if (file) void handleImportShoppingValues(file)
+                }}
+              />
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => shoppingImportInputRef.current?.click()}
+                disabled={exportingShoppingList}
+              >
+                Экспорт с данными
+              </button>
               <button type="button" className="ghost" onClick={() => handlePrintShoppingList(false)}>
                 Распечатать
               </button>
