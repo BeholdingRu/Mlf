@@ -826,6 +826,7 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
   const [selectedPlanGroupKey, setSelectedPlanGroupKey] = useState('')
   const [planPickerOpen, setPlanPickerOpen] = useState(false)
   const [planBusy, setPlanBusy] = useState(false)
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null)
   const [copyingToConsumption, setCopyingToConsumption] = useState(false)
   const [planError, setPlanError] = useState<string | null>(null)
   const [planNotice, setPlanNotice] = useState<string | null>(null)
@@ -959,6 +960,31 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
       setPlanError(error instanceof Error ? error.message : 'Не удалось сохранить план питания')
     } finally {
       setPlanBusy(false)
+    }
+  }
+
+  const handleDeleteMealPlan = async (id: string, savedMealIds: string[], label: string) => {
+    const selectedDateLabel = new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date(`${selectedPlanDate}T12:00:00`))
+    const confirmed = window.confirm(
+      savedMealIds.length > 1
+        ? `Удалить группу приёмов пищи «${label}» из планировщика на ${selectedDateLabel}?`
+        : `Удалить приём пищи «${label}» из планировщика на ${selectedDateLabel}?`,
+    )
+    if (!confirmed) return
+
+    setDeletingPlanId(id)
+    setPlanError(null)
+    setPlanNotice(null)
+    try {
+      await deleteSavedMealPlan(id)
+    } catch (error) {
+      setPlanError(error instanceof Error ? error.message : 'Не удалось удалить приём пищи из планировщика')
+    } finally {
+      setDeletingPlanId(null)
     }
   }
 
@@ -1312,7 +1338,15 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
                     {planGroup?.identifier && <MealGroupIcon />}
                     <span>{planLabel}</span>
                   </button>
-                  <button type="button" className="delete-button" onClick={() => void deleteSavedMealPlan(plan.id)} aria-label={`Удалить план «${planLabel}»`}>×</button>
+                  <button
+                    type="button"
+                    className="delete-button"
+                    onClick={() => void handleDeleteMealPlan(plan.id, plan.saved_meal_ids, planLabel)}
+                    disabled={deletingPlanId === plan.id}
+                    aria-label={`Удалить план «${planLabel}»`}
+                  >
+                    {deletingPlanId === plan.id ? '…' : '×'}
+                  </button>
                   {nutrition && (
                     <p className="meal-menu-day-plan-nutrition">
                       <strong>КБЖУ:</strong>
