@@ -184,7 +184,7 @@ export function ProductsView() {
       await deleteSavedProduct(id)
     } catch (err) {
       console.error('Error deleting saved product:', err)
-      alert('Не удалось удалить продукт')
+      alert(err instanceof Error ? err.message : 'Не удалось удалить продукт')
     }
   }
 

@@ -687,6 +687,31 @@ create table if not exists public.saved_products (
   unique (user_id, name)
 );
 
+create table if not exists public.saved_meals (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  name text not null check (char_length(trim(name)) between 1 and 120),
+  items jsonb not null check (
+    case
+      when jsonb_typeof(items) = 'array'
+        then jsonb_array_length(items) between 1 and 100
+      else false
+    end
+  ),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.saved_meal_plans (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  planned_on date not null,
+  saved_meal_ids jsonb not null check (
+    jsonb_typeof(saved_meal_ids) = 'array'
+    and jsonb_array_length(saved_meal_ids) between 1 and 100
+  ),
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.saved_exercises (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -753,6 +778,10 @@ create index if not exists mindfulness_categories_user_created_idx on public.min
 create index if not exists bible_bookmarks_user_created_idx on public.bible_bookmarks (user_id, created_at desc);
 create index if not exists food_logs_user_on_idx on public.daily_food_logs (user_id, logged_on desc);
 create index if not exists saved_products_user_name_idx on public.saved_products (user_id, name);
+create unique index if not exists saved_meals_user_name_unique_idx
+  on public.saved_meals (user_id, lower(trim(name)));
+create index if not exists saved_meals_user_created_idx on public.saved_meals (user_id, created_at);
+create index if not exists saved_meal_plans_user_date_idx on public.saved_meal_plans (user_id, planned_on, created_at);
 create index if not exists saved_exercises_user_category_name_idx on public.saved_exercises (user_id, category, name);
 create index if not exists scheduled_exercises_user_date_order_idx on public.scheduled_exercises (user_id, planned_on, sort_order);
 
@@ -838,6 +867,8 @@ alter table public.mindfulness_categories enable row level security;
 alter table public.bible_bookmarks enable row level security;
 alter table public.daily_food_logs enable row level security;
 alter table public.saved_products enable row level security;
+alter table public.saved_meals enable row level security;
+alter table public.saved_meal_plans enable row level security;
 alter table public.saved_exercises enable row level security;
 alter table public.scheduled_exercises enable row level security;
 
@@ -845,6 +876,10 @@ revoke all on table public.user_roles from anon, authenticated;
 revoke all on table public.registration_access_codes from anon, authenticated;
 revoke all on table public.calorie_norm_history from anon;
 grant select, insert, update on table public.calorie_norm_history to authenticated;
+revoke all on table public.saved_meals from anon;
+grant select, insert, update, delete on table public.saved_meals to authenticated;
+revoke all on table public.saved_meal_plans from anon;
+grant select, insert, update, delete on table public.saved_meal_plans to authenticated;
 revoke all on function public.is_admin() from public;
 revoke all on function public.is_valid_registration_code(text) from public;
 grant execute on function public.is_admin() to authenticated;
@@ -906,6 +941,14 @@ create policy "food_logs_all_own" on public.daily_food_logs
 
 drop policy if exists "saved_products_all_own" on public.saved_products;
 create policy "saved_products_all_own" on public.saved_products
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "saved_meals_all_own" on public.saved_meals;
+create policy "saved_meals_all_own" on public.saved_meals
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "saved_meal_plans_all_own" on public.saved_meal_plans;
+create policy "saved_meal_plans_all_own" on public.saved_meal_plans
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "saved_exercises_all_own" on public.saved_exercises;

@@ -15,6 +15,9 @@ import type {
   Profile,
   ScheduledExercise,
   SavedExercise,
+  SavedMeal,
+  SavedMealItem,
+  SavedMealPlan,
   SavedProduct,
   Task,
   TaskKind,
@@ -41,6 +44,8 @@ export type DataContextValue = {
   courseLessonCompletions: CourseLessonCompletion[]
   mindfulnessCategories: MindfulnessCategory[]
   mindfulnessNotes: MindfulnessNote[]
+  savedMeals: SavedMeal[]
+  savedMealPlans: SavedMealPlan[]
   savedProducts: SavedProduct[]
   savedExercises: SavedExercise[]
   scheduledExercises: ScheduledExercise[]
@@ -102,10 +107,15 @@ export type DataContextValue = {
   logFoodOnDate: (loggedOn: string, productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
   updateFoodLogProductName: (id: string, productName: string) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
-  addSavedProduct: (name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<void>
+  addSavedProduct: (name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<SavedProduct>
   updateSavedProduct: (id: string, name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<void>
   setSavedProductFavorite: (id: string, isFavorite: boolean) => Promise<void>
   deleteSavedProduct: (id: string) => Promise<void>
+  addSavedMeal: (name: string, items: SavedMealItem[]) => Promise<void>
+  updateSavedMeal: (id: string, name: string, items: SavedMealItem[]) => Promise<void>
+  deleteSavedMeal: (id: string) => Promise<void>
+  scheduleSavedMeals: (plannedOn: string, savedMealIds: string[]) => Promise<void>
+  deleteSavedMealPlan: (id: string) => Promise<void>
   addSavedExercise: (name: string, category: ExerciseCategory, exerciseType: ExerciseType, restTimerEnabled: boolean, doubleVolume: boolean) => Promise<void>
   updateSavedExercise: (id: string, name: string, exerciseType: ExerciseType, restTimerEnabled: boolean, doubleVolume: boolean) => Promise<void>
   deleteSavedExercise: (id: string) => Promise<void>

@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '../hooks/useData'
+import { MealMenuView, MealPlannerView } from './MealMenuView'
 import { ProductsView } from './ProductsView'
 import { DEFAULT_PRODUCT_CATEGORY, PRODUCT_CATEGORIES, type ProductCategory } from '../lib/product-categories'
 import { getCalorieAdaptation } from '../lib/calorie-adaptation'
 
-type CaloriesSubTab = 'consumption' | 'products'
+type CaloriesSubTab = 'consumption' | 'products' | 'planner' | 'menu'
+
+type MenuFocusRequest = {
+  groupKey: string
+  requestId: number
+}
 
 const CALORIES_SUB_TAB_STORAGE_KEY = 'mlf:calories-sub-tab'
 const FOOD_ADD_DRAFT_STORAGE_KEY = 'mlf:food-add-draft'
@@ -22,7 +28,9 @@ type FoodAddDraft = {
 
 function getSavedCaloriesSubTab(): CaloriesSubTab {
   const storedTab = window.sessionStorage.getItem(CALORIES_SUB_TAB_STORAGE_KEY)
-  return storedTab === 'products' ? storedTab : 'consumption'
+  return storedTab === 'products' || storedTab === 'planner' || storedTab === 'menu'
+    ? storedTab
+    : 'consumption'
 }
 
 function getSavedFoodAddDraft(): FoodAddDraft | null {
@@ -74,6 +82,7 @@ export function CaloriesView() {
   } = useData()
   const [foodAddDraft] = useState<FoodAddDraft | null>(getSavedFoodAddDraft)
   const [subTab, setSubTab] = useState<CaloriesSubTab>(getSavedCaloriesSubTab)
+  const [menuFocusRequest, setMenuFocusRequest] = useState<MenuFocusRequest | null>(null)
   const [productName, setProductName] = useState(foodAddDraft?.name ?? '')
   const [weightGrams, setWeightGrams] = useState(foodAddDraft?.weightGrams ?? '')
   const [caloriesPer100g, setCaloriesPer100g] = useState(foodAddDraft?.calories ?? '')
@@ -354,6 +363,20 @@ export function CaloriesView() {
           onClick={() => setSubTab('consumption')}
         >
           Потребление
+        </button>
+        <button
+          type="button"
+          className={subTab === 'planner' ? 'calories-tab active' : 'calories-tab'}
+          onClick={() => setSubTab('planner')}
+        >
+          Планировщик
+        </button>
+        <button
+          type="button"
+          className={subTab === 'menu' ? 'calories-tab active' : 'calories-tab'}
+          onClick={() => setSubTab('menu')}
+        >
+          Меню
         </button>
         <button
           type="button"
@@ -717,6 +740,23 @@ export function CaloriesView() {
             )}
           </div>
         </>
+      </div>
+      <div className="calories-panel" hidden={subTab !== 'planner'}>
+        <MealPlannerView
+          onOpenMeal={(groupKey) => {
+            setMenuFocusRequest((current) => ({
+              groupKey,
+              requestId: (current?.requestId ?? 0) + 1,
+            }))
+            setSubTab('menu')
+          }}
+        />
+      </div>
+      <div className="calories-panel" hidden={subTab !== 'menu'}>
+        <MealMenuView
+          key={menuFocusRequest?.requestId ?? 0}
+          focusRequest={menuFocusRequest}
+        />
       </div>
       <div className="calories-panel" hidden={subTab !== 'products'}>
         <ProductsView />

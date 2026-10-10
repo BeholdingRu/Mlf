@@ -198,6 +198,27 @@ export type SavedProduct = {
 export type ExerciseCategory = 'Спина' | 'Грудь' | 'Плечи' | 'Руки' | 'Ноги' | 'Кор'
 export type ExerciseType = 'Свободные веса / в блоке' | 'Собственный вес'
 
+export type SavedMealItem = {
+  saved_product_id: string
+  weight_grams: number
+}
+
+export type SavedMeal = {
+  id: string
+  user_id: string
+  name: string
+  items: SavedMealItem[]
+  created_at: string
+}
+
+export type SavedMealPlan = {
+  id: string
+  user_id: string
+  planned_on: string
+  saved_meal_ids: string[]
+  created_at: string
+}
+
 export type SavedExercise = {
   id: string
   user_id: string

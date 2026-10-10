@@ -25,6 +25,9 @@ import type {
   Profile,
   ScheduledExercise,
   SavedExercise,
+  SavedMeal,
+  SavedMealItem,
+  SavedMealPlan,
   SavedProduct,
   Task,
   TaskCompletion,
@@ -51,6 +54,8 @@ import {
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
 const BIBLE_SERVER_DAILY_CHAPTER_LIMIT = 5
+const SAVED_MEAL_NAME_MAX_LENGTH = 120
+const SAVED_MEAL_ITEMS_MAX_COUNT = 100
 const EMPTY_BIBLE_TREE_PROGRESS: BibleTreeProgress = {
   progressSteps: 0,
   chaptersToday: 0,
@@ -79,6 +84,53 @@ function isCalorieNormHistoryMissing(error: { code?: string; message?: string } 
     || error?.code === 'PGRST205'
     || error?.message?.includes('relation "public.calorie_norm_history" does not exist') === true
     || error?.message?.includes("Could not find the table 'public.calorie_norm_history'") === true
+}
+
+function isSavedMealsFeatureMissing(error: { code?: string; message?: string } | null) {
+  return error?.code === '42P01'
+    || error?.code === 'PGRST205'
+    || error?.message?.includes('relation "public.saved_meals" does not exist') === true
+    || error?.message?.includes("Could not find the table 'public.saved_meals'") === true
+}
+
+function isSavedMealPlansFeatureMissing(error: { code?: string; message?: string } | null) {
+  return error?.code === '42P01'
+    || error?.code === 'PGRST205'
+    || error?.message?.includes('saved_meal_plans') === true
+}
+
+function normalizeSavedMealItems(items: unknown): SavedMealItem[] {
+  if (!Array.isArray(items)) return []
+
+  return items.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+
+    const candidate = item as Partial<SavedMealItem>
+    const savedProductId = typeof candidate.saved_product_id === 'string'
+      ? candidate.saved_product_id.trim()
+      : ''
+    const weightGrams = Number(candidate.weight_grams)
+
+    if (
+      !savedProductId
+      || !Number.isFinite(weightGrams)
+      || weightGrams <= 0
+    ) {
+      return []
+    }
+
+    return [{
+      saved_product_id: savedProductId,
+      weight_grams: weightGrams,
+    }]
+  })
+}
+
+function normalizeSavedMeal(meal: SavedMeal): SavedMeal | null {
+  const name = typeof meal.name === 'string' ? meal.name.trim() : ''
+  const items = normalizeSavedMealItems(meal.items)
+  if (!name || items.length === 0) return null
+  return { ...meal, name, items }
 }
 
 function isBibleTreeFeatureMissing(error: { code?: string; message?: string } | null) {
@@ -139,6 +191,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [courseLessonCompletions, setCourseLessonCompletions] = useState<CourseLessonCompletion[]>([])
   const [mindfulnessCategories, setMindfulnessCategories] = useState<MindfulnessCategory[]>([])
   const [mindfulnessNotes, setMindfulnessNotes] = useState<MindfulnessNote[]>([])
+  const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([])
+  const [savedMealPlans, setSavedMealPlans] = useState<SavedMealPlan[]>([])
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([])
   const [savedExercises, setSavedExercises] = useState<SavedExercise[]>([])
   const [scheduledExercises, setScheduledExercises] = useState<ScheduledExercise[]>([])
@@ -190,6 +244,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .order('logged_on', { ascending: false })
           .order('created_at'),
         client.from('saved_products').select('*').eq('user_id', userId).order('name'),
+        client.from('saved_meals').select('*').eq('user_id', userId).order('created_at'),
+        client.from('saved_meal_plans').select('*').eq('user_id', userId).order('planned_on'),
         client.from('saved_exercises').select('*').eq('user_id', userId).order('name'),
         client.from('scheduled_exercises').select('*').eq('user_id', userId).order('planned_on').order('sort_order'),
         client.from('path_day_confirmations').select('*').eq('user_id', userId),
@@ -203,10 +259,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    const [profileRes, tasksRes, completionsRes, weightRes, foodHistoryRes, productsRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes, bibleBookmarksRes] = responses
+    const [profileRes, tasksRes, completionsRes, weightRes, foodHistoryRes, productsRes, mealsRes, mealPlansRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes, bibleBookmarksRes] = responses
 
     const bookmarksTableMissing = bibleBookmarksRes.error?.code === '42P01'
       || bibleBookmarksRes.error?.code === 'PGRST205'
+    const savedMealsTableMissing = isSavedMealsFeatureMissing(mealsRes.error)
+    const savedMealPlansTableMissing = isSavedMealPlansFeatureMissing(mealPlansRes.error)
 
     const firstError =
       profileRes.error?.message ||
@@ -215,6 +273,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       weightRes.error?.message ||
       foodHistoryRes.error?.message ||
       productsRes.error?.message ||
+      (!savedMealsTableMissing && mealsRes.error?.message) ||
+      (!savedMealPlansTableMissing && mealPlansRes.error?.message) ||
       exercisesRes.error?.message ||
       scheduledExercisesRes.error?.message ||
       pathConfirmationsRes.error?.message ||
@@ -280,6 +340,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fats_per_100g: product.fats_per_100g ?? 0,
         carbohydrates_per_100g: product.carbohydrates_per_100g ?? 0,
       }))
+    const normalizedSavedMeals = ((mealsRes.data ?? []) as SavedMeal[])
+      .map(normalizeSavedMeal)
+      .filter((meal): meal is SavedMeal => meal !== null)
     const savedProductsByName = new Map(
       normalizedSavedProducts.map((product) => [product.name.trim().toLocaleLowerCase('ru-RU'), product]),
     )
@@ -302,6 +365,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setMindfulnessCategories((mindfulnessCategoriesRes.data ?? []) as MindfulnessCategory[])
     setMindfulnessNotes((mindfulnessNotesRes.data ?? []) as MindfulnessNote[])
     setBibleBookmarks((bibleBookmarksRes.data ?? []) as BibleBookmark[])
+    setSavedMeals(normalizedSavedMeals)
+    setSavedMealPlans((mealPlansRes.data ?? []) as SavedMealPlan[])
     setSavedProducts(normalizedSavedProducts)
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
@@ -851,6 +916,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       courseLessonCompletions,
       mindfulnessCategories,
       mindfulnessNotes,
+      savedMeals,
+      savedMealPlans,
       savedProducts,
       savedExercises,
       scheduledExercises,
@@ -1577,7 +1644,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       },
       async addSavedProduct(name, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g, category, isFavorite) {
-        if (!user) return
+        if (!user) throw new Error('Пользователь не авторизован')
         const { data, error: insError } = await requireSupabase()
           .from('saved_products')
           .insert({
@@ -1593,11 +1660,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
         if (insError) throw insError
+        const savedProduct = data as SavedProduct
         setSavedProducts((prev) =>
-          [...prev, data as SavedProduct].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+          [...prev, savedProduct].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
         )
+        return savedProduct
       },
       async updateSavedProduct(id, name, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g, category, isFavorite) {
+        if (!user) throw new Error('Пользователь не авторизован')
+
+        const existingProduct = savedProducts.find((product) => product.id === id)
+        if (!existingProduct) {
+          throw new Error('Продукт больше не найден в разделе «Продукты»')
+        }
+
         const { data, error: updError } = await requireSupabase()
           .from('saved_products')
           .update({
@@ -1610,11 +1686,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
           is_favorite: isFavorite,
           })
           .eq('id', id)
+          .eq('user_id', user.id)
           .select('*')
           .single()
         if (updError) throw updError
+
+        const updatedProduct = data as SavedProduct
+        if (updatedProduct.id !== existingProduct.id) {
+          throw new Error('Не удалось сохранить связь продукта с меню')
+        }
         setSavedProducts((prev) =>
-          prev.map((product) => (product.id === id ? (data as SavedProduct) : product))
+          prev.map((product) => (product.id === id ? updatedProduct : product))
             .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
         )
       },
@@ -1631,12 +1713,204 @@ export function DataProvider({ children }: { children: ReactNode }) {
         )
       },
       async deleteSavedProduct(id) {
-        const { error: delError } = await requireSupabase()
+        if (!user) throw new Error('Пользователь не авторизован')
+
+        let usedInMeal = savedMeals.find((meal) => (
+          meal.items.some((item) => item.saved_product_id === id)
+        ))
+        const client = requireSupabase()
+        if (!usedInMeal) {
+          const { data: currentMeals, error: mealsError } = await client
+            .from('saved_meals')
+            .select('id,user_id,name,items,created_at')
+            .eq('user_id', user.id)
+          if (mealsError && !isSavedMealsFeatureMissing(mealsError)) throw mealsError
+          usedInMeal = ((currentMeals ?? []) as SavedMeal[])
+            .map(normalizeSavedMeal)
+            .filter((meal): meal is SavedMeal => meal !== null)
+            .find((meal) => meal.items.some((item) => item.saved_product_id === id))
+        }
+        if (usedInMeal) {
+          throw new Error(`Продукт используется в меню «${usedInMeal.name}». Сначала удалите этот приём пищи.`)
+        }
+        const { error: delError } = await client
           .from('saved_products')
           .delete()
           .eq('id', id)
         if (delError) throw delError
         setSavedProducts((prev) => prev.filter((product) => product.id !== id))
+      },
+      async addSavedMeal(name, items) {
+        if (!user) throw new Error('Пользователь не авторизован')
+
+        const normalizedName = name.trim()
+        if (!normalizedName) {
+          throw new Error('Введите название приёма пищи')
+        }
+        if (normalizedName.length > SAVED_MEAL_NAME_MAX_LENGTH) {
+          throw new Error(`Название приёма пищи не должно превышать ${SAVED_MEAL_NAME_MAX_LENGTH} символов`)
+        }
+        if (!Array.isArray(items) || items.length === 0) {
+          throw new Error('Добавьте хотя бы один продукт')
+        }
+        if (items.length > SAVED_MEAL_ITEMS_MAX_COUNT) {
+          throw new Error(`В одном приёме пищи может быть не более ${SAVED_MEAL_ITEMS_MAX_COUNT} продуктов`)
+        }
+
+        const normalizedItems = normalizeSavedMealItems(items)
+        if (normalizedItems.length !== items.length) {
+          throw new Error('Проверьте выбранный продукт и его вес')
+        }
+
+        const client = requireSupabase()
+        const savedProductIds = [...new Set(
+          normalizedItems.map((item) => item.saved_product_id),
+        )]
+        const { data: existingProducts, error: productsError } = await client
+          .from('saved_products')
+          .select('id')
+          .eq('user_id', user.id)
+          .in('id', savedProductIds)
+        if (productsError) throw productsError
+        if ((existingProducts ?? []).length !== savedProductIds.length) {
+          throw new Error('Один из продуктов больше не найден в разделе «Продукты»')
+        }
+
+        const { data, error: insError } = await client
+          .from('saved_meals')
+          .insert({
+            user_id: user.id,
+            name: normalizedName,
+            items: normalizedItems,
+          })
+          .select('*')
+          .single()
+
+        if (insError) {
+          if (isSavedMealsFeatureMissing(insError)) {
+            throw new Error('Таблица меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          if (insError.code === '23505') {
+            throw new Error('Приём пищи с таким названием уже сохранён')
+          }
+          throw insError
+        }
+
+        const savedMeal = normalizeSavedMeal(data as SavedMeal)
+        if (!savedMeal) {
+          throw new Error('Не удалось прочитать сохранённый приём пищи')
+        }
+        setSavedMeals((previous) => [...previous, savedMeal].sort((a, b) => (
+          a.created_at.localeCompare(b.created_at) || a.name.localeCompare(b.name, 'ru')
+        )))
+      },
+      async updateSavedMeal(id, name, items) {
+        if (!user) throw new Error('Пользователь не авторизован')
+
+        const normalizedName = name.trim()
+        if (!normalizedName) {
+          throw new Error('Введите название приёма пищи')
+        }
+        if (normalizedName.length > SAVED_MEAL_NAME_MAX_LENGTH) {
+          throw new Error(`Название приёма пищи не должно превышать ${SAVED_MEAL_NAME_MAX_LENGTH} символов`)
+        }
+        if (!Array.isArray(items) || items.length === 0) {
+          throw new Error('Добавьте хотя бы один продукт')
+        }
+        if (items.length > SAVED_MEAL_ITEMS_MAX_COUNT) {
+          throw new Error(`В одном приёме пищи может быть не более ${SAVED_MEAL_ITEMS_MAX_COUNT} продуктов`)
+        }
+
+        const normalizedItems = normalizeSavedMealItems(items)
+        if (normalizedItems.length !== items.length) {
+          throw new Error('Проверьте выбранный продукт и его вес')
+        }
+
+        const client = requireSupabase()
+        const savedProductIds = [...new Set(
+          normalizedItems.map((item) => item.saved_product_id),
+        )]
+        const { data: existingProducts, error: productsError } = await client
+          .from('saved_products')
+          .select('id')
+          .eq('user_id', user.id)
+          .in('id', savedProductIds)
+        if (productsError) throw productsError
+        if ((existingProducts ?? []).length !== savedProductIds.length) {
+          throw new Error('Один из продуктов больше не найден в разделе «Продукты»')
+        }
+
+        const { data, error: updError } = await client
+          .from('saved_meals')
+          .update({
+            name: normalizedName,
+            items: normalizedItems,
+          })
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .select('*')
+          .single()
+
+        if (updError) {
+          if (isSavedMealsFeatureMissing(updError)) {
+            throw new Error('Таблица меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          if (updError.code === '23505') {
+            throw new Error('Приём пищи с таким названием уже сохранён')
+          }
+          throw updError
+        }
+
+        const savedMeal = normalizeSavedMeal(data as SavedMeal)
+        if (!savedMeal) {
+          throw new Error('Не удалось прочитать сохранённый приём пищи')
+        }
+        setSavedMeals((previous) => previous.map((meal) => (
+          meal.id === id ? savedMeal : meal
+        )))
+      },
+      async deleteSavedMeal(id) {
+        if (!user) throw new Error('Пользователь не авторизован')
+        const { error: delError } = await requireSupabase()
+          .from('saved_meals')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id)
+        if (delError) throw delError
+        setSavedMeals((previous) => previous.filter((meal) => meal.id !== id))
+      },
+      async scheduleSavedMeals(plannedOn, savedMealIds) {
+        if (!user) throw new Error('Пользователь не авторизован')
+        const uniqueMealIds = [...new Set(savedMealIds)]
+        if (!/^\d{4}-\d{2}-\d{2}$/u.test(plannedOn) || uniqueMealIds.length === 0) {
+          throw new Error('Выберите дату и приём пищи')
+        }
+        const existingIds = new Set(savedMeals.map((meal) => meal.id))
+        if (uniqueMealIds.some((id) => !existingIds.has(id))) {
+          throw new Error('Один из приёмов пищи больше не найден')
+        }
+        const { data, error: insertError } = await requireSupabase()
+          .from('saved_meal_plans')
+          .insert({ user_id: user.id, planned_on: plannedOn, saved_meal_ids: uniqueMealIds })
+          .select('*')
+          .single()
+        if (insertError) {
+          if (isSavedMealPlansFeatureMissing(insertError)) {
+            throw new Error('Выполните обновлённый файл supabase/add_saved_meals.sql в Supabase')
+          }
+          throw insertError
+        }
+        setSavedMealPlans((previous) => [...previous, data as SavedMealPlan])
+      },
+      async deleteSavedMealPlan(id) {
+        if (!user) throw new Error('Пользователь не авторизован')
+        const { error: deleteError } = await requireSupabase()
+          .from('saved_meal_plans')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id)
+        if (deleteError) throw deleteError
+        setSavedMealPlans((previous) => previous.filter((plan) => plan.id !== id))
       },
       async addSavedExercise(name, category, exerciseType, restTimerEnabled, doubleVolume) {
         if (!user) return
@@ -1775,6 +2049,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       courseLessonCompletions,
       mindfulnessCategories,
       mindfulnessNotes,
+      savedMeals,
+      savedMealPlans,
       savedProducts,
       savedExercises,
       scheduledExercises,
