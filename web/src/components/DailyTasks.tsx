@@ -6,6 +6,7 @@ import { isNutritionTask } from '../lib/nutrition-task'
 import { getRegularTaskProgressDays } from '../lib/task-progress'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
 import { isBibleReadingTask } from '../lib/bible-books'
+import { compareRegularTasksForDisplay } from '../lib/daily-task-order'
 import { NegativeHabitsPinForm } from './NegativeHabitsPinForm'
 import { DefaultTaskSettings } from './DefaultTaskSettings'
 
@@ -130,12 +131,15 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const negativeHabitsPin = profile?.negative_habits_pin ?? (withdrawalTasks.length > 0 ? '0000' : null)
   const negativeHabitsPinRequired = profile?.negative_habits_pin_required !== false
   const regularTasks = tasks.filter((task) => !task.withdrawal_syndrome)
+  const displayedRegularTasks = [...regularTasks].sort((first, second) => (
+    compareRegularTasksForDisplay(first, second, Boolean(profile?.weight_enabled))
+  ))
   const nutritionDefaultTask = regularTasks.find((task) => task.task_kind === 'nutrition')
     ?? regularTasks.find(isNutritionTask)
   const bibleDefaultTask = regularTasks.find((task) => task.task_kind === 'bible_reading')
     ?? regularTasks.find(isBibleReadingTask)
   const taskGroups = [
-    { id: 'regular', tasks: tasks.filter((task) => !task.withdrawal_syndrome) },
+    { id: 'regular', tasks: displayedRegularTasks },
     { id: 'withdrawal', tasks: withdrawalTasks },
   ].filter((group) => group.tasks.length > 0)
 
