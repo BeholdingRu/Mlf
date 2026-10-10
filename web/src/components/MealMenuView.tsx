@@ -980,6 +980,8 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
   const [shoppingResult, setShoppingResult] = useState<ShoppingListResult | null>(null)
   const [shoppingExportError, setShoppingExportError] = useState<string | null>(null)
   const [exportingShoppingList, setExportingShoppingList] = useState(false)
+  const [shoppingImportInfoOpen, setShoppingImportInfoOpen] = useState(false)
+  const shoppingImportInfoId = useId()
   const planPickerRef = useRef<HTMLDivElement>(null)
   const shoppingImportInputRef = useRef<HTMLInputElement>(null)
 
@@ -1070,7 +1072,10 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
 
     document.body.classList.add('meal-menu-shopping-print-active')
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setShoppingResult(null)
+      if (event.key === 'Escape') {
+        setShoppingImportInfoOpen(false)
+        setShoppingResult(null)
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => {
@@ -1792,7 +1797,10 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
         <div
           className="modal-overlay meal-menu-shopping-overlay"
           role="presentation"
-          onClick={() => setShoppingResult(null)}
+          onClick={() => {
+            setShoppingImportInfoOpen(false)
+            setShoppingResult(null)
+          }}
         >
           <section
             className="modal-content meal-menu-shopping-modal"
@@ -1817,7 +1825,10 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
               <button
                 type="button"
                 className="icon-close meal-menu-shopping-close"
-                onClick={() => setShoppingResult(null)}
+                onClick={() => {
+                  setShoppingImportInfoOpen(false)
+                  setShoppingResult(null)
+                }}
                 aria-label="Закрыть список закупок"
                 autoFocus
               >
@@ -1863,21 +1874,52 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
                   if (file) void handleImportShoppingValues(file)
                 }}
               />
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => shoppingImportInputRef.current?.click()}
-                disabled={exportingShoppingList}
-              >
-                Экспорт с данными
-              </button>
+              <div className="meal-menu-shopping-import-action">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    setShoppingImportInfoOpen(false)
+                    shoppingImportInputRef.current?.click()
+                  }}
+                  disabled={exportingShoppingList}
+                >
+                  Экспорт с данными
+                </button>
+                <button
+                  type="button"
+                  className="info-button"
+                  aria-label="Информация об экспорте с данными"
+                  aria-expanded={shoppingImportInfoOpen}
+                  aria-controls={shoppingImportInfoId}
+                  onClick={() => setShoppingImportInfoOpen((open) => !open)}
+                >
+                  i
+                </button>
+                {shoppingImportInfoOpen && (
+                  <p
+                    id={shoppingImportInfoId}
+                    className="meal-menu-shopping-import-info"
+                    role="tooltip"
+                  >
+                    Укажите предыдущий документ с заполненными данными, при совпадении продуктов информация применятся к новому экспорту
+                  </p>
+                )}
+              </div>
               <button type="button" className="ghost" onClick={() => handlePrintShoppingList(false)}>
                 Распечатать
               </button>
               <button type="button" className="ghost" onClick={() => handlePrintShoppingList(true)}>
                 Распечатать с белым фоном
               </button>
-              <button type="button" className="ghost" onClick={() => setShoppingResult(null)}>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  setShoppingImportInfoOpen(false)
+                  setShoppingResult(null)
+                }}
+              >
                 Закрыть
               </button>
             </div>

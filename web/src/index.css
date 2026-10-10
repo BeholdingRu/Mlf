@@ -4997,6 +4997,43 @@ nav {
   font-weight: 700;
 }
 
+.meal-menu-shopping-import-action {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meal-menu-shopping-import-action > .ghost {
+  flex: 1 1 auto;
+}
+
+.meal-menu-shopping-import-action .info-button {
+  flex: 0 0 22px;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+}
+
+.meal-menu-shopping-import-info {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: min(360px, calc(100vw - 48px));
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--info-bg);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
 .meal-menu-shopping-modal-actions .ghost {
   border-color: var(--moss);
   background: var(--info-bg);
