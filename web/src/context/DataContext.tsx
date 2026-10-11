@@ -53,7 +53,6 @@ import {
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
-const BIBLE_SERVER_DAILY_CHAPTER_LIMIT = 5
 const SAVED_MEAL_NAME_MAX_LENGTH = 120
 const SAVED_MEAL_ITEMS_MAX_COUNT = 100
 const EMPTY_BIBLE_TREE_PROGRESS: BibleTreeProgress = {
@@ -842,13 +841,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       : 0
     const chaptersReadForCompletion = Math.max(bibleChaptersReadToday, verifiedServerCount)
     const targetReached = chaptersReadForCompletion >= target
-    if (targetReached && bibleReadingVerifiedDate !== completedOn) return
-    if (!targetReached && !existingCompletion) return
-    if (
-      !targetReached
-      && (target > BIBLE_SERVER_DAILY_CHAPTER_LIMIT || bibleReadingVerifiedDate !== completedOn)
-    ) return
-    if (targetReached && existingCompletion) return
+    // An existing completion may have been confirmed manually. Automatic
+    // reconciliation only creates missing completions and never removes them.
+    if (!targetReached || bibleReadingVerifiedDate !== completedOn || existingCompletion) return
 
     const pendingKey = `${bibleTask.id}:${completedOn}`
     if (bibleCompletionPendingRef.current.has(pendingKey)) return
@@ -857,35 +852,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const reconcileBibleTask = async () => {
       try {
         const client = requireSupabase()
-        if (targetReached) {
-          const { data, error: completionError } = await client
-            .from('task_completions')
-            .upsert(
-              {
-                task_id: bibleTask.id,
-                user_id: user.id,
-                completed_on: completedOn,
-              },
-              { onConflict: 'task_id,completed_on' },
-            )
-            .select('*')
-            .single()
-          if (completionError) throw completionError
-          const completion = data as TaskCompletion
-          setCompletions((previous) => [
-            ...previous.filter((item) => !(
-              item.task_id === bibleTask.id && item.completed_on === completedOn
-            )),
-            completion,
-          ])
-        } else {
-          const { error: completionError } = await client
-            .from('task_completions')
-            .delete()
-            .eq('id', existingCompletion!.id)
-          if (completionError) throw completionError
-          setCompletions((previous) => previous.filter((item) => item.id !== existingCompletion!.id))
-        }
+        const { data, error: completionError } = await client
+          .from('task_completions')
+          .upsert(
+            {
+              task_id: bibleTask.id,
+              user_id: user.id,
+              completed_on: completedOn,
+            },
+            { onConflict: 'task_id,completed_on' },
+          )
+          .select('*')
+          .single()
+        if (completionError) throw completionError
+        const completion = data as TaskCompletion
+        setCompletions((previous) => [
+          ...previous.filter((item) => !(
+            item.task_id === bibleTask.id && item.completed_on === completedOn
+          )),
+          completion,
+        ])
       } catch (completionError) {
         setError(
           completionError instanceof Error
