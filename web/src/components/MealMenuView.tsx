@@ -1250,7 +1250,7 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
         [
           {
             value: 'Всего',
-            columnSpan: 4,
+            columnSpan: 3,
             align: 'right',
             fontWeight: 'bold',
             backgroundColor: '#E7EFE3',
@@ -1259,7 +1259,16 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
           },
           null,
           null,
-          null,
+          {
+            value: `=SUM(D${firstProductRow}:D${lastProductRow})`,
+            type: 'Formula',
+            format: '#,##0.00',
+            align: 'right' as const,
+            fontWeight: 'bold',
+            backgroundColor: '#E7EFE3',
+            textColor: '#2C4D32',
+            ...borderStyle,
+          },
           {
             value: `=SUM(E${firstProductRow}:E${lastProductRow})`,
             type: 'Formula',
