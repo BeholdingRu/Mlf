@@ -249,6 +249,20 @@ function normalizeMealGroupIdentifier(identifier: string): string {
   return identifier.toLocaleLowerCase('ru-RU')
 }
 
+function getCopiedMealName(name: string, savedMeals: SavedMeal[]): string {
+  const existingNames = new Set(savedMeals.map((meal) => normalizeProductName(meal.name)))
+  let copyNumber = 1
+
+  while (copyNumber < 1_000) {
+    const suffix = copyNumber === 1 ? ' (копия)' : ` (копия ${copyNumber})`
+    const copiedName = `${name.slice(0, 120 - suffix.length).trimEnd()}${suffix}`
+    if (!existingNames.has(normalizeProductName(copiedName))) return copiedName
+    copyNumber += 1
+  }
+
+  throw new Error('Не удалось подобрать название для копии приёма пищи')
+}
+
 function groupSavedMeals(meals: SavedMeal[]): SavedMealGroup[] {
   const identifierCounts = new Map<string, number>()
   meals.forEach((meal) => {
@@ -527,9 +541,11 @@ function SavedMealCard({
   productMap,
   expanded,
   deleting,
+  copying,
   actionsDisabled,
   onToggle,
   onEdit,
+  onCopy,
   onDelete,
 }: {
   groupKey: string
@@ -537,9 +553,11 @@ function SavedMealCard({
   productMap: ReadonlyMap<string, SavedProduct>
   expanded: boolean
   deleting: boolean
+  copying: boolean
   actionsDisabled: boolean
   onToggle: () => void
   onEdit: () => void
+  onCopy: () => void
   onDelete: () => void
 }) {
   const panelId = `saved-meal-${meal.id}`
@@ -578,6 +596,16 @@ function SavedMealCard({
         </button>
         <button
           type="button"
+          className="copy-button meal-menu-copy-meal"
+          onClick={onCopy}
+          disabled={actionsDisabled}
+          aria-label={`Создать копию приёма пищи «${meal.name}»`}
+          title="Создать копию приёма пищи"
+        >
+          {copying ? '…' : '⧉'}
+        </button>
+        <button
+          type="button"
           className="delete-button meal-menu-delete-meal"
           onClick={onDelete}
           disabled={actionsDisabled}
@@ -607,9 +635,11 @@ function SavedMealGroupCard({
   productMap,
   expanded,
   deletingMealId,
+  copyingMealId,
   actionsDisabled,
   onToggle,
   onSave,
+  onCopy,
   onDelete,
 }: {
   groupKey: string
@@ -618,9 +648,11 @@ function SavedMealGroupCard({
   productMap: ReadonlyMap<string, SavedProduct>
   expanded: boolean
   deletingMealId: string | null
+  copyingMealId: string | null
   actionsDisabled: boolean
   onToggle: () => void
   onSave: (drafts: SavedMealGroupDraft[]) => Promise<void>
+  onCopy: (meal: SavedMeal) => void
   onDelete: (meal: SavedMeal) => void
 }) {
   const panelId = useId()
@@ -788,6 +820,7 @@ function SavedMealGroupCard({
         >
           {meals.map((meal) => {
             const deleting = deletingMealId === meal.id
+            const copying = copyingMealId === meal.id
             const draft = drafts.find((item) => item.id === meal.id)
             const productAddition = productDrafts[meal.id] ?? EMPTY_GROUP_PRODUCT_DRAFT
             return (
@@ -817,16 +850,28 @@ function SavedMealGroupCard({
                     />
                   </div>
                   {!editing && (
-                    <button
-                      type="button"
-                      className="delete-button meal-menu-group-action"
-                      onClick={() => onDelete(meal)}
-                      disabled={actionsDisabled}
-                      aria-label={`Удалить приём пищи «${meal.name}»`}
-                      title="Удалить приём пищи"
-                    >
-                      {deleting ? '…' : '×'}
-                    </button>
+                    <div className="meal-menu-group-meal-actions">
+                      <button
+                        type="button"
+                        className="copy-button meal-menu-group-action"
+                        onClick={() => onCopy(meal)}
+                        disabled={actionsDisabled}
+                        aria-label={`Создать копию приёма пищи «${meal.name}»`}
+                        title="Создать копию приёма пищи"
+                      >
+                        {copying ? '…' : '⧉'}
+                      </button>
+                      <button
+                        type="button"
+                        className="delete-button meal-menu-group-action"
+                        onClick={() => onDelete(meal)}
+                        disabled={actionsDisabled}
+                        aria-label={`Удалить приём пищи «${meal.name}»`}
+                        title="Удалить приём пищи"
+                      >
+                        {deleting ? '…' : '×'}
+                      </button>
+                    </div>
                   )}
                 </div>
                 <MealItemsTable
@@ -1970,6 +2015,7 @@ export function MealMenuView({
   const [editorError, setEditorError] = useState<string | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null)
+  const [copyingMealId, setCopyingMealId] = useState<string | null>(null)
   const [productSuggestionsOpen, setProductSuggestionsOpen] = useState(false)
   const [menuInfoOpen, setMenuInfoOpen] = useState(false)
   const [addingProduct, setAddingProduct] = useState(false)
@@ -2250,6 +2296,19 @@ export function MealMenuView({
       setListError(error instanceof Error ? error.message : 'Не удалось удалить приём пищи')
     } finally {
       setDeletingMealId(null)
+    }
+  }
+
+  const handleCopyMeal = async (meal: SavedMeal, groupKey: string) => {
+    setCopyingMealId(meal.id)
+    setListError(null)
+    try {
+      await addSavedMeal(getCopiedMealName(meal.name, savedMeals), meal.items.map((item) => ({ ...item })))
+      setExpandedMealGroupKey(groupKey)
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : 'Не удалось создать копию приёма пищи')
+    } finally {
+      setCopyingMealId(null)
     }
   }
 
@@ -2563,7 +2622,8 @@ export function MealMenuView({
                 productMap={savedProductMap}
                 expanded={expanded}
                 deletingMealId={deletingMealId}
-                actionsDisabled={Boolean(deletingMealId) || editorOpen}
+                copyingMealId={copyingMealId}
+                actionsDisabled={Boolean(deletingMealId) || Boolean(copyingMealId) || editorOpen}
                 onToggle={toggleGroup}
                 onSave={async (drafts) => {
                   await Promise.all(drafts.map((draft) => {
@@ -2579,6 +2639,7 @@ export function MealMenuView({
                   }))
                   setExpandedMealGroupKey(null)
                 }}
+                onCopy={(meal) => void handleCopyMeal(meal, group.key)}
                 onDelete={(meal) => void handleDeleteMeal(meal, group.key)}
               />
             )
@@ -2593,9 +2654,11 @@ export function MealMenuView({
               productMap={savedProductMap}
               expanded={expanded}
               deleting={deletingMealId === meal.id}
-              actionsDisabled={Boolean(deletingMealId) || editorOpen}
+              copying={copyingMealId === meal.id}
+              actionsDisabled={Boolean(deletingMealId) || Boolean(copyingMealId) || editorOpen}
               onToggle={toggleGroup}
               onEdit={() => handleEditMeal(meal)}
+              onCopy={() => void handleCopyMeal(meal, group.key)}
               onDelete={() => void handleDeleteMeal(meal, group.key)}
             />
           )

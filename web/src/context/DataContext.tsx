@@ -1595,6 +1595,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setFoodHistoryLogs(nextHistoryLogs)
         await reconcileNutritionTaskDate(loggedOn, { allowLegacyNormFallback: true })
       },
+      async updateFoodLogWeight(id, weightGrams) {
+        if (!user) throw new Error('Пользователь не авторизован')
+        if (!Number.isFinite(weightGrams) || weightGrams <= 0) {
+          throw new Error('Укажите граммовку больше нуля')
+        }
+        const { data, error: updError } = await requireSupabase()
+          .from('daily_food_logs')
+          .update({ weight_grams: weightGrams })
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        const updatedFood = data as FoodLog
+        const nextHistoryLogs = foodHistoryLogs.map((food) => food.id === id ? updatedFood : food)
+        setFoodLogs((previous) => previous.map((food) => food.id === id ? updatedFood : food))
+        setFoodHistoryLogs(nextHistoryLogs)
+        await reconcileNutritionTaskDate(updatedFood.logged_on, { allowLegacyNormFallback: true })
+      },
       async updateFoodLogProductName(id, productName) {
         if (!user || !isAdmin || !adminMode) {
           throw new Error('Редактирование доступно только в режиме администратора')

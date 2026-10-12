@@ -67,6 +67,21 @@ const MONTHS_GENITIVE = [
 ]
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 
+function DoubleVolumeIcon() {
+  return (
+    <svg
+      className="double-volume-icon"
+      viewBox="0 0 28 18"
+      role="img"
+      aria-label="Удвоенный объём работы"
+    >
+      <title>Удвоенный объём работы</title>
+      <rect x="0.75" y="0.75" width="26.5" height="16.5" rx="5" />
+      <path d="M6.25 5.25l5.5 7.5m0-7.5l-5.5 7.5M16 6.25c.55-.85 1.45-1.35 2.55-1.35 1.55 0 2.7.9 2.7 2.2 0 1.05-.65 1.75-1.75 2.55L16 12.25h5.5" />
+    </svg>
+  )
+}
+
 export function TrainingView() {
   const {
     savedExercises,
@@ -944,7 +959,10 @@ function WorkoutExerciseFields({ exercise, showExecutionControls = false, onSave
       <div className="workout-exercise-fields">
         {exercise.exercise_type === 'Свободные веса / в блоке' && (
           <label>
-            Вес снаряда
+            <span className="workout-field-title">
+              Вес снаряда
+              {exercise.double_volume && <DoubleVolumeIcon />}
+            </span>
             <input
               type="text"
               inputMode="decimal"

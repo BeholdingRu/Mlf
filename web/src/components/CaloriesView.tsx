@@ -76,6 +76,7 @@ export function CaloriesView() {
     addSavedProduct,
     setSavedProductFavorite,
     logFoodToday,
+    updateFoodLogWeight,
     deleteFoodLog,
     saveCaloriesNorm,
     saveCalorieAdaptationEnabled,
@@ -96,6 +97,10 @@ export function CaloriesView() {
   const [dailyNormInput, setDailyNormInput] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [favoriteFoodId, setFavoriteFoodId] = useState<string | null>(null)
+  const [editingFoodWeightId, setEditingFoodWeightId] = useState<string | null>(null)
+  const [foodWeightInput, setFoodWeightInput] = useState('')
+  const [savingFoodWeightId, setSavingFoodWeightId] = useState<string | null>(null)
+  const [foodWeightError, setFoodWeightError] = useState<string | null>(null)
   const [savingNorm, setSavingNorm] = useState(false)
   const [savingAdaptation, setSavingAdaptation] = useState(false)
   const [editingNorm, setEditingNorm] = useState(false)
@@ -302,6 +307,37 @@ export function CaloriesView() {
     } catch (err) {
       console.error('Error deleting food:', err)
       alert('Ошибка при удалении продукта')
+    }
+  }
+
+  const startFoodWeightEditing = (food: typeof foodLogs[number]) => {
+    setEditingFoodWeightId(food.id)
+    setFoodWeightInput(String(food.weight_grams))
+    setFoodWeightError(null)
+  }
+
+  const cancelFoodWeightEditing = () => {
+    setEditingFoodWeightId(null)
+    setFoodWeightInput('')
+    setFoodWeightError(null)
+  }
+
+  const handleSaveFoodWeight = async (foodId: string) => {
+    const weight = Number(foodWeightInput.replace(',', '.'))
+    if (!Number.isFinite(weight) || weight <= 0) {
+      setFoodWeightError('Укажите граммовку больше нуля')
+      return
+    }
+
+    setSavingFoodWeightId(foodId)
+    setFoodWeightError(null)
+    try {
+      await updateFoodLogWeight(foodId, weight)
+      cancelFoodWeightEditing()
+    } catch (err) {
+      setFoodWeightError(err instanceof Error ? err.message : 'Не удалось изменить граммовку')
+    } finally {
+      setSavingFoodWeightId(null)
     }
   }
 
@@ -700,7 +736,30 @@ export function CaloriesView() {
                       <div className="food-details">
                         <div className="food-name">{food.product_name}</div>
                         <div className="food-info">
-                          <span>{food.weight_grams}г</span>
+                          {editingFoodWeightId === food.id ? (
+                            <label className="food-weight-editor">
+                              <input
+                                type="number"
+                                min="0.1"
+                                step="0.1"
+                                inputMode="decimal"
+                                value={foodWeightInput}
+                                onChange={(event) => {
+                                  setFoodWeightInput(event.target.value)
+                                  setFoodWeightError(null)
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key !== 'Enter' || event.repeat) return
+                                  event.preventDefault()
+                                  void handleSaveFoodWeight(food.id)
+                                }}
+                                disabled={savingFoodWeightId === food.id}
+                                aria-label={`Граммовка продукта «${food.product_name}»`}
+                                autoFocus
+                              />
+                              <span>г</span>
+                            </label>
+                          ) : <span>{food.weight_grams}г</span>}
                           <span>•</span>
                           <span>{food.calories_per_100g} ккал/100г</span>
                           <span>•</span>
@@ -712,6 +771,9 @@ export function CaloriesView() {
                           <span>•</span>
                           <span className="consumed">{consumed.toFixed(0)} ккал</span>
                         </div>
+                        {editingFoodWeightId === food.id && foodWeightError && (
+                          <p className="food-weight-error" role="alert">{foodWeightError}</p>
+                        )}
                       </div>
                       <div className="food-actions">
                         <label className="favorite-control" title={savedProduct?.is_favorite ? 'Убрать из избранного' : 'Добавить в избранное'}>
@@ -724,14 +786,50 @@ export function CaloriesView() {
                           />
                           <span aria-hidden="true">★</span>
                         </label>
-                        <button
-                          type="button"
-                          className="delete-button"
-                          onClick={() => handleDeleteFood(food.id, food.product_name)}
-                          title="Удалить"
-                        >
-                          ×
-                        </button>
+                        {editingFoodWeightId === food.id ? (
+                          <>
+                            <button
+                              type="button"
+                              className="food-weight-save-button"
+                              onClick={() => void handleSaveFoodWeight(food.id)}
+                              disabled={savingFoodWeightId === food.id}
+                              aria-label={`Сохранить граммовку продукта «${food.product_name}»`}
+                              title="Сохранить граммовку"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              type="button"
+                              className="food-weight-cancel-button"
+                              onClick={cancelFoodWeightEditing}
+                              disabled={savingFoodWeightId === food.id}
+                              aria-label="Отменить изменение граммовки"
+                              title="Отмена"
+                            >
+                              ×
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="edit-button"
+                              onClick={() => startFoodWeightEditing(food)}
+                              aria-label={`Изменить граммовку продукта «${food.product_name}»`}
+                              title="Изменить граммовку"
+                            >
+                              ✎
+                            </button>
+                            <button
+                              type="button"
+                              className="delete-button"
+                              onClick={() => handleDeleteFood(food.id, food.product_name)}
+                              title="Удалить"
+                            >
+                              ×
+                            </button>
+                          </>
+                        )}
                       </div>
                     </li>
                   )

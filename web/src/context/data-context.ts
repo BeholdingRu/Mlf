@@ -105,6 +105,7 @@ export type DataContextValue = {
   deleteMindfulnessNote: (id: string) => Promise<void>
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
   logFoodOnDate: (loggedOn: string, productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
+  updateFoodLogWeight: (id: string, weightGrams: number) => Promise<void>
   updateFoodLogProductName: (id: string, productName: string) => Promise<void>
   deleteFoodLog: (id: string) => Promise<void>
   addSavedProduct: (name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<SavedProduct>
