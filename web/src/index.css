@@ -1049,22 +1049,15 @@ nav {
 }
 
 .task-editor-add {
-  grid-template-columns: minmax(0, 1fr) auto 88px auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .task-editor-add > input:first-child {
   grid-column: 1 / -1;
 }
 
-@media (min-width: 769px) {
-  .task-editor-add.withdrawal-task-editor-add {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-  }
-
-  .task-editor-add.withdrawal-task-editor-add > .primary {
-    grid-column: 3;
-    grid-row: 2;
-  }
+.task-editor-add > .task-logic-flags {
+  grid-column: 2 / -1;
 }
 
 .negative-habits-toggle {
@@ -1306,6 +1299,18 @@ nav {
   flex: 0 0 auto;
 }
 
+.task-logic-flags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+.countdown-setting .toggle {
+  color: var(--ink);
+}
+
 .withdrawal-syndrome-info {
   position: absolute;
   z-index: 2;
@@ -1334,6 +1339,15 @@ nav {
 
 .task-editor-add button {
   grid-column: auto;
+}
+
+.task-editor-add > .days {
+  grid-column: 1;
+  width: 88px;
+}
+
+.task-editor-add > .primary {
+  grid-column: 3;
 }
 
 .task-settings-list {
@@ -1480,6 +1494,10 @@ nav {
 
 .task-row.habit-formed .habit-fill {
   background: #aeb5bd;
+}
+
+.task-row.countdown-finished {
+  grid-template-columns: 1fr minmax(220px, 280px);
 }
 
 .task-row.withdrawal-acute {
@@ -8593,6 +8611,15 @@ nav {
 
   .task-editor-add > .inverted-logic-setting-wrap {
     grid-column: 1 / -1;
+  }
+
+  .task-editor-add > .task-logic-flags,
+  .task-editor-add > .primary {
+    grid-column: 1 / -1;
+  }
+
+  .task-logic-flags {
+    flex-wrap: wrap;
   }
 
   .task-editor-row {

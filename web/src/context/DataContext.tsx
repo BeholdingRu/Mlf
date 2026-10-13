@@ -323,6 +323,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       task_kind: task.task_kind ?? null,
       bible_daily_chapter_target: task.bible_daily_chapter_target ?? null,
       inverted_logic: task.inverted_logic ?? false,
+      countdown_enabled: task.countdown_enabled ?? false,
       inverted_logic_history: normalizeTaskInvertedLogicHistory(
         task.inverted_logic_history,
         task.inverted_logic ?? false,
@@ -959,6 +960,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const bibleDailyChapterTarget = taskKind === 'bible_reading'
           ? options.bibleDailyChapterTarget ?? 5
           : null
+        const countdownEnabled = !withdrawalSyndrome
+          && taskKind === null
+          && !isNutritionTask({ title, task_kind: taskKind })
+          && !isBibleReadingTask({ title, task_kind: taskKind })
+          && options.countdownEnabled === true
         const nextSortOrder = tasks.reduce(
           (maximum, task) => Math.max(maximum, task.sort_order),
           -1,
@@ -980,9 +986,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
             sort_order: nextSortOrder,
             withdrawal_syndrome: withdrawalSyndrome,
             inverted_logic: !withdrawalSyndrome
+              && !countdownEnabled
               && !isNutritionTask({ title, task_kind: taskKind })
               && !isBibleReadingTask({ title, task_kind: taskKind })
               && invertedLogic,
+            countdown_enabled: countdownEnabled,
             withdrawal_started_on: withdrawalSyndrome ? localISODate() : null,
           })
           .select('*')
@@ -993,6 +1001,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           ...insertedTask,
           task_kind: insertedTask.task_kind ?? null,
           bible_daily_chapter_target: insertedTask.bible_daily_chapter_target ?? null,
+          countdown_enabled: insertedTask.countdown_enabled ?? false,
           inverted_logic_history: normalizeTaskInvertedLogicHistory(
             insertedTask.inverted_logic_history,
             insertedTask.inverted_logic,
@@ -1012,6 +1021,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
         const isDefaultAutomaticTask = isNutritionTask({ title: nextTitle, task_kind: nextTaskKind })
           || isBibleReadingTask({ title: nextTitle, task_kind: nextTaskKind })
+        if (currentTask?.countdown_enabled && isDefaultAutomaticTask) {
+          throw new Error('Задачу с обратным отсчётом нельзя сделать автоматической')
+        }
+        if (currentTask?.countdown_enabled && patch.inverted_logic === true) {
+          throw new Error('Для задачи с обратным отсчётом нельзя включить инверсию логики')
+        }
         const nextPatch = isDefaultAutomaticTask
           ? { ...patch, inverted_logic: false }
           : patch
@@ -1050,6 +1065,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ...updatedTask,
               task_kind: updatedTask.task_kind ?? null,
               bible_daily_chapter_target: updatedTask.bible_daily_chapter_target ?? null,
+              countdown_enabled: updatedTask.countdown_enabled ?? false,
               inverted_logic_history: updatedHistory,
             }
           : task)))
@@ -1070,6 +1086,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ...restartedTask,
               task_kind: restartedTask.task_kind ?? null,
               bible_daily_chapter_target: restartedTask.bible_daily_chapter_target ?? null,
+              countdown_enabled: restartedTask.countdown_enabled ?? false,
               inverted_logic_history: Array.isArray(restartedTask.inverted_logic_history)
                 ? normalizeTaskInvertedLogicHistory(
                     restartedTask.inverted_logic_history,

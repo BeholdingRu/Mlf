@@ -286,6 +286,7 @@ create table if not exists public.tasks (
   withdrawal_syndrome boolean not null default false,
   inverted_logic boolean not null default false,
   inverted_logic_history jsonb not null default '[]'::jsonb,
+  countdown_enabled boolean not null default false,
   withdrawal_started_on date,
   withdrawal_restart_on date,
   created_at timestamptz not null default now()
@@ -297,6 +298,7 @@ alter table public.tasks
   add column if not exists withdrawal_syndrome boolean not null default false,
   add column if not exists inverted_logic boolean not null default false,
   add column if not exists inverted_logic_history jsonb not null default '[]'::jsonb,
+  add column if not exists countdown_enabled boolean not null default false,
   add column if not exists withdrawal_started_on date,
   add column if not exists withdrawal_restart_on date;
 
@@ -598,6 +600,57 @@ create trigger prevent_marked_inverted_task_logic_change
 before update of inverted_logic on public.tasks
 for each row
 execute function public.prevent_marked_inverted_task_logic_change();
+
+-- A countdown can be selected only for a regular task. Older rows are
+-- normalized before constraints are restored so rerunning the schema is safe.
+update public.tasks
+set countdown_enabled = false
+where countdown_enabled
+  and (
+    withdrawal_syndrome
+    or inverted_logic
+    or task_kind is not null
+    or lower(regexp_replace(btrim(title), '\s*:\s*', ':', 'g')) = 'телостроительство:питание'
+    or regexp_replace(lower(btrim(title)), '\s+', ' ', 'g')
+      ~ '^(чтение библии|чтение бибили)($|[[:space:]]|:|—|-)'
+  );
+
+alter table public.tasks
+  drop constraint if exists tasks_countdown_regular_check;
+alter table public.tasks
+  add constraint tasks_countdown_regular_check
+  check (
+    not countdown_enabled
+    or (
+      withdrawal_syndrome = false
+      and inverted_logic = false
+      and task_kind is null
+      and lower(regexp_replace(btrim(title), '\s*:\s*', ':', 'g')) <> 'телостроительство:питание'
+      and regexp_replace(lower(btrim(title)), '\s+', ' ', 'g')
+        !~ '^(чтение библии|чтение бибили)($|[[:space:]]|:|—|-)'
+    )
+  );
+
+create or replace function public.prevent_task_countdown_change()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  if new.countdown_enabled is distinct from old.countdown_enabled then
+    raise exception 'Режим обратного отсчёта можно выбрать только при создании задачи';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists prevent_task_countdown_change on public.tasks;
+create trigger prevent_task_countdown_change
+before update on public.tasks
+for each row
+execute function public.prevent_task_countdown_change();
 
 create table if not exists public.weight_logs (
   id uuid primary key default gen_random_uuid(),

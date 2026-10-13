@@ -61,7 +61,11 @@ export type DataContextValue = {
     habitDays: number,
     withdrawalSyndrome?: boolean,
     invertedLogic?: boolean,
-    options?: { taskKind?: TaskKind | null; bibleDailyChapterTarget?: number | null },
+    options?: {
+      taskKind?: TaskKind | null
+      bibleDailyChapterTarget?: number | null
+      countdownEnabled?: boolean
+    },
   ) => Promise<void>
   updateTask: (id: string, patch: {
     title?: string

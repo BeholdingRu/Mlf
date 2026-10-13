@@ -3,7 +3,12 @@ import { HabitBar } from './HabitBar'
 import { useData } from '../hooks/useData'
 import { daysInclusive, isoDateInTimeZone, localISODate, parseISODate, percent } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
-import { getRegularTaskProgressDays } from '../lib/task-progress'
+import {
+  getCountdownTaskProgress,
+  getRegularTaskProgressDays,
+  russianDays,
+  russianMissedDays,
+} from '../lib/task-progress'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
 import { isBibleReadingTask } from '../lib/bible-books'
 import { compareRegularTasksForDisplay } from '../lib/daily-task-order'
@@ -26,6 +31,7 @@ type TaskSettingsDraft = {
   newDays: string
   newWithdrawalSyndrome: boolean
   newInvertedLogic: boolean
+  newCountdownEnabled: boolean
   edits: Record<string, TaskEditDraft>
 }
 
@@ -46,6 +52,7 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
       || typeof draft.newDays !== 'string'
       || (draft.newWithdrawalSyndrome !== undefined && typeof draft.newWithdrawalSyndrome !== 'boolean')
       || (draft.newInvertedLogic !== undefined && typeof draft.newInvertedLogic !== 'boolean')
+      || (draft.newCountdownEnabled !== undefined && typeof draft.newCountdownEnabled !== 'boolean')
       || !draft.edits
       || typeof draft.edits !== 'object'
       || Object.values(draft.edits).some(
@@ -66,6 +73,9 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
       newDays: draft.newDays,
       newWithdrawalSyndrome: draft.newWithdrawalSyndrome ?? false,
       newInvertedLogic: draft.newWithdrawalSyndrome ? false : draft.newInvertedLogic ?? false,
+      newCountdownEnabled: draft.newWithdrawalSyndrome || draft.newInvertedLogic
+        ? false
+        : draft.newCountdownEnabled ?? false,
       edits: Object.fromEntries(Object.entries(draft.edits).map(([taskId, edit]) => [
         taskId,
         { ...edit, inverted_logic: edit.inverted_logic ?? false },
@@ -98,6 +108,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const [newDays, setNewDays] = useState(taskSettingsDraft?.newDays ?? '21')
   const [newWithdrawalSyndrome, setNewWithdrawalSyndrome] = useState(taskSettingsDraft?.newWithdrawalSyndrome ?? false)
   const [newInvertedLogic, setNewInvertedLogic] = useState(taskSettingsDraft?.newInvertedLogic ?? false)
+  const [newCountdownEnabled, setNewCountdownEnabled] = useState(taskSettingsDraft?.newCountdownEnabled ?? false)
   const [withdrawalSyndromeInfoOpen, setWithdrawalSyndromeInfoOpen] = useState(false)
   const [invertedLogicInfoOpen, setInvertedLogicInfoOpen] = useState(false)
   const [negativeHabitsListOpen, setNegativeHabitsListOpen] = useState(false)
@@ -127,6 +138,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const bibleToday = isoDateInTimeZone(profile?.time_zone)
   const [testDate, setTestDate] = useState(() => window.sessionStorage.getItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY) ?? today)
   const testToday = adminMode && testDate ? testDate : today
+  const newTaskIsAutomatic = isNutritionTask({ title: newTitle }) || isBibleReadingTask({ title: newTitle })
   const withdrawalTasks = tasks.filter((task) => task.withdrawal_syndrome)
   const negativeHabitsPin = profile?.negative_habits_pin ?? (withdrawalTasks.length > 0 ? '0000' : null)
   const negativeHabitsPinRequired = profile?.negative_habits_pin_required !== false
@@ -148,16 +160,16 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   }, [subTab])
 
   useEffect(() => {
-    if (!newTitle && newDays === '21' && !newWithdrawalSyndrome && !newInvertedLogic && Object.keys(edits).length === 0) {
+    if (!newTitle && newDays === '21' && !newWithdrawalSyndrome && !newInvertedLogic && !newCountdownEnabled && Object.keys(edits).length === 0) {
       window.sessionStorage.removeItem(TASK_SETTINGS_DRAFT_STORAGE_KEY)
       return
     }
 
     window.sessionStorage.setItem(
       TASK_SETTINGS_DRAFT_STORAGE_KEY,
-      JSON.stringify({ newTitle, newDays, newWithdrawalSyndrome, newInvertedLogic, edits }),
+      JSON.stringify({ newTitle, newDays, newWithdrawalSyndrome, newInvertedLogic, newCountdownEnabled, edits }),
     )
-  }, [edits, newDays, newInvertedLogic, newTitle, newWithdrawalSyndrome])
+  }, [edits, newCountdownEnabled, newDays, newInvertedLogic, newTitle, newWithdrawalSyndrome])
 
   useEffect(() => {
     window.sessionStorage.setItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY, testDate)
@@ -341,11 +353,14 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
       if (newWithdrawalSyndrome && !negativeHabitsPin) {
         await saveNegativeHabitsSecurity({ pin: newNegativeHabitPin, requirePin: true })
       }
-      await addTask(title, days, newWithdrawalSyndrome, newInvertedLogic)
+      await addTask(title, days, newWithdrawalSyndrome, newInvertedLogic, {
+        countdownEnabled: newCountdownEnabled,
+      })
       setNewTitle('')
       setNewDays('21')
       setNewWithdrawalSyndrome(false)
       setNewInvertedLogic(false)
+      setNewCountdownEnabled(false)
       setNewNegativeHabitPin('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось добавить задачу')
@@ -441,17 +456,25 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
               const doneToday = completions.some(
                 (c) => c.task_id === task.id && c.completed_on === taskToday,
               )
-              const actualTotalDays = getRegularTaskProgressDays(task, completions, taskToday, profile?.time_zone)
-              const totalDays = adminMode && !task.withdrawal_syndrome
+              const countdownProgress = task.countdown_enabled
+                ? getCountdownTaskProgress(task, completions, testToday, profile?.time_zone)
+                : null
+              const actualTotalDays = countdownProgress?.progressDays
+                ?? getRegularTaskProgressDays(task, completions, taskToday, profile?.time_zone)
+              const totalDays = adminMode && !task.withdrawal_syndrome && !task.countdown_enabled
                 ? getVirtualCompletionDays(task.created_at, testToday)
                 : actualTotalDays
-              const habitFormed = !task.withdrawal_syndrome && totalDays >= task.habit_days
-              const habit = withdrawalPhase ? percent(withdrawalPhase.remainingDays, withdrawalPhase.durationDays) : percent(totalDays, task.habit_days)
+              const habitFormed = !task.withdrawal_syndrome && !task.countdown_enabled && totalDays >= task.habit_days
+              const countdownFinished = countdownProgress?.finished ?? false
+              const taskFinished = habitFormed || countdownFinished
+              const habit = withdrawalPhase
+                ? percent(withdrawalPhase.remainingDays, withdrawalPhase.durationDays)
+                : percent(totalDays, task.habit_days)
               const automaticNutritionTask = profile?.weight_enabled && isNutritionTask(task)
               return (
                 <li
                   key={task.id}
-                  className={`task-row${doneToday && !habitFormed ? task.inverted_logic ? ' inverted-failed' : ' done' : ''}${automaticNutritionTask ? ' automatic' : ''}${habitFormed ? ' habit-formed' : ''}${withdrawalPhase ? ` withdrawal-${withdrawalPhase.tone}` : ''}`}
+                  className={`task-row${doneToday && !taskFinished ? task.inverted_logic ? ' inverted-failed' : ' done' : ''}${automaticNutritionTask ? ' automatic' : ''}${habitFormed ? ' habit-formed' : ''}${countdownFinished ? ' countdown-finished' : ''}${withdrawalPhase ? ` withdrawal-${withdrawalPhase.tone}` : ''}`}
                 >
                   {withdrawalPhase ? (
                     <button
@@ -476,7 +499,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                         <path d="M20 3v5h-5" />
                       </svg>
                     </button>
-                  ) : !habitFormed && (
+                  ) : !taskFinished && (
                     <button
                       type="button"
                       className={`check${task.inverted_logic ? ' inverted' : ''}`}
@@ -526,7 +549,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                         </span>
                       )}
                     </div>
-                    {!habitFormed && (
+                    {!taskFinished && (
                       <span className="hint">
                         {automaticNutritionTask
                           ? doneToday
@@ -562,7 +585,9 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                   </div>
                   <HabitBar
                     value={habit}
-                    label={withdrawalPhase?.label ?? (habitFormed ? 'привычка сформирована' : undefined)}
+                    label={withdrawalPhase?.label ?? (task.countdown_enabled && countdownProgress
+                      ? `Осталось ${russianDays(countdownProgress.remainingDays)}${countdownProgress.missedDays > 0 ? ` · ${russianMissedDays(countdownProgress.missedDays)}` : ''}`
+                      : habitFormed ? 'привычка сформирована' : undefined)}
                     valueLabel={withdrawalPhase ? withdrawalPhase.preparing ? null : withdrawalPhase.clean ? `${withdrawalPhase.freedomDays} дней свободы` : `осталось ${withdrawalPhase.remainingDays} дн.` : undefined}
                     phaseInfo={withdrawalPhase?.info}
                     hideTrack={withdrawalPhase?.clean}
@@ -636,7 +661,10 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
               value={newTitle}
               onChange={(event) => {
                 setNewTitle(event.target.value)
-                if (isNutritionTask({ title: event.target.value })) setNewInvertedLogic(false)
+                if (isNutritionTask({ title: event.target.value }) || isBibleReadingTask({ title: event.target.value })) {
+                  setNewInvertedLogic(false)
+                  setNewCountdownEnabled(false)
+                }
               }}
             />
             <div className="withdrawal-syndrome-setting">
@@ -644,10 +672,13 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 <input
                   type="checkbox"
                   checked={newWithdrawalSyndrome}
-                  disabled={newInvertedLogic}
+                  disabled={newInvertedLogic || newCountdownEnabled}
                   onChange={(event) => {
                     setNewWithdrawalSyndrome(event.target.checked)
-                    if (event.target.checked) setNewInvertedLogic(false)
+                    if (event.target.checked) {
+                      setNewInvertedLogic(false)
+                      setNewCountdownEnabled(false)
+                    }
                     else setNewNegativeHabitPin('')
                   }}
                 />
@@ -672,34 +703,56 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 </p>
               )}
             </div>
-            <div className="withdrawal-syndrome-setting inverted-logic-setting-wrap">
-              <label className="toggle inverted-logic-setting">
-                <input
-                  type="checkbox"
-                  checked={newInvertedLogic}
-                  disabled={newWithdrawalSyndrome || isNutritionTask({ title: newTitle })}
-                  onChange={(event) => setNewInvertedLogic(event.target.checked)}
-                />
-                <span>Инверсия логики</span>
-              </label>
-              <button
-                type="button"
-                className="info-button"
-                aria-label="Информация об инверсии логики"
-                aria-expanded={invertedLogicInfoOpen}
-                aria-controls="inverted-logic-info"
-                onClick={() => setInvertedLogicInfoOpen((open) => {
-                  if (!open) setWithdrawalSyndromeInfoOpen(false)
-                  return !open
-                })}
-              >
-                i
-              </button>
-              {invertedLogicInfoOpen && (
-                <p id="inverted-logic-info" className="withdrawal-syndrome-info">
-                  Если включить, то подтверждение задачи будет считаться провалом, редактирование задачи при этом будет заблокированно на сутки
-                </p>
-              )}
+            <div className="task-logic-flags">
+              <div className="withdrawal-syndrome-setting inverted-logic-setting-wrap">
+                <label className="toggle inverted-logic-setting">
+                  <input
+                    type="checkbox"
+                    checked={newInvertedLogic}
+                    disabled={newWithdrawalSyndrome || newCountdownEnabled || newTaskIsAutomatic}
+                    onChange={(event) => {
+                      setNewInvertedLogic(event.target.checked)
+                      if (event.target.checked) setNewCountdownEnabled(false)
+                    }}
+                  />
+                  <span>Инверсия логики</span>
+                </label>
+                <button
+                  type="button"
+                  className="info-button"
+                  aria-label="Информация об инверсии логики"
+                  aria-expanded={invertedLogicInfoOpen}
+                  aria-controls="inverted-logic-info"
+                  onClick={() => setInvertedLogicInfoOpen((open) => {
+                    if (!open) setWithdrawalSyndromeInfoOpen(false)
+                    return !open
+                  })}
+                >
+                  i
+                </button>
+                {invertedLogicInfoOpen && (
+                  <p id="inverted-logic-info" className="withdrawal-syndrome-info">
+                    Если включить, то подтверждение задачи будет считаться провалом, редактирование задачи при этом будет заблокированно на сутки
+                  </p>
+                )}
+              </div>
+              <div className="withdrawal-syndrome-setting countdown-setting">
+                <label className="toggle inverted-logic-setting">
+                  <input
+                    type="checkbox"
+                    checked={newCountdownEnabled}
+                    disabled={newWithdrawalSyndrome || newInvertedLogic || newTaskIsAutomatic}
+                    onChange={(event) => {
+                      setNewCountdownEnabled(event.target.checked)
+                      if (event.target.checked) {
+                        setNewWithdrawalSyndrome(false)
+                        setNewInvertedLogic(false)
+                      }
+                    }}
+                  />
+                  <span>Обратный отсчёт</span>
+                </label>
+              </div>
             </div>
             {newWithdrawalSyndrome && !negativeHabitsPin && (
               <label className="negative-habits-create-pin">
@@ -923,14 +976,14 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 const edit = edits[task.id] ?? {
                   title: task.title,
                   habit_days: String(task.habit_days),
-                  inverted_logic: task.inverted_logic,
+                  inverted_logic: task.countdown_enabled ? false : task.inverted_logic,
                 }
                 const inversionLockedToday = completions.some(
                   (completion) => completion.task_id === task.id
                     && completion.completed_on === (isBibleReadingTask(task) ? bibleToday : today),
                 )
-                const effectiveEdit = inversionLockedToday
-                  ? { ...edit, inverted_logic: task.inverted_logic }
+                const effectiveEdit = inversionLockedToday || task.countdown_enabled
+                  ? { ...edit, inverted_logic: task.countdown_enabled ? false : task.inverted_logic }
                   : edit
                 return (
                   <li key={task.id} className={`task-editor-row${task.withdrawal_syndrome ? ' withdrawal-task-editor-row' : ''}`}>
@@ -942,7 +995,9 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                           [task.id]: {
                             ...effectiveEdit,
                             title: e.target.value,
-                            inverted_logic: isNutritionTask({ title: e.target.value })
+                            inverted_logic: task.countdown_enabled
+                              || isNutritionTask({ title: e.target.value })
+                              || isBibleReadingTask({ title: e.target.value })
                               ? false
                               : effectiveEdit.inverted_logic,
                           },
@@ -969,8 +1024,19 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                           <input
                             type="checkbox"
                             checked={effectiveEdit.inverted_logic}
-                            disabled={inversionLockedToday || isNutritionTask({ title: effectiveEdit.title })}
-                            title={inversionLockedToday ? 'Логику нельзя изменить после отметки за сегодня' : undefined}
+                            disabled={
+                              inversionLockedToday
+                              || task.countdown_enabled
+                              || isNutritionTask({ title: effectiveEdit.title })
+                              || isBibleReadingTask({ title: effectiveEdit.title })
+                            }
+                            title={
+                              task.countdown_enabled
+                                ? 'Для задачи с обратным отсчётом инверсия недоступна'
+                                : inversionLockedToday
+                                  ? 'Логику нельзя изменить после отметки за сегодня'
+                                  : undefined
+                            }
                             onChange={(event) => setEdits((prev) => ({
                               ...prev,
                               [task.id]: { ...effectiveEdit, inverted_logic: event.target.checked },
@@ -998,7 +1064,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                             : {
                                 title: effectiveEdit.title.trim(),
                                 habit_days: days,
-                                inverted_logic: effectiveEdit.inverted_logic,
+                                inverted_logic: task.countdown_enabled ? false : effectiveEdit.inverted_logic,
                               },
                           )
                           setEdits((prev) => {

@@ -1,4 +1,4 @@
-import { isoDateInTimeZone, localISODate, parseISODate } from './dates'
+import { daysInclusive, isoDateInTimeZone, localISODate, parseISODate } from './dates'
 import { normalizeTaskInvertedLogicHistory } from './task-inverted-logic-history'
 import type { Task, TaskCompletion } from './types'
 
@@ -78,4 +78,85 @@ export function getRegularTaskProgressDays(
   timeZone?: string | null,
 ) {
   return getRegularTaskProgress(task, completions, today, timeZone).progressDays
+}
+
+/**
+ * Progress for a task whose duration runs by calendar days rather than by
+ * completed marks. A countdown is selected only when the task is created,
+ * so its immutable creation date is the beginning of the interval.
+ */
+export function getCountdownTaskProgress(
+  task: Task,
+  completions: TaskCompletion[],
+  today = localISODate(),
+  timeZone?: string | null,
+) {
+  const startedOn = isoDateInTimeZone(timeZone, new Date(task.created_at))
+  const durationDays = Math.max(1, task.habit_days)
+  const startedAt = parseISODate(startedOn)
+  const endsAt = new Date(startedAt)
+  endsAt.setDate(endsAt.getDate() + durationDays - 1)
+  const endsOn = localISODate(endsAt)
+
+  if (today < startedOn) {
+    return {
+      progressDays: 0,
+      remainingDays: durationDays,
+      successfulDays: 0,
+      missedDays: 0,
+      missedDates: [] as string[],
+      finished: false,
+    }
+  }
+
+  const elapsedDays = Math.min(
+    durationDays,
+    Math.max(0, daysInclusive(startedAt, parseISODate(today)) - 1),
+  )
+  const completedDates = new Set(
+    completions
+      .filter((completion) => (
+        completion.task_id === task.id
+        && completion.completed_on >= startedOn
+        && completion.completed_on <= endsOn
+        && completion.completed_on <= today
+      ))
+      .map((completion) => completion.completed_on),
+  )
+  const missedDates: string[] = []
+  const cursor = new Date(startedAt)
+
+  // The current day is not missed until it has actually ended. Once the
+  // countdown reaches zero, all active days have become past days.
+  while (localISODate(cursor) < today && cursor <= endsAt) {
+    const date = localISODate(cursor)
+    if (!completedDates.has(date)) missedDates.push(date)
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return {
+    progressDays: elapsedDays,
+    remainingDays: durationDays - elapsedDays,
+    successfulDays: completedDates.size,
+    missedDays: missedDates.length,
+    missedDates,
+    finished: elapsedDays >= durationDays,
+  }
+}
+
+export function russianDays(count: number) {
+  const absoluteCount = Math.abs(count)
+  const mod10 = absoluteCount % 10
+  const mod100 = absoluteCount % 100
+  const word = mod10 === 1 && mod100 !== 11
+    ? 'день'
+    : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+      ? 'дня'
+      : 'дней'
+  return `${count} ${word}`
+}
+
+export function russianMissedDays(count: number) {
+  const singular = Math.abs(count) % 10 === 1 && Math.abs(count) % 100 !== 11
+  return `${russianDays(count)} ${singular ? 'пропущен' : 'пропущено'}`
 }

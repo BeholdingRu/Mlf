@@ -110,6 +110,7 @@ export type Task = {
   withdrawal_syndrome: boolean
   inverted_logic: boolean
   inverted_logic_history: TaskInvertedLogicHistoryEntry[]
+  countdown_enabled: boolean
   withdrawal_started_on: string | null
   withdrawal_restart_on: string | null
   created_at: string

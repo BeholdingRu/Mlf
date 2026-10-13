@@ -14,7 +14,7 @@ import { applyFontScale, applyTheme, normalizeFontScale, normalizeShabbatTheme, 
 import { isShabbatActive } from '../lib/shabbat'
 import { isoDateInTimeZone, localISODate } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
-import { getRegularTaskProgressDays } from '../lib/task-progress'
+import { getCountdownTaskProgress, getRegularTaskProgressDays } from '../lib/task-progress'
 import { getNextBibleLocation, isBibleReadingTask, type BibleNavigationTarget } from '../lib/bible-books'
 import { ADMIN_TEST_TIME_CHANGE_EVENT, getAdminTestTime } from '../lib/admin-test-time'
 
@@ -43,7 +43,9 @@ export function CabinetPage() {
   const hasIncompleteDailyTasks = tasks.some((task) => {
     const taskToday = isBibleReadingTask(task) ? bibleToday : today
     const automaticTask = task.withdrawal_syndrome || task.inverted_logic || (profile?.weight_enabled && isNutritionTask(task))
-    const habitFormed = getRegularTaskProgressDays(task, completions, taskToday, profile?.time_zone) >= task.habit_days
+    const habitFormed = task.countdown_enabled
+      ? getCountdownTaskProgress(task, completions, taskToday, profile?.time_zone).finished
+      : getRegularTaskProgressDays(task, completions, taskToday, profile?.time_zone) >= task.habit_days
     const completedToday = completions.some(
       (completion) => completion.task_id === task.id && completion.completed_on === taskToday,
     )

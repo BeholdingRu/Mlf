@@ -5,7 +5,7 @@ import { WeightChart } from './WeightChart'
 import { useData } from '../hooks/useData'
 import { localISODate, percent } from '../lib/dates'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
-import { getRegularTaskProgress } from '../lib/task-progress'
+import { getCountdownTaskProgress, getRegularTaskProgress, russianDays } from '../lib/task-progress'
 import type { WeightLog } from '../lib/types'
 import {
   WEIGHT_CHART_WEEKDAYS,
@@ -348,12 +348,21 @@ export function StatsView() {
                         )
                       }
 
-                      const { progressDays, successfulDays, missedDays } = getRegularTaskProgress(
-                        task,
-                        completions,
-                        undefined,
-                        profile?.time_zone,
-                      )
+                      const countdownProgress = task.countdown_enabled
+                        ? getCountdownTaskProgress(
+                            task,
+                            completions,
+                            undefined,
+                            profile?.time_zone,
+                          )
+                        : null
+                      const { progressDays, successfulDays, missedDays } = countdownProgress
+                        ?? getRegularTaskProgress(
+                          task,
+                          completions,
+                          undefined,
+                          profile?.time_zone,
+                        )
                       return (
                         <li key={task.id} className="task-row stat">
                           <div className="task-body">
@@ -363,7 +372,12 @@ export function StatsView() {
                               <span className="task-stat-counter missed">{missedDaysText(missedDays)}</span>
                             </div>
                           </div>
-                          <HabitBar value={percent(progressDays, task.habit_days)} label="формирование привычки" />
+                          <HabitBar
+                            value={percent(progressDays, task.habit_days)}
+                            label={task.countdown_enabled
+                              ? `Осталось ${russianDays(countdownProgress?.remainingDays ?? 0)}`
+                              : 'формирование привычки'}
+                          />
                         </li>
                       )
                     })}
