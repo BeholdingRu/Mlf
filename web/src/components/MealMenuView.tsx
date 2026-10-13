@@ -251,11 +251,17 @@ function normalizeMealGroupIdentifier(identifier: string): string {
 
 function getCopiedMealName(name: string, savedMeals: SavedMeal[]): string {
   const existingNames = new Set(savedMeals.map((meal) => normalizeProductName(meal.name)))
+  // The identifier in parentheses is what joins meals into one group. A copy
+  // must start as an independent meal, so do not carry that identifier over.
+  const nameWithoutGroupIdentifier = getMealGroupIdentifier(name) === null
+    ? name.trim()
+    : name.replace(/\s*\([^()]*\)/u, '').trim().replace(/\s{2,}/gu, ' ')
+  const baseName = nameWithoutGroupIdentifier || 'Приём пищи'
   let copyNumber = 1
 
   while (copyNumber < 1_000) {
     const suffix = copyNumber === 1 ? ' (копия)' : ` (копия ${copyNumber})`
-    const copiedName = `${name.slice(0, 120 - suffix.length).trimEnd()}${suffix}`
+    const copiedName = `${baseName.slice(0, 120 - suffix.length).trimEnd()}${suffix}`
     if (!existingNames.has(normalizeProductName(copiedName))) return copiedName
     copyNumber += 1
   }
@@ -638,6 +644,7 @@ function SavedMealGroupCard({
   copyingMealId,
   actionsDisabled,
   onToggle,
+  onClose,
   onSave,
   onCopy,
   onDelete,
@@ -651,6 +658,7 @@ function SavedMealGroupCard({
   copyingMealId: string | null
   actionsDisabled: boolean
   onToggle: () => void
+  onClose: () => void
   onSave: (drafts: SavedMealGroupDraft[]) => Promise<void>
   onCopy: (meal: SavedMeal) => void
   onDelete: (meal: SavedMeal) => void
@@ -766,6 +774,7 @@ function SavedMealGroupCard({
       await onSave(drafts)
       setEditing(false)
       setProductDrafts({})
+      onClose()
     } catch (error) {
       setEditError(error instanceof Error ? error.message : 'Не удалось сохранить группу')
     } finally {
@@ -976,6 +985,7 @@ function SavedMealGroupCard({
                     setDrafts([])
                     setProductDrafts({})
                     setEditError(null)
+                    onClose()
                   }}
                   disabled={saving}
                 >
@@ -2001,7 +2011,6 @@ export function MealMenuView({
   const productSuggestionsId = useId()
   const menuInfoId = useId()
   const draftCounter = useRef(0)
-  const editorRef = useRef<HTMLElement>(null)
   const mealListRef = useRef<HTMLDivElement>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingMealId, setEditingMealId] = useState<string | null>(null)
@@ -2110,9 +2119,6 @@ export function MealMenuView({
     setEditorError(null)
     setListError(null)
     setEditorOpen(true)
-    window.requestAnimationFrame(() => {
-      editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
   }
 
   const handleProductSelection = (productId: string) => {
@@ -2312,26 +2318,33 @@ export function MealMenuView({
     }
   }
 
-  return (
-    <section className="meal-menu" aria-label="Сохранённые приёмы пищи">
-      <div className="meal-menu-toolbar">
-        {!editorOpen && (
-          <button
-            type="button"
-            className="add-button meal-menu-add-button"
-            onClick={() => {
-              resetEditor()
-              setEditorOpen(true)
-            }}
-          >
-            Добавить приём пищи
-          </button>
-        )}
-      </div>
+  const handleCancelEditor = () => {
+    setExpandedMealGroupKey(null)
+    resetEditor()
+    setEditorOpen(false)
+  }
 
-      {editorOpen && (
-        <section ref={editorRef} className="meal-menu-editor" aria-labelledby={formHeadingId} aria-busy={busy}>
-          <h3 id={formHeadingId}>{editingMealId ? 'Редактировать приём пищи' : 'Новый приём пищи'}</h3>
+  const mealEditor = editorOpen ? (
+        <section key={editingMealId ?? 'new-meal'} className="meal-menu-editor" aria-labelledby={formHeadingId} aria-busy={busy}>
+          <div className="meal-menu-editor-heading">
+            <h3 id={formHeadingId}>{editingMealId ? 'Редактировать приём пищи' : 'Новый приём пищи'}</h3>
+            {editingMealId && (
+              <button
+                type="button"
+                className="edit-button meal-menu-editor-cancel-edit active"
+                onClick={handleCancelEditor}
+                disabled={busy}
+                aria-label="Отменить редактирование приёма пищи"
+                aria-pressed="true"
+                title="Отменить редактирование"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="12" cy="12" r="8.5" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
 
           <div className="form-group meal-menu-name-field">
             <label htmlFor="meal-menu-name">Название приёма пищи</label>
@@ -2572,18 +2585,33 @@ export function MealMenuView({
             <button
               type="button"
               className="ghost"
-              onClick={() => {
-                resetEditor()
-                setEditorOpen(false)
-              }}
+              onClick={handleCancelEditor}
               disabled={busy}
             >
               Отмена
             </button>
           </div>
         </section>
-      )}
+  ) : null
 
+  return (
+    <section className="meal-menu" aria-label="Сохранённые приёмы пищи">
+      <div className="meal-menu-toolbar">
+        {!editorOpen && (
+          <button
+            type="button"
+            className="add-button meal-menu-add-button"
+            onClick={() => {
+              resetEditor()
+              setEditorOpen(true)
+            }}
+          >
+            Добавить приём пищи
+          </button>
+        )}
+      </div>
+
+      {!editingMealId && mealEditor}
       <div ref={mealListRef} className="meal-menu-list">
         <div className="meal-menu-list-heading">
           <h3>Сохранённые приёмы пищи</h3>
@@ -2625,6 +2653,7 @@ export function MealMenuView({
                 copyingMealId={copyingMealId}
                 actionsDisabled={Boolean(deletingMealId) || Boolean(copyingMealId) || editorOpen}
                 onToggle={toggleGroup}
+                onClose={() => setExpandedMealGroupKey(null)}
                 onSave={async (drafts) => {
                   await Promise.all(drafts.map((draft) => {
                     const items: SavedMealItem[] = draft.items.map(({
@@ -2637,7 +2666,6 @@ export function MealMenuView({
                     }))
                     return updateSavedMeal(draft.id, draft.name.trim(), items)
                   }))
-                  setExpandedMealGroupKey(null)
                 }}
                 onCopy={(meal) => void handleCopyMeal(meal, group.key)}
                 onDelete={(meal) => void handleDeleteMeal(meal, group.key)}
@@ -2646,6 +2674,10 @@ export function MealMenuView({
           }
 
           const meal = group.meals[0]
+          if (editingMealId === meal.id) {
+            return mealEditor
+          }
+
           return (
             <SavedMealCard
               key={group.key}
