@@ -33,9 +33,15 @@ const MONTHS = [
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const QUICK_NUTRITION_PERIOD_DAYS = [7, 14, 21, 28, 56] as const
+const VEGETARIAN_EXCLUDED_PRODUCT_CATEGORIES = new Set<SavedProduct['category']>([
+  'Мясо и мясные продукты',
+  'Рыба и морепродукты',
+  'Молочные продукты и яйца',
+])
+const VEGETARIAN_EXCLUDED_PRODUCT_NAME_PATTERN = /(?:^|[^\p{L}])(?:творожен\p{L}*|творог|рыбн\p{L}*|куриц\p{L}*|сыр\p{L}*)(?=$|[^\p{L}])/iu
 
 type QuickNutritionPeriodDays = typeof QUICK_NUTRITION_PERIOD_DAYS[number]
-type NutritionPeriodPreset = QuickNutritionPeriodDays | 'current-month'
+type NutritionPeriodPreset = QuickNutritionPeriodDays | 'current-month' | 'all-statistics'
 
 type StatisticsNumericTargetKey =
   | 'carbohydrates'
@@ -134,6 +140,7 @@ export function DiaryView() {
   const [activeMacroProductFilter, setActiveMacroProductFilter] = useState<MacroProductFilter | null>(null)
   const [macroProductSortDirection, setMacroProductSortDirection] = useState<'desc' | 'asc'>('desc')
   const [proteinBalanceSort, setProteinBalanceSort] = useState(false)
+  const [proteinVegetarianFilter, setProteinVegetarianFilter] = useState(false)
   const [statisticsTargetForm, setStatisticsTargetForm] = useState<StatisticsTargetForm>(
     () => statisticsTargetsToForm(profile?.diary_statistics_targets),
   )
@@ -234,9 +241,17 @@ export function DiaryView() {
 
     const calculatorProteins = macroCalculatorBalanceValues.proteins
     const calculatorFats = macroCalculatorBalanceValues.fats
-    const products = savedProducts.filter(
-      (product) => getSavedProductMacro(product, activeMacroProductFilter) > 0,
-    )
+    const products = savedProducts.filter((product) => (
+      getSavedProductMacro(product, activeMacroProductFilter) > 0
+      && !(
+        activeMacroProductFilter === 'proteins'
+        && proteinVegetarianFilter
+        && (
+          VEGETARIAN_EXCLUDED_PRODUCT_CATEGORIES.has(product.category)
+          || VEGETARIAN_EXCLUDED_PRODUCT_NAME_PATTERN.test(product.name)
+        )
+      )
+    ))
 
     if (
       activeMacroProductFilter === 'proteins'
@@ -273,6 +288,7 @@ export function DiaryView() {
     macroProductSortDirection,
     macroCalculatorBalanceValues,
     proteinBalanceSort,
+    proteinVegetarianFilter,
     savedProducts,
   ])
 
@@ -608,6 +624,20 @@ export function DiaryView() {
     setShowNutritionPeriod(false)
     const endDate = parseISODate(periodEnd)
     setVisibleMonth(new Date(endDate.getFullYear(), endDate.getMonth(), 1))
+  }
+
+  const selectAllNutritionStatistics = () => {
+    const periodStart = earliestDate && earliestDate <= actualToday
+      ? earliestDate
+      : actualToday
+    const currentDate = parseISODate(actualToday)
+
+    setNutritionPeriodPreset('all-statistics')
+    setNutritionPeriodFrom(periodStart)
+    setNutritionPeriodTo(actualToday)
+    setNutritionCalendarSelection('start')
+    setShowNutritionPeriod(false)
+    setVisibleMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
   }
 
   const selectDay = (day: number) => {
@@ -1276,7 +1306,9 @@ export function DiaryView() {
                 <div>
                   <h3 id="diary-nutrition-statistics-heading">Статистика за период</h3>
                   <p>
-                    Средние значения за сутки · {formatPeriodDate(nutritionPeriodFrom)} — {formatPeriodDate(nutritionPeriodTo)}
+                    Средние значения за сутки · <strong>{formatPeriodDate(nutritionPeriodFrom)}</strong>
+                    {' — '}
+                    <strong>{formatPeriodDate(nutritionPeriodTo)}</strong>
                   </p>
                 </div>
                 <div className="diary-nutrition-statistics-actions">
@@ -1292,6 +1324,10 @@ export function DiaryView() {
                     className="diary-nutrition-quick-period"
                     value={nutritionPeriodPreset ?? ''}
                     onChange={(event) => {
+                      if (event.target.value === 'all-statistics') {
+                        selectAllNutritionStatistics()
+                        return
+                      }
                       if (event.target.value === 'current-month') {
                         selectCurrentMonthNutritionPeriod()
                         return
@@ -1305,6 +1341,7 @@ export function DiaryView() {
                   >
                     <option value="">Период</option>
                     <option value="current-month">Текущий месяц</option>
+                    <option value="all-statistics">Вся статистика</option>
                     {QUICK_NUTRITION_PERIOD_DAYS.map((days) => (
                       <option key={days} value={days}>{formatDaysCount(days)}</option>
                     ))}
@@ -1556,18 +1593,29 @@ export function DiaryView() {
                             <div className="diary-macro-products-popover-head">
                               <strong>На 100 г</strong>
                               {item.productFilter === 'proteins' ? (
-                                <button
-                                  type="button"
-                                  className={proteinBalanceSort ? 'active' : undefined}
-                                  disabled={!proteinBalanceAvailable}
-                                  onClick={() => setProteinBalanceSort((active) => !active)}
-                                  aria-pressed={proteinBalanceSort}
-                                  title={proteinBalanceAvailable
-                                    ? 'Сортировать по соотношению белков и жиров из калькулятора КБЖУ'
-                                    : 'Введите белки и жиры в калькуляторе КБЖУ'}
-                                >
-                                  Калькулятор КБЖУ
-                                </button>
+                                <div className="diary-macro-products-popover-actions">
+                                  <button
+                                    type="button"
+                                    className={proteinVegetarianFilter ? 'active' : undefined}
+                                    onClick={() => setProteinVegetarianFilter((active) => !active)}
+                                    aria-pressed={proteinVegetarianFilter}
+                                    title="Исключить мясо, рыбу, молочные продукты и яйца"
+                                  >
+                                    Вег
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={proteinBalanceSort ? 'active' : undefined}
+                                    disabled={!proteinBalanceAvailable}
+                                    onClick={() => setProteinBalanceSort((active) => !active)}
+                                    aria-pressed={proteinBalanceSort}
+                                    title={proteinBalanceAvailable
+                                      ? 'Сортировать по соотношению белков и жиров из калькулятора КБЖУ'
+                                      : 'Введите белки и жиры в калькуляторе КБЖУ'}
+                                  >
+                                    Калькулятор КБЖУ
+                                  </button>
+                                </div>
                               ) : (
                                 <button
                                   type="button"
@@ -1582,7 +1630,9 @@ export function DiaryView() {
                               )}
                             </div>
                             {filteredSavedProducts.length === 0 ? (
-                              <p>Сохранённых продуктов нет</p>
+                              <p>{item.productFilter === 'proteins' && proteinVegetarianFilter
+                                ? 'Подходящих вег-продуктов нет'
+                                : 'Сохранённых продуктов нет'}</p>
                             ) : (
                               <ul>
                                 {filteredSavedProducts.map((product) => (

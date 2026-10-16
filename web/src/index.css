@@ -6122,6 +6122,14 @@ nav {
   font-size: 12px;
 }
 
+.diary-nutrition-statistics-head p strong {
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--moss) 15%, transparent);
+  color: var(--moss-deep);
+  font-weight: 800;
+}
+
 .diary-nutrition-statistics-days {
   justify-self: start;
   width: auto;
@@ -6549,6 +6557,14 @@ nav {
 .diary-macro-products-popover-head strong {
   color: var(--muted);
   font-size: 10px;
+}
+
+.diary-macro-products-popover-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .diary-macro-products-popover-head button {
