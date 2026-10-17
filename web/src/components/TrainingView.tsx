@@ -143,10 +143,18 @@ export function TrainingView() {
   const exercisesForPlannedCategory = plannedCategory
     ? savedExercises.filter((exercise) => exercise.category === plannedCategory)
     : []
-  const scheduledDates = useMemo(
-    () => new Set(scheduledExercises.map((exercise) => exercise.planned_on)),
-    [scheduledExercises],
-  )
+  const trainingDates = useMemo(() => {
+    const dates = new Map<string, { completed: boolean; planned: boolean }>()
+
+    scheduledExercises.forEach((exercise) => {
+      const status = dates.get(exercise.planned_on) ?? { completed: false, planned: false }
+      if (exercise.completed) status.completed = true
+      else status.planned = true
+      dates.set(exercise.planned_on, status)
+    })
+
+    return dates
+  }, [scheduledExercises])
   const firstWeekday = (visibleMonth.getDay() + 6) % 7
   const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate()
   const monthDays = Array.from({ length: daysInMonth }, (_, index) => index + 1)
@@ -375,9 +383,12 @@ export function TrainingView() {
               {Array.from({ length: firstWeekday }, (_, index) => <span key={`empty-${index}`} />)}
               {monthDays.map((day) => {
                 const date = localISODate(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day))
+                const trainingStatus = trainingDates.get(date)
                 const classes = [
                   'calendar-day',
-                  scheduledDates.has(date) ? 'has-training' : '',
+                  trainingStatus ? 'has-training' : '',
+                  trainingStatus?.planned ? 'has-planned-training' : '',
+                  trainingStatus?.completed ? 'has-completed-training' : '',
                   plannedDate === date ? 'selected' : '',
                   today === date ? 'today' : '',
                 ].filter(Boolean).join(' ')
@@ -388,7 +399,6 @@ export function TrainingView() {
                 )
               })}
             </div>
-            <p className="calendar-hint">Выделенные дни содержат запланированные тренировки.</p>
             <button
               type="button"
               className="primary compact training-statistics-toggle"

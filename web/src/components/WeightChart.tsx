@@ -36,6 +36,8 @@ const FORECAST_MONTHS = 12
 const MINIMUM_FORECAST_DAYS = 28
 const MONTHLY_TREND_RETENTION = 0.94
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
+const ALL_FILTER_POINT_GAP = 14
+const ALL_FILTER_MIN_WIDTH = 520
 
 function selectEvenlySpacedLogs(logs: WeightLog[], maximum = 7) {
   if (logs.length <= maximum) return logs
@@ -192,6 +194,7 @@ export function WeightChart({
   const [weekdayFilterEnabled, setWeekdayFilterEnabled] = useState(initialWeekdayFilterEnabled)
   const [monthFilterEnabled, setMonthFilterEnabled] = useState(initialMonthFilterEnabled)
   const [modelingEnabled, setModelingEnabled] = useState(false)
+  const [allFilterEnabled, setAllFilterEnabled] = useState(false)
   const [modelingError, setModelingError] = useState<string | null>(null)
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null)
   const chartGraphRef = useRef<HTMLDivElement>(null)
@@ -203,11 +206,13 @@ export function WeightChart({
     if (!forceAllPoints) return
     const frame = window.requestAnimationFrame(() => {
       if (chartGraphRef.current) {
-        chartGraphRef.current.scrollLeft = chartGraphRef.current.scrollWidth
+        chartGraphRef.current.scrollLeft = allFilterEnabled
+          ? 0
+          : chartGraphRef.current.scrollWidth
       }
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [forceAllPoints, logs, weekdayFilterEnabled, monthFilterEnabled, modelingEnabled, filterWeekday])
+  }, [allFilterEnabled, forceAllPoints, logs, weekdayFilterEnabled, monthFilterEnabled, modelingEnabled, filterWeekday])
 
   useEffect(() => {
     if (!fullscreen || forceAllPoints) return
@@ -276,8 +281,14 @@ export function WeightChart({
   const minValue = hasChartData ? Math.min(...allValues) : 0
   const maxValue = hasChartData ? Math.max(...allValues) : 1
   const range = maxValue - minValue || 1
+  const compactAllChartWidth = CHART_LEFT
+    + FULLSCREEN_FIRST_POINT_INSET
+    + CHART_RIGHT_PADDING
+    + Math.max(renderedPoints.length - 1, 0) * ALL_FILTER_POINT_GAP
   const chartWidth = forceAllPoints
-    ? Math.max(900, renderedPoints.length * (modelingEnabled ? 128 : 104))
+    ? allFilterEnabled
+      ? Math.max(ALL_FILTER_MIN_WIDTH, compactAllChartWidth)
+      : Math.max(900, renderedPoints.length * (modelingEnabled ? 128 : 104))
     : compactMobileChart
       ? 440
       : 600
@@ -288,8 +299,8 @@ export function WeightChart({
       : CHART_HEIGHT
   const chartPlotLeft = forceAllPoints ? CHART_LEFT + FULLSCREEN_FIRST_POINT_INSET : CHART_LEFT
   const chartRight = chartWidth - CHART_RIGHT_PADDING
-  const chartTop = 58
-  const chartBottom = modelingEnabled ? 48 : 34
+  const chartTop = allFilterEnabled ? 24 : 58
+  const chartBottom = modelingEnabled ? 48 : allFilterEnabled ? 42 : 34
   const graphHeight = chartHeight - chartTop - chartBottom
   const gridRatios = Array.from(
     { length: CHART_GRID_SECTIONS + 1 },
@@ -342,6 +353,7 @@ export function WeightChart({
                     if (nextEnabled) {
                       setMonthFilterEnabled(false)
                       setModelingEnabled(false)
+                      setAllFilterEnabled(false)
                     }
                     setModelingError(null)
                     setHoveredPoint(null)
@@ -360,6 +372,7 @@ export function WeightChart({
                       if (nextEnabled) {
                         setWeekdayFilterEnabled(false)
                         setModelingEnabled(false)
+                        setAllFilterEnabled(false)
                       }
                       setModelingError(null)
                       setHoveredPoint(null)
@@ -383,12 +396,33 @@ export function WeightChart({
                         setModelingEnabled(true)
                         setWeekdayFilterEnabled(false)
                         setMonthFilterEnabled(false)
+                        setAllFilterEnabled(false)
                         setModelingError(null)
                       }
                       setHoveredPoint(null)
                     }}
                   >
                     Моделирование
+                  </button>
+                )}
+                {forceAllPoints && (
+                  <button
+                    type="button"
+                    className={allFilterEnabled ? 'chart-filter-button active' : 'chart-filter-button'}
+                    aria-pressed={allFilterEnabled}
+                    onClick={() => {
+                      const nextEnabled = !allFilterEnabled
+                      setAllFilterEnabled(nextEnabled)
+                      if (nextEnabled) {
+                        setWeekdayFilterEnabled(false)
+                        setMonthFilterEnabled(false)
+                        setModelingEnabled(false)
+                      }
+                      setModelingError(null)
+                      setHoveredPoint(null)
+                    }}
+                  >
+                    all
                   </button>
                 )}
                 {forceAllPoints && onCloseFullscreen && (
@@ -407,11 +441,13 @@ export function WeightChart({
           <p className="chart-meta">
             {modelingEnabled
               ? <>Исторических записей: <strong>{filteredLogs.length}</strong> | Прогноз: <strong>{FORECAST_MONTHS} месяцев</strong></>
-              : <>{monthFilterEnabled
-              ? 'Записей по месяцам'
-              : weekdayFilterEnabled
-                ? `Записей ${selectedWeekday.recordsLabel}`
-                : 'Дней зафиксировано'}: <strong>{filteredLogs.length}</strong>
+              : <>{allFilterEnabled
+              ? 'Все записи'
+              : monthFilterEnabled
+                ? 'Записей по месяцам'
+                : weekdayFilterEnabled
+                  ? `Записей ${selectedWeekday.recordsLabel}`
+                  : 'Дней зафиксировано'}: <strong>{filteredLogs.length}</strong>
               </>}
             {forceAllPoints && <> | Прошло дней с первой записи: <strong>{totalDays}</strong></>}
             {!modelingEnabled && !fullscreen && renderedPoints.length < filteredLogs.length + (includeStartPoint ? 1 : 0) && ` | На графике: ${renderedPoints.length}`}
@@ -422,7 +458,7 @@ export function WeightChart({
         <div ref={chartGraphRef} className="chart-graph">
           {hasChartData ? (
             <div
-              className={forceAllPoints ? 'chart-canvas fullscreen' : 'chart-canvas'}
+              className={`${forceAllPoints ? 'chart-canvas fullscreen' : 'chart-canvas'}${allFilterEnabled ? ' all-points' : ''}`}
               style={forceAllPoints ? { width: `${chartWidth}px`, height: `${chartHeight}px` } : undefined}
             >
               {forceAllPoints && (
@@ -529,7 +565,7 @@ export function WeightChart({
                   key={`${point.label}-${point.date}`}
                   cx={x}
                   cy={y}
-                  r={isGoalReachedMonth ? 5 : point.label === 'Стартовый вес' ? 4 : 3}
+                  r={allFilterEnabled ? 2.5 : isGoalReachedMonth ? 5 : point.label === 'Стартовый вес' ? 4 : 3}
                   fill={point.label === 'Прогноз' ? 'var(--training-marker)' : 'var(--moss)'}
                   stroke={isGoalReachedMonth ? 'var(--surface)' : point.label === 'Стартовый вес' ? 'var(--chart-point-border)' : 'none'}
                   strokeWidth={isGoalReachedMonth ? 2 : 1}
@@ -542,7 +578,7 @@ export function WeightChart({
               )
             })}
 
-            {renderedPoints.map((point, index) => {
+            {!allFilterEnabled && renderedPoints.map((point, index) => {
               const { x, y } = pointPosition(point, index)
               const isGoalReachedMonth = point.label === 'Прогноз'
                 && index - historicalPoints.length === goalReachedForecastIndex
@@ -594,6 +630,29 @@ export function WeightChart({
                 </g>
               )
             })}
+
+            {allFilterEnabled && renderedPoints.length > 0 && (() => {
+              const firstPoint = renderedPoints[0]
+              const lastPoint = renderedPoints[renderedPoints.length - 1]
+              const singleDate = firstPoint.date === lastPoint.date
+              return (
+                <g className="chart-all-endpoint-dates" aria-hidden="true">
+                  <text
+                    x={singleDate ? (chartPlotLeft + chartRight) / 2 : chartPlotLeft}
+                    y={chartHeight - 11}
+                    textAnchor={singleDate ? 'middle' : 'start'}
+                    fill="var(--ink)"
+                  >
+                    {formatDate(firstPoint.date)}
+                  </text>
+                  {!singleDate && (
+                    <text x={chartRight} y={chartHeight - 11} textAnchor="end" fill="var(--ink)">
+                      {formatDate(lastPoint.date)}
+                    </text>
+                  )}
+                </g>
+              )
+            })()}
 
             <line x1={CHART_LEFT} y1={chartHeight - chartBottom} x2={chartRight} y2={chartHeight - chartBottom} stroke="var(--line)" strokeWidth="1" />
             {!forceAllPoints && (

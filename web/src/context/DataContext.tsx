@@ -50,6 +50,11 @@ import {
   normalizeTaskInvertedLogicHistory,
   recordTaskInvertedLogicChange,
 } from '../lib/task-inverted-logic-history'
+import {
+  databaseReadKeys,
+  invalidateDatabaseReads,
+  readDatabaseOnce,
+} from '../lib/database-read-cache'
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
@@ -204,6 +209,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const bibleCompletionPendingRef = useRef(new Set<string>())
   const nutritionReconciliationQueueRef = useRef<Promise<void>>(Promise.resolve())
   const nutritionCatchUpSignatureRef = useRef<string | null>(null)
+  const foodHistoryLogsRef = useRef<FoodLog[]>([])
   const bibleChaptersReadToday = bibleDailyReading.userId === (userId ?? null)
     && bibleDailyReading.date === bibleReadingDate
     ? bibleDailyReading.count
@@ -226,6 +232,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return
     }
     setLoading(true)
+    invalidateDatabaseReads(databaseReadKeys.userPrefix(userId))
     const client = requireSupabase()
     let responses
     try {
@@ -359,6 +366,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const normalizedFoodHistory = normalizeFoodLogs(foodHistoryRes.data ?? [])
     const profileToday = isoDateInTimeZone(nextProfile.time_zone)
     setFoodLogs(normalizedFoodHistory.filter((food) => food.logged_on === profileToday))
+    foodHistoryLogsRef.current = normalizedFoodHistory
     setFoodHistoryLogs(normalizedFoodHistory)
     setPathDayConfirmations((pathConfirmationsRes.data ?? []) as PathDayConfirmation[])
     setCourseLessonCompletions((courseLessonsRes.data ?? []) as CourseLessonCompletion[])
@@ -449,6 +457,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [profile?.time_zone, userId])
 
   useEffect(() => {
+    foodHistoryLogsRef.current = foodHistoryLogs
+  }, [foodHistoryLogs])
+
+  useEffect(() => {
     if (!userId || !profile) {
       const resetTimer = window.setTimeout(() => {
         setBibleDailyReading({ userId: null, date: bibleReadingDate, count: 0 })
@@ -507,20 +519,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!user || !profile) return null
 
     const client = requireSupabase()
-    const historyResult = await client
-      .from('calorie_norm_history')
-      .select('*')
-      .eq('user_id', user.id)
-      .lte('effective_on', loggedOn)
-      .order('effective_on', { ascending: false })
+    const historyLookup = await readDatabaseOnce(
+      databaseReadKeys.calorieNormHistory(user.id),
+      async () => {
+        const historyResult = await client
+          .from('calorie_norm_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('effective_on', { ascending: false })
 
-    if (historyResult.error && !isCalorieNormHistoryMissing(historyResult.error)) {
-      throw historyResult.error
-    }
+        if (historyResult.error && !isCalorieNormHistoryMissing(historyResult.error)) {
+          throw historyResult.error
+        }
 
-    const historyRows = historyResult.error
-      ? []
-      : historyResult.data as CalorieNormHistoryRow[]
+        return {
+          available: historyResult.error == null,
+          rows: historyResult.error
+            ? []
+            : historyResult.data as CalorieNormHistoryRow[],
+        }
+      },
+    )
+    const historyRows = historyLookup.rows.filter((row) => row.effective_on <= loggedOn)
     const history = historyRows[0] ?? null
     const dailyOverride = historyRows.find((row) => (
       row.effective_on === loggedOn
@@ -549,7 +569,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       : profile
     const dailyCaloriesNorm = getCalorieAdaptation(normProfile, weightLogs, loggedOn).effectiveNorm
 
-    if (!history && !historyResult.error && currentNormAppliesToDate) {
+    if (!history && historyLookup.available && currentNormAppliesToDate) {
       const fallbackEffectiveOn = profile.calorie_adaptation_baseline_on
         && profile.calorie_adaptation_baseline_on <= loggedOn
         ? profile.calorie_adaptation_baseline_on
@@ -568,6 +588,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           { onConflict: 'user_id,effective_on', ignoreDuplicates: true },
         )
       if (snapshotError && !isCalorieNormHistoryMissing(snapshotError)) throw snapshotError
+      if (!snapshotError) {
+        invalidateDatabaseReads(databaseReadKeys.calorieNormHistory(user.id))
+      }
     }
 
     return dailyCaloriesNorm
@@ -598,13 +621,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         })
         if (dailyCaloriesNorm === null) return
 
-        const { data: dayFoodLogs, error: dayFoodError } = await client
-          .from('daily_food_logs')
-          .select('weight_grams,calories_per_100g')
-          .eq('user_id', user.id)
-          .eq('logged_on', loggedOn)
-        if (dayFoodError) throw dayFoodError
-        const totalCalories = (dayFoodLogs ?? []).reduce(
+        const dayFoodLogs = foodHistoryLogsRef.current.filter((food) => food.logged_on === loggedOn)
+        const totalCalories = dayFoodLogs.reduce(
           (sum, log) => sum + (Number(log.weight_grams) / 100) * Number(log.calories_per_100g),
           0,
         )
@@ -740,6 +758,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       throw saveError
     }
 
+    invalidateDatabaseReads(databaseReadKeys.calorieNormHistory(user.id))
     await reconcileNutritionTaskDate(loggedOn, { allowLegacyNormFallback: true })
   }, [adminMode, isAdmin, profile, reconcileNutritionTaskDate, user])
 
@@ -1189,6 +1208,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
         if (updError) throw updError
+        invalidateDatabaseReads(databaseReadKeys.calorieNormHistory(user.id))
         setProfile(data as Profile)
       },
       async saveCalorieAdaptationEnabled(enabled) {
@@ -1200,6 +1220,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
         if (updError) throw updError
+        invalidateDatabaseReads(databaseReadKeys.calorieNormHistory(user.id))
         setProfile(data as Profile)
       },
       async saveDesiredWeight(desired) {
@@ -1453,23 +1474,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setProfile(data as Profile)
       },
       async getBibleChapter(bookOrder, chapter, includeTorahPortions = false) {
-        const { data, error: selectError } = await requireSupabase()
-          .from(includeTorahPortions ? 'bible_verses_with_torah_markers' : 'bible_verses')
-          .select('*')
-          .eq('book_order', bookOrder)
-          .eq('chapter', chapter)
-          .order('verse')
-        if (selectError) throw selectError
-        return (data ?? []) as BibleVerse[]
+        return readDatabaseOnce(databaseReadKeys.bibleChapter(
+          bookOrder,
+          chapter,
+          includeTorahPortions,
+        ), async () => {
+          const { data, error: selectError } = await requireSupabase()
+            .from(includeTorahPortions ? 'bible_verses_with_torah_markers' : 'bible_verses')
+            .select('*')
+            .eq('book_order', bookOrder)
+            .eq('chapter', chapter)
+            .order('verse')
+          if (selectError) throw selectError
+          return (data ?? []) as BibleVerse[]
+        })
       },
       async getTorahPortions(bookOrder) {
-        const { data, error: selectError } = await requireSupabase()
-          .from('torah_portions')
-          .select('id, portion_number, name_en, name_he, name_ru, book_order, book_code, start_chapter, start_verse, end_chapter, end_verse')
-          .eq('book_order', bookOrder)
-          .order('portion_number')
-        if (selectError) throw selectError
-        return (data ?? []) as TorahPortion[]
+        return readDatabaseOnce(databaseReadKeys.torahPortions(bookOrder), async () => {
+          const { data, error: selectError } = await requireSupabase()
+            .from('torah_portions')
+            .select('id, portion_number, name_en, name_he, name_ru, book_order, book_code, start_chapter, start_verse, end_chapter, end_verse')
+            .eq('book_order', bookOrder)
+            .order('portion_number')
+          if (selectError) throw selectError
+          return (data ?? []) as TorahPortion[]
+        })
       },
       async confirmPathDay(day, cycleStartedOn) {
         if (!user) return
@@ -1593,8 +1622,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
         if (insError) throw insError
-        setFoodLogs((prev) => [...prev, data as FoodLog])
-        setFoodHistoryLogs((prev) => [...prev, data as FoodLog])
+        const insertedFood = data as FoodLog
+        setFoodLogs((prev) => [...prev, insertedFood])
+        const nextHistoryLogs = [...foodHistoryLogsRef.current, insertedFood]
+        foodHistoryLogsRef.current = nextHistoryLogs
+        setFoodHistoryLogs(nextHistoryLogs)
       },
       async logFoodOnDate(loggedOn, productName, weightGrams, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
         if (!user || !isAdmin || !adminMode) {
@@ -1619,7 +1651,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (insError) throw insError
         const insertedFood = data as FoodLog
-        const nextHistoryLogs = [...foodHistoryLogs, insertedFood]
+        const nextHistoryLogs = [...foodHistoryLogsRef.current, insertedFood]
+        foodHistoryLogsRef.current = nextHistoryLogs
         setFoodHistoryLogs(nextHistoryLogs)
         await reconcileNutritionTaskDate(loggedOn, { allowLegacyNormFallback: true })
       },
@@ -1637,8 +1670,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (updError) throw updError
         const updatedFood = data as FoodLog
-        const nextHistoryLogs = foodHistoryLogs.map((food) => food.id === id ? updatedFood : food)
+        const nextHistoryLogs = foodHistoryLogsRef.current.map((food) => food.id === id ? updatedFood : food)
         setFoodLogs((previous) => previous.map((food) => food.id === id ? updatedFood : food))
+        foodHistoryLogsRef.current = nextHistoryLogs
         setFoodHistoryLogs(nextHistoryLogs)
         await reconcileNutritionTaskDate(updatedFood.logged_on, { allowLegacyNormFallback: true })
       },
@@ -1655,14 +1689,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (updError) throw updError
         const updatedFood = data as FoodLog
-        const nextHistoryLogs = foodHistoryLogs.map((food) => food.id === id ? updatedFood : food)
+        const nextHistoryLogs = foodHistoryLogsRef.current.map((food) => food.id === id ? updatedFood : food)
         setFoodLogs((previous) => previous.map((food) => food.id === id ? updatedFood : food))
+        foodHistoryLogsRef.current = nextHistoryLogs
         setFoodHistoryLogs(nextHistoryLogs)
         await reconcileNutritionTaskDate(updatedFood.logged_on, { allowLegacyNormFallback: true })
       },
       async deleteFoodLog(id) {
         if (!user) return
-        const deletedFood = foodHistoryLogs.find((food) => food.id === id)
+        const deletedFood = foodHistoryLogsRef.current.find((food) => food.id === id)
         const { error: delError } = await requireSupabase()
           .from('daily_food_logs')
           .delete()
@@ -1670,7 +1705,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .eq('user_id', user.id)
         if (delError) throw delError
         setFoodLogs((prev) => prev.filter((f) => f.id !== id))
-        const nextHistoryLogs = foodHistoryLogs.filter((food) => food.id !== id)
+        const nextHistoryLogs = foodHistoryLogsRef.current.filter((food) => food.id !== id)
+        foodHistoryLogsRef.current = nextHistoryLogs
         setFoodHistoryLogs(nextHistoryLogs)
         if (deletedFood) {
           await reconcileNutritionTaskDate(deletedFood.logged_on, { allowLegacyNormFallback: true })

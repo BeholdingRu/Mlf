@@ -16,17 +16,10 @@ import { daysInclusive, isoDateInTimeZone, millisecondsUntilNextDayInTimeZone, p
 import type { BibleBookmark, BibleVerse, Profile, TorahPortion } from '../lib/types'
 import { BibleBookmarkColorPalette } from './BibleBookmarkColorPalette'
 import { BibleGrowthVine } from './BibleGrowthVine'
+import { databaseReadKeys, getCachedDatabaseRead } from '../lib/database-read-cache'
 
 const TORAH_RUSSIAN_PLAYLIST_URL = 'https://youtube.com/playlist?list=PLV034aDASG5T4OizaEyJyzlZV_K8tGZnv&si=1oZmv97ixhOJszK9'
 const BIBLE_TREE_TEST_DATE_STORAGE_KEY = 'mlf:bible-tree-test-date'
-const chapterCache = new Map<string, BibleVerse[]>()
-const pendingChapters = new Map<string, Promise<BibleVerse[]>>()
-const torahPortionsCache = new Map<number, TorahPortion[]>()
-
-function getChapterKey(bookOrder: number, chapterNumber: number, includeTorahPortions: boolean) {
-  return `${includeTorahPortions ? 'annual' : 'plain'}:${bookOrder}:${chapterNumber}`
-}
-
 function getPortionColorStyle(portionNumber?: number | null): CSSProperties {
   const hue = portionNumber ? Math.round(((portionNumber - 1) * 137.508) % 360) : 120
   return { '--portion-color': `hsl(${hue} 62% 45%)` } as CSSProperties
@@ -279,21 +272,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   }, [requestedNavigation])
 
   const loadChapter = useCallback((bookOrder: number, chapterNumber: number) => {
-    const key = getChapterKey(bookOrder, chapterNumber, includeTorahPortions)
-    const cached = chapterCache.get(key)
-    if (cached) return Promise.resolve(cached)
-
-    const pending = pendingChapters.get(key)
-    if (pending) return pending
-
-    const request = getBibleChapter(bookOrder, chapterNumber, includeTorahPortions)
-      .then((result) => {
-        chapterCache.set(key, result)
-        return result
-      })
-      .finally(() => pendingChapters.delete(key))
-    pendingChapters.set(key, request)
-    return request
+    return getBibleChapter(bookOrder, chapterNumber, includeTorahPortions)
   }, [getBibleChapter, includeTorahPortions])
 
   useEffect(() => {
@@ -327,12 +306,9 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   useEffect(() => {
     if (!includeTorahPortions || !book || book.order > 5) return
 
-    const cached = torahPortionsCache.get(book.order)
     let cancelled = false
-    const request = cached ? Promise.resolve(cached) : getTorahPortions(book.order)
-    request
+    getTorahPortions(book.order)
       .then((portions) => {
-        torahPortionsCache.set(book.order, portions)
         if (!cancelled) setLoadedTorahPortions({ bookOrder: book.order, portions })
       })
       .catch(() => undefined)
@@ -384,7 +360,11 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
     setActiveVerseMenu(null)
     setBookmarkFormVerse(null)
     setVerses(savedChapter
-      ? chapterCache.get(getChapterKey(nextBook.order, savedChapter, includeTorahPortions)) ?? []
+      ? getCachedDatabaseRead<BibleVerse[]>(databaseReadKeys.bibleChapter(
+          nextBook.order,
+          savedChapter,
+          includeTorahPortions,
+        )) ?? []
       : [])
     setError(null)
   }
@@ -411,7 +391,11 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
     trackBibleChapter(book!.order, nextChapter)
     setChapter(nextChapter)
     setChapterListOpen(false)
-    const cached = chapterCache.get(getChapterKey(book!.order, nextChapter, includeTorahPortions))
+    const cached = getCachedDatabaseRead<BibleVerse[]>(databaseReadKeys.bibleChapter(
+      book!.order,
+      nextChapter,
+      includeTorahPortions,
+    ))
     setVerses(cached ?? [])
     setError(null)
     void saveBibleReadingPosition(book!.order, nextChapter)

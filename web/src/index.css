@@ -1903,6 +1903,19 @@ nav {
   margin: 6px 0;
 }
 
+.chart-canvas.fullscreen.all-points {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.chart-all-endpoint-dates {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
 .chart-y-axis-sticky {
   position: sticky;
   left: 0;
@@ -7101,6 +7114,48 @@ nav {
 
 .diary-calendar .calendar-day.has-training {
   border-color: var(--training-marker);
+}
+
+.training-planner .calendar-day.has-training {
+  --calendar-training-marker: color-mix(in srgb, var(--training-marker) 45%, var(--ink));
+  position: relative;
+  border-color: var(--calendar-training-marker);
+  font-weight: 800;
+}
+
+.training-planner .calendar-day.has-training::after {
+  content: '';
+  position: absolute;
+  z-index: 3;
+  top: -4px;
+  right: -2px;
+  display: grid;
+  width: 9px;
+  height: 9px;
+  place-items: center;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--calendar-training-marker);
+  box-shadow:
+    0 0 0 1px var(--calendar-training-marker),
+    0 1px 4px color-mix(in srgb, var(--ink) 48%, transparent);
+  color: var(--surface);
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.training-planner .calendar-day.has-completed-training::after {
+  content: '✓';
+  width: 13px;
+  height: 13px;
+  border-width: 1px;
+}
+
+.training-planner .calendar-day.has-completed-training.has-planned-training::after {
+  background: linear-gradient(135deg, var(--calendar-training-marker) 0 54%, var(--done-ink) 54% 100%);
 }
 
 .calendar-day.today {

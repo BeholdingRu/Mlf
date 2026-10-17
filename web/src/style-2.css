@@ -786,6 +786,10 @@
   opacity: 1;
 }
 
+:root[data-interface-style='style-2'] .task-row > .habit .habit-meta {
+  padding-right: 28px;
+}
+
 :root[data-interface-style='style-2'] .task-row.inverted-failed {
   border-color: color-mix(in srgb, var(--future-danger) 48%, var(--line));
   background: color-mix(in srgb, var(--future-danger) 9%, var(--surface));
