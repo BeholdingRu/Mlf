@@ -15,6 +15,17 @@ export function getRegularTaskProgress(
     completions
       .filter((completion) => (
         completion.task_id === task.id
+        && completion.progress_neutral !== true
+        && completion.completed_on >= createdOn
+        && completion.completed_on <= today
+      ))
+      .map((completion) => completion.completed_on),
+  )
+  const neutralDates = new Set(
+    completions
+      .filter((completion) => (
+        completion.task_id === task.id
+        && completion.progress_neutral === true
         && completion.completed_on >= createdOn
         && completion.completed_on <= today
       ))
@@ -44,7 +55,9 @@ export function getRegularTaskProgress(
       historyIndex += 1
     }
     const marked = completedDates.has(date)
-    if (invertedOnDate) {
+    if (neutralDates.has(date)) {
+      // A neutral day neither advances nor reduces task progress.
+    } else if (invertedOnDate) {
       if (marked) {
         missedDays += 1
         missedDates.push(date)
@@ -117,6 +130,7 @@ export function getCountdownTaskProgress(
     completions
       .filter((completion) => (
         completion.task_id === task.id
+        && completion.progress_neutral !== true
         && completion.completed_on >= startedOn
         && completion.completed_on <= endsOn
         && completion.completed_on <= today

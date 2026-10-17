@@ -473,6 +473,7 @@ create table if not exists public.task_completions (
   task_id uuid not null references public.tasks (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
   completed_on date not null,
+  progress_neutral boolean not null default false,
   unique (task_id, completed_on)
 );
 

@@ -456,7 +456,9 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 testToday,
               )
               const doneToday = completions.some(
-                (c) => c.task_id === task.id && c.completed_on === taskToday,
+                (c) => c.task_id === task.id
+                  && c.completed_on === taskToday
+                  && c.progress_neutral !== true,
               )
               const countdownProgress = task.countdown_enabled
                 ? getCountdownTaskProgress(task, completions, testToday, profile?.time_zone)

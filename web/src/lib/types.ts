@@ -127,6 +127,7 @@ export type TaskCompletion = {
   task_id: string
   user_id: string
   completed_on: string
+  progress_neutral?: boolean
 }
 
 export type WeightLog = {

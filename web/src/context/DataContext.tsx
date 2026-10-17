@@ -627,7 +627,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
           0,
         )
 
-        if (totalCalories <= dailyCaloriesNorm) {
+        if (totalCalories <= dailyCaloriesNorm * 1.5) {
+          const progressNeutral = totalCalories > dailyCaloriesNorm
           const results = await Promise.all(
             nutritionTasks.map((task) =>
               client
@@ -637,6 +638,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
                     task_id: task.id,
                     user_id: user.id,
                     completed_on: loggedOn,
+                    progress_neutral: progressNeutral,
                   },
                   { onConflict: 'task_id,completed_on' },
                 )
@@ -645,7 +647,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             ),
           )
           const failedResult = results.find((result) => result.error)
-          if (failedResult?.error) throw failedResult.error
+          if (failedResult?.error) {
+            if (
+              failedResult.error.code === 'PGRST204'
+              || failedResult.error.code === '42703'
+              || failedResult.error.message?.includes('progress_neutral')
+            ) {
+              throw new Error('Выполните файл add_task_completion_neutral.sql в Supabase')
+            }
+            throw failedResult.error
+          }
 
           const automaticCompletions = results.map((result) => result.data as TaskCompletion)
           const automaticTaskIds = new Set(automaticCompletions.map((completion) => completion.task_id))
