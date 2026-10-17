@@ -1237,6 +1237,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (updError) throw updError
         setProfile(data as Profile)
       },
+      async saveInterfaceStyle(interfaceStyle) {
+        if (!user || !profile) return
+        const { data, error: updError } = await requireSupabase()
+          .from('profiles')
+          .update({ interface_style: interfaceStyle })
+          .eq('id', user.id)
+          .select('*')
+          .single()
+        if (updError) throw updError
+        setProfile(data as Profile)
+      },
       async saveFontScale(fontScale) {
         if (!user || !profile) return
         const { data, error: updError } = await requireSupabase()

@@ -5,6 +5,7 @@ import type { MindfulnessNote, PathDay } from '../lib/types'
 import type { BibleNavigationTarget } from '../lib/bible-books'
 import { BibleView } from './BibleView'
 import { BibleBookmarksView, BookmarkIcon } from './BibleBookmarksView'
+import { FluidSubtabIndicator } from './FluidSubtabIndicator'
 
 type PathSubTab = 'bible' | 'bookmarks' | 'sh' | 'shalom-school' | 'mindfulness-practicum'
 
@@ -404,6 +405,7 @@ export function PathView({ bibleNavigationRequest }: { bibleNavigationRequest?: 
   return (
     <section className="path-view">
       <nav className="calories-tabs" aria-label="Разделы Пути">
+        <FluidSubtabIndicator activeKey={subTab} />
         {SUB_TABS.map((tab) => (
           <button
             key={tab.id}

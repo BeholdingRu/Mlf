@@ -4,6 +4,7 @@ import { MealMenuView, MealPlannerView } from './MealMenuView'
 import { ProductsView } from './ProductsView'
 import { DEFAULT_PRODUCT_CATEGORY, PRODUCT_CATEGORIES, type ProductCategory } from '../lib/product-categories'
 import { getCalorieAdaptation } from '../lib/calorie-adaptation'
+import { FluidSubtabIndicator } from './FluidSubtabIndicator'
 
 type CaloriesSubTab = 'consumption' | 'products' | 'planner' | 'menu'
 
@@ -393,6 +394,7 @@ export function CaloriesView() {
   return (
     <div className="calories-view calorie-accounting-view">
       <nav className="calories-tabs">
+        <FluidSubtabIndicator activeKey={subTab} />
         <button
           type="button"
           className={subTab === 'consumption' ? 'calories-tab active' : 'calories-tab'}

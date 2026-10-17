@@ -6,6 +6,7 @@ export const themes = [
   { id: 'dark-nord', name: 'Мокко', colors: ['#1e1e2e', '#cba6f7', '#94e2d5'] },
   { id: 'dark-dracula', name: 'Ночной Токио', colors: ['#1a1b26', '#7aa2f7', '#bb9af7'] },
   { id: 'dark-gruvbox', name: 'Ретро', colors: ['#1d2021', '#fabd2f', '#8ec07c'] },
+  { id: 'k-p', name: 'k-p', colors: ['#050611', '#ff2bd6', '#00f6ff'] },
 ] as const
 
 export type ThemeId = (typeof themes)[number]['id']
@@ -23,6 +24,10 @@ export type AppliedThemeId = ThemeId | ShabbatThemeId
 
 const storageKey = 'mlf-theme'
 const fontScaleStorageKey = 'mlf-font-scale'
+const interfaceStyleStorageKey = 'mlf-interface-style'
+
+export const interfaceStyles = ['default', 'style-1', 'style-2'] as const
+export type InterfaceStyleId = (typeof interfaceStyles)[number]
 
 export const fontScales = [0.9, 1, 1.1, 1.2] as const
 export type FontScale = (typeof fontScales)[number]
@@ -53,6 +58,29 @@ export function applyTheme(theme: AppliedThemeId) {
 
 export function applySavedTheme() {
   applyTheme(getSavedTheme())
+}
+
+export function normalizeInterfaceStyle(value: string | null | undefined): InterfaceStyleId {
+  return interfaceStyles.includes(value as InterfaceStyleId) ? value as InterfaceStyleId : 'default'
+}
+
+export function getSavedInterfaceStyle(): InterfaceStyleId {
+  if (typeof window === 'undefined') return 'default'
+
+  return normalizeInterfaceStyle(window.localStorage.getItem(interfaceStyleStorageKey))
+}
+
+export function applyInterfaceStyle(style: InterfaceStyleId) {
+  if (style === 'default') {
+    delete document.documentElement.dataset.interfaceStyle
+  } else {
+    document.documentElement.dataset.interfaceStyle = style
+  }
+  window.localStorage.setItem(interfaceStyleStorageKey, style)
+}
+
+export function applySavedInterfaceStyle() {
+  applyInterfaceStyle(getSavedInterfaceStyle())
 }
 
 export function normalizeFontScale(value: number | string | null | undefined): FontScale {

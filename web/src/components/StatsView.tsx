@@ -5,6 +5,7 @@ import { useData } from '../hooks/useData'
 import { localISODate, percent } from '../lib/dates'
 import { getCountdownTaskProgress, getRegularTaskProgress, russianDays } from '../lib/task-progress'
 import type { WeightLog } from '../lib/types'
+import { FluidSubtabIndicator } from './FluidSubtabIndicator'
 import {
   WEIGHT_CHART_WEEKDAYS,
   type WeightChartWeekday,
@@ -176,6 +177,7 @@ export function StatsView() {
   return (
     <section className="stats-view">
       <nav className="daily-tasks-tabs" aria-label="Разделы статистики">
+        <FluidSubtabIndicator activeKey={subTab} />
         <button
           type="button"
           className={subTab === 'overview' ? 'daily-tasks-tab statistics-tab active' : 'daily-tasks-tab statistics-tab'}

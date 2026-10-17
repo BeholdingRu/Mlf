@@ -3,6 +3,7 @@ import { useData } from '../hooks/useData'
 import { localISODate, parseISODate } from '../lib/dates'
 import type { ExerciseCategory, ExerciseType, SavedExercise, ScheduledExercise } from '../lib/types'
 import { ExerciseStatistics } from './ExerciseStatistics'
+import { FluidSubtabIndicator } from './FluidSubtabIndicator'
 
 type TrainingSubTab = 'workouts' | 'schedule' | 'exercises'
 
@@ -294,6 +295,7 @@ export function TrainingView() {
   return (
     <div className="calories-view">
       <nav className="calories-tabs" aria-label="Разделы тренировок">
+        <FluidSubtabIndicator activeKey={subTab} />
         {primarySubTabs.map((tab) => (
           <button
             key={tab.id}

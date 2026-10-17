@@ -10,7 +10,15 @@ import { PathView } from '../components/PathView'
 import { useData } from '../hooks/useData'
 import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
-import { applyFontScale, applyTheme, normalizeFontScale, normalizeShabbatTheme, normalizeTheme } from '../lib/theme'
+import {
+  applyFontScale,
+  applyInterfaceStyle,
+  applyTheme,
+  normalizeFontScale,
+  normalizeInterfaceStyle,
+  normalizeShabbatTheme,
+  normalizeTheme,
+} from '../lib/theme'
 import { isShabbatActive } from '../lib/shabbat'
 import { isoDateInTimeZone, localISODate } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
@@ -67,6 +75,7 @@ export function CabinetPage() {
   useEffect(() => {
     if (!profile) return
     applyTheme(isShabbatActive(profile, currentTime) ? normalizeShabbatTheme(profile.shabbat_theme) : normalizeTheme(profile.theme))
+    applyInterfaceStyle(normalizeInterfaceStyle(profile.interface_style))
     applyFontScale(normalizeFontScale(profile.font_scale))
   }, [profile, currentTime])
 

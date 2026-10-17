@@ -14,6 +14,7 @@ import { isBibleReadingTask } from '../lib/bible-books'
 import { compareRegularTasksForDisplay } from '../lib/daily-task-order'
 import { NegativeHabitsPinForm } from './NegativeHabitsPinForm'
 import { DefaultTaskSettings } from './DefaultTaskSettings'
+import { FluidSubtabIndicator } from './FluidSubtabIndicator'
 
 type DailyTasksSubTab = 'list' | 'manage'
 
@@ -372,6 +373,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   return (
     <section className="daily-tasks-view">
       <nav className="daily-tasks-tabs" aria-label="Разделы ежедневных задач">
+        <FluidSubtabIndicator activeKey={subTab} />
         <button
           type="button"
           className={subTab === 'list' ? 'daily-tasks-tab active' : 'daily-tasks-tab'}

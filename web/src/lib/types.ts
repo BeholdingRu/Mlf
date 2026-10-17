@@ -1,4 +1,4 @@
-import type { ShabbatThemeId, ThemeId } from './theme'
+import type { InterfaceStyleId, ShabbatThemeId, ThemeId } from './theme'
 
 export type DiaryStatisticsTargets = {
   proteins?: number
@@ -25,6 +25,7 @@ export type Profile = {
   calorie_adaptation_baseline_weight: number | null
   calorie_adaptation_baseline_on: string | null
   theme: ThemeId
+  interface_style: InterfaceStyleId
   font_scale: number
   time_zone: string | null
   city_name: string | null

@@ -1,0 +1,949 @@
+/* Style 1: retro control-panel layout, independent from the color scheme. */
+
+:root[data-interface-style='style-1'] {
+  --radius: 4px;
+  --sans: 'Cascadia Mono', Consolas, 'Lucida Console', 'Courier New', monospace;
+  --serif: 'Cascadia Mono', Consolas, 'Lucida Console', 'Courier New', monospace;
+  --shadow: 5px 5px 0 color-mix(in srgb, var(--paper) 35%, #000 65%),
+    inset 0 0 0 1px color-mix(in srgb, var(--ink) 6%, transparent);
+  --retro-black: color-mix(in srgb, var(--paper) 72%, #000 28%);
+  --retro-case: color-mix(in srgb, var(--panel) 88%, var(--ink) 12%);
+  --retro-case-light: color-mix(in srgb, var(--line) 82%, var(--ink) 18%);
+  --retro-amber: var(--moss);
+  --retro-green: var(--leaf);
+  --retro-red: var(--warn);
+  --retro-grid: color-mix(in srgb, var(--leaf) 7%, transparent);
+}
+
+:root[data-interface-style='style-1'] .cabinet {
+  isolation: isolate;
+  grid-template-columns: 318px minmax(0, 1fr);
+  background:
+    radial-gradient(circle at 78% 4%, color-mix(in srgb, var(--retro-amber) 12%, transparent), transparent 28%),
+    linear-gradient(var(--retro-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--retro-grid) 1px, transparent 1px),
+    var(--paper);
+  background-size: auto, 28px 28px, 28px 28px, auto;
+  color: var(--ink);
+  font-family: var(--sans);
+  letter-spacing: 0.01em;
+}
+
+:root[data-interface-style='style-1'] .cabinet::after {
+  content: '';
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.018) 0,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    radial-gradient(circle at center, transparent 54%, rgba(0, 0, 0, 0.22) 100%);
+  mix-blend-mode: screen;
+}
+
+:root[data-interface-style='style-1'] .cabinet ::selection {
+  background: var(--retro-amber);
+  color: var(--on-accent);
+}
+
+/* Cabinet frame and navigation console */
+:root[data-interface-style='style-1'] .cabinet .sidebar {
+  position: relative;
+  padding: 22px 20px;
+  border: 0;
+  border-right: 3px double var(--retro-case-light);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025), transparent 15%, transparent 85%, rgba(0, 0, 0, 0.35)),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.016) 0 2px, transparent 2px 7px),
+    var(--sidebar);
+  box-shadow: 8px 0 0 rgba(0, 0, 0, 0.28), inset -8px 0 18px rgba(0, 0, 0, 0.32);
+}
+
+:root[data-interface-style='style-1'] .cabinet .sidebar-content {
+  gap: 22px;
+}
+
+:root[data-interface-style='style-1'] .cabinet .sidebar-content::before {
+  content: '';
+  display: block;
+  height: 8px;
+  border: 1px solid var(--retro-amber);
+  border-left-width: 5px;
+  background: repeating-linear-gradient(90deg, var(--retro-amber) 0 18px, transparent 18px 25px);
+  box-shadow: 3px 3px 0 var(--retro-black), inset 0 0 14px color-mix(in srgb, var(--retro-amber) 5%, transparent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+:root[data-interface-style='style-1'] .cabinet .weight-btn {
+  position: relative;
+  padding: 16px 15px 14px;
+  border: 2px solid var(--retro-case-light);
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: inset 0 0 20px color-mix(in srgb, var(--retro-green) 6.5%, transparent), 4px 4px 0 var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .cabinet .weight-btn::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--done-ink);
+  border-radius: 50%;
+  background: var(--retro-green);
+  box-shadow: 0 0 9px var(--retro-green);
+}
+
+:root[data-interface-style='style-1'] .cabinet .weight-label {
+  color: var(--retro-green);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+
+:root[data-interface-style='style-1'] .cabinet .weight-values,
+:root[data-interface-style='style-1'] .cabinet .daily-norm-value,
+:root[data-interface-style='style-1'] .cabinet .info-item .value,
+:root[data-interface-style='style-1'] .cabinet .consumption-summary-item strong {
+  color: var(--retro-amber);
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--retro-amber) 22%, transparent);
+}
+
+:root[data-interface-style='style-1'] .cabinet .sidebar nav {
+  gap: 9px;
+  padding-top: 12px;
+  border-top: 1px solid var(--retro-case-light);
+}
+
+:root[data-interface-style='style-1'] .cabinet .nav-item {
+  position: relative;
+  min-height: 46px;
+  padding: 11px 13px 10px 35px;
+  border: 1px solid var(--retro-case-light);
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--surface-muted), var(--panel));
+  box-shadow: 3px 3px 0 var(--retro-black), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  transition: border-color 120ms ease, color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+:root[data-interface-style='style-1'] .cabinet .nav-item::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-disabled);
+  box-shadow: inset 0 0 4px var(--retro-black);
+  transform: translateY(-50%);
+}
+
+:root[data-interface-style='style-1'] .cabinet .nav-item:hover {
+  border-color: var(--retro-amber);
+  color: var(--retro-amber);
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .cabinet .nav-item.active {
+  border-color: var(--retro-amber);
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--retro-amber) 7%, transparent) 0 1px, transparent 1px 7px),
+    var(--info-bg);
+  color: var(--retro-amber);
+  box-shadow: 3px 3px 0 var(--retro-black), inset 4px 0 0 var(--retro-amber);
+}
+
+:root[data-interface-style='style-1'] .cabinet .nav-item.active::before {
+  border-color: var(--done-ink);
+  background: var(--retro-green);
+  box-shadow: 0 0 10px var(--retro-green);
+}
+
+:root[data-interface-style='style-1'] .cabinet .nav-label-alert {
+  color: var(--retro-red);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--retro-red) 38%, transparent);
+}
+
+/* Workspace and typography */
+:root[data-interface-style='style-1'] .cabinet .main {
+  position: relative;
+  padding: 30px 38px 60px;
+  scrollbar-color: var(--retro-amber) var(--sidebar);
+  scrollbar-width: thin;
+}
+
+:root[data-interface-style='style-1'] .cabinet .main::-webkit-scrollbar,
+:root[data-interface-style='style-1'] .cabinet :is(.modal, .modal-content, .exercise-statistics-table-wrap)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+:root[data-interface-style='style-1'] .cabinet .main::-webkit-scrollbar-track,
+:root[data-interface-style='style-1'] .cabinet :is(.modal, .modal-content, .exercise-statistics-table-wrap)::-webkit-scrollbar-track {
+  background: var(--sidebar);
+  border-left: 1px solid var(--line);
+}
+
+:root[data-interface-style='style-1'] .cabinet .main::-webkit-scrollbar-thumb,
+:root[data-interface-style='style-1'] .cabinet :is(.modal, .modal-content, .exercise-statistics-table-wrap)::-webkit-scrollbar-thumb {
+  border: 2px solid var(--sidebar);
+  border-radius: 0;
+  background: var(--retro-amber);
+}
+
+:root[data-interface-style='style-1'] .cabinet h1,
+:root[data-interface-style='style-1'] .cabinet h2,
+:root[data-interface-style='style-1'] .cabinet h3,
+:root[data-interface-style='style-1'] .cabinet h4 {
+  font-family: var(--serif);
+  font-weight: 800;
+  letter-spacing: 0.045em;
+}
+
+:root[data-interface-style='style-1'] .cabinet .topbar {
+  position: relative;
+  min-height: 68px;
+  margin: 0 0 28px;
+  padding: 12px 168px 12px 18px;
+  border: 2px solid var(--retro-case-light);
+  border-left: 7px solid var(--retro-amber);
+  border-radius: 2px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-amber) 7.5%, transparent), transparent 35%),
+    var(--panel);
+  box-shadow: 5px 5px 0 var(--retro-black), inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
+
+:root[data-interface-style='style-1'] .cabinet .topbar::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  width: 72px;
+  height: 8px;
+  padding: 0;
+  border: 1px solid var(--retro-green);
+  background: repeating-linear-gradient(90deg, var(--retro-green) 0 9px, transparent 9px 14px);
+  box-shadow: inset 0 0 9px color-mix(in srgb, var(--retro-green) 10%, transparent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  transform: translateY(-50%);
+}
+
+:root[data-interface-style='style-1'] .cabinet .topbar h1 {
+  color: var(--retro-amber);
+  font-size: clamp(22px, 2.35vw, 34px);
+  line-height: 1.05;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .cabinet .path-heading-quote {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-style: normal;
+}
+
+/* Controls: physical keys and recessed terminal fields */
+:root[data-interface-style='style-1'] .cabinet :is(
+  .primary,
+  .ghost,
+  .danger,
+  .add-button,
+  .edit-button,
+  .copy-button,
+  .delete-button,
+  .calendar-nav,
+  .chart-filter-button,
+  .chart-fullscreen-button,
+  .meal-menu-shopping-toggle,
+  .meal-menu-plan-picker-trigger,
+  .diary-statistics-filter-button,
+  .diary-statistics-settings-button,
+  .bible-continue-button
+) {
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--retro-amber);
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--surface-muted), var(--panel));
+  box-shadow: 3px 3px 0 var(--retro-black), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  color: var(--retro-amber);
+  font-family: var(--sans);
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  transition: background 110ms ease, color 110ms ease, transform 110ms ease, box-shadow 110ms ease;
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(
+  .primary,
+  .ghost,
+  .add-button,
+  .edit-button,
+  .copy-button,
+  .calendar-nav,
+  .chart-filter-button,
+  .chart-fullscreen-button,
+  .meal-menu-shopping-toggle,
+  .meal-menu-plan-picker-trigger,
+  .diary-statistics-filter-button,
+  .diary-statistics-settings-button,
+  .bible-continue-button
+):hover:not(:disabled) {
+  background: var(--retro-amber);
+  color: var(--on-accent);
+  box-shadow: 1px 1px 0 var(--retro-black), inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  transform: translate(2px, 2px);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.danger, .delete-button) {
+  border-color: var(--retro-red);
+  color: var(--retro-red);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.danger, .delete-button):hover:not(:disabled) {
+  background: var(--retro-red);
+  color: var(--on-accent);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--retro-green);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px var(--retro-black), 0 0 0 4px color-mix(in srgb, var(--retro-green) 38%, transparent);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(
+  input[type='email'],
+  input[type='password'],
+  input[type='number'],
+  input[type='text'],
+  input[type='date'],
+  input[type='time'],
+  input:not([type]),
+  select,
+  textarea
+) {
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--paper);
+  box-shadow: inset 3px 3px 0 rgba(0, 0, 0, 0.54), inset 0 0 12px color-mix(in srgb, var(--retro-green) 2.5%, transparent);
+  color: var(--ink);
+  font-family: var(--sans);
+  caret-color: var(--retro-green);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(input, textarea)::placeholder {
+  color: var(--muted);
+}
+
+:root[data-interface-style='style-1'] .cabinet input[type='checkbox'],
+:root[data-interface-style='style-1'] .cabinet input[type='radio'] {
+  accent-color: var(--retro-green);
+}
+
+:root[data-interface-style='style-1'] .cabinet label,
+:root[data-interface-style='style-1'] .cabinet legend,
+:root[data-interface-style='style-1'] .cabinet .label {
+  letter-spacing: 0.025em;
+}
+
+/* Switch banks replace the regular underline tabs. */
+:root[data-interface-style='style-1'] .cabinet :is(.daily-tasks-tabs, .calories-tabs) {
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--retro-case-light);
+  border-bottom-width: 1px;
+  background: var(--sidebar);
+  box-shadow: inset 0 0 0 1px var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.daily-tasks-tab, .calories-tab) {
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 1px;
+  background: linear-gradient(180deg, var(--surface-muted), var(--panel));
+  box-shadow: 2px 2px 0 var(--retro-black);
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.daily-tasks-tab, .calories-tab):hover {
+  border-color: var(--retro-amber);
+  color: var(--retro-amber);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.daily-tasks-tab, .calories-tab).active {
+  border-color: var(--retro-amber);
+  background: var(--info-bg);
+  box-shadow: inset 0 -4px 0 var(--retro-amber), 2px 2px 0 var(--retro-black);
+  color: var(--retro-amber);
+}
+
+/* Instrument panels, cards and content blocks */
+:root[data-interface-style='style-1'] .cabinet :is(
+  .task-row,
+  .task-group,
+  .default-task-card,
+  .calories-header,
+  .info-item,
+  .food-form,
+  .food-item,
+  .meal-menu-plan-controls,
+  .meal-menu-editor,
+  .meal-menu-card,
+  .meal-menu-day-plan,
+  .schedule-common-block,
+  .exercise-group,
+  .exercise-statistics,
+  .saved-exercise-option,
+  .diary-calendar,
+  .diary-data-section,
+  .diary-nutrition-statistics,
+  .diary-macro-calculator,
+  .stats-test-weight-panel,
+  .withdrawal-test-date,
+  .settings-choice-block,
+  .path-sh-card,
+  .bible-bookmark-filters,
+  .weight-chart
+) {
+  border-radius: 3px;
+  border-color: var(--retro-case-light);
+  background-color: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(
+  .task-row,
+  .default-task-card,
+  .calories-header,
+  .food-form,
+  .meal-menu-plan-controls,
+  .meal-menu-editor,
+  .meal-menu-card,
+  .schedule-common-block,
+  .exercise-statistics,
+  .diary-data-section,
+  .diary-nutrition-statistics,
+  .diary-macro-calculator,
+  .path-sh-card
+) {
+  border-left: 5px solid var(--retro-amber);
+}
+
+:root[data-interface-style='style-1'] .cabinet .task-row {
+  position: relative;
+  min-height: 82px;
+  padding: 15px 17px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-amber) 4.5%, transparent), transparent 28%),
+    var(--surface);
+}
+
+:root[data-interface-style='style-1'] .cabinet .task-row::after {
+  content: '';
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--line);
+  box-shadow: 0 0 0 1px var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .cabinet .task-row.done {
+  border-color: var(--done-line);
+  border-left-color: var(--retro-green);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-green) 10%, transparent), transparent 34%),
+    var(--done);
+}
+
+:root[data-interface-style='style-1'] .cabinet .task-row.done::after {
+  background: var(--retro-green);
+  box-shadow: 0 0 8px var(--retro-green);
+}
+
+:root[data-interface-style='style-1'] .cabinet .task-row.inverted-failed {
+  border-left-color: var(--retro-red);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--retro-red) 10%, transparent), transparent 34%), var(--surface);
+}
+
+:root[data-interface-style='style-1'] .cabinet .check {
+  border: 2px solid var(--retro-green);
+  border-radius: 1px;
+  background: var(--paper);
+  box-shadow: inset 0 0 9px color-mix(in srgb, var(--retro-green) 6%, transparent), 2px 2px 0 var(--retro-black);
+  color: var(--retro-green);
+}
+
+:root[data-interface-style='style-1'] .cabinet .task-row.done .check {
+  background: var(--retro-green);
+  color: var(--on-accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--retro-green) 24%, transparent), 2px 2px 0 var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .cabinet .info-item {
+  position: relative;
+  min-height: 122px;
+  padding: 16px;
+  border-top: 4px solid var(--retro-amber);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--retro-amber) 5.5%, transparent), transparent 42%),
+    var(--panel);
+}
+
+:root[data-interface-style='style-1'] .cabinet .info-item > .label {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.habit-track, .weight-progress) {
+  overflow: hidden;
+  border: 1px solid var(--retro-case-light);
+  border-radius: 1px;
+  background:
+    repeating-linear-gradient(90deg, var(--sidebar) 0 10px, var(--surface-disabled) 10px 12px);
+  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.habit-fill, .weight-progress-fill) {
+  background:
+    repeating-linear-gradient(90deg, var(--retro-green) 0 10px, var(--done-line) 10px 12px);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--retro-green) 22%, transparent);
+}
+
+/* Calendar matrix */
+:root[data-interface-style='style-1'] .cabinet .diary-calendar {
+  padding: 18px;
+  border: 2px solid var(--retro-case-light);
+  background:
+    linear-gradient(color-mix(in srgb, var(--retro-green) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-green) 2.5%, transparent) 1px, transparent 1px),
+    var(--sidebar);
+  background-size: 16px 16px;
+}
+
+:root[data-interface-style='style-1'] .cabinet .calendar-head {
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--retro-case-light);
+}
+
+:root[data-interface-style='style-1'] .cabinet .calendar-head h2 {
+  color: var(--retro-amber);
+  font-family: var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+:root[data-interface-style='style-1'] .cabinet .calendar-grid {
+  gap: 6px;
+}
+
+:root[data-interface-style='style-1'] .cabinet .calendar-weekday {
+  color: var(--retro-green);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+:root[data-interface-style='style-1'] .cabinet .calendar-day {
+  border: 1px solid var(--line);
+  border-radius: 1px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--retro-black), 2px 2px 0 rgba(0, 0, 0, 0.42);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-interface-style='style-1'] .cabinet .calendar-day:hover {
+  border-color: var(--retro-amber);
+  background: var(--info-bg);
+  color: var(--retro-amber);
+}
+
+:root[data-interface-style='style-1'] .cabinet .calendar-day.today {
+  border: 2px double var(--retro-green);
+  color: var(--retro-green);
+}
+
+:root[data-interface-style='style-1'] .cabinet .calendar-day.selected {
+  border-color: var(--retro-amber);
+  background: var(--retro-amber);
+  box-shadow: inset 0 0 0 2px var(--training-marker), 3px 3px 0 var(--retro-black);
+  color: var(--on-accent);
+}
+
+:root[data-interface-style='style-1'] .cabinet .calendar-day.has-food:not(.selected),
+:root[data-interface-style='style-1'] .cabinet .calendar-day.has-meal-plan:not(.selected) {
+  border-color: var(--retro-green);
+  background: var(--done);
+  color: var(--retro-green);
+}
+
+/* Dense ledger tables */
+:root[data-interface-style='style-1'] .cabinet :is(
+  .exercise-statistics-table-wrap,
+  .meal-menu-table-wrap,
+  .meal-menu-shopping-table-wrap,
+  .diary-period-details-table-wrap
+) {
+  border: 2px solid var(--retro-case-light);
+  border-radius: 1px;
+  background: var(--paper);
+  box-shadow: 4px 4px 0 var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .cabinet table {
+  border-collapse: collapse;
+  background: var(--sidebar);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-interface-style='style-1'] .cabinet table :is(th, td) {
+  border-color: var(--line);
+}
+
+:root[data-interface-style='style-1'] .cabinet table thead th {
+  border-bottom: 2px solid var(--retro-amber);
+  background:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--retro-amber) 6%, transparent) 0 2px, transparent 2px 7px),
+    var(--info-bg);
+  color: var(--retro-amber);
+  font-size: 11px;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+:root[data-interface-style='style-1'] .cabinet table tbody tr:nth-child(even) > * {
+  background-color: color-mix(in srgb, var(--retro-green) 2.8%, transparent);
+}
+
+:root[data-interface-style='style-1'] .cabinet table tbody tr:hover > * {
+  background-color: color-mix(in srgb, var(--retro-amber) 7.5%, transparent);
+}
+
+/* Charts become graph-paper instruments. */
+:root[data-interface-style='style-1'] .cabinet :is(.chart-graph, .chart-canvas) {
+  border: 1px solid var(--retro-case-light);
+  border-radius: 1px;
+  background:
+    linear-gradient(color-mix(in srgb, var(--retro-green) 5.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-green) 5.5%, transparent) 1px, transparent 1px),
+    var(--paper);
+  background-size: 20px 20px;
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.44);
+}
+
+:root[data-interface-style='style-1'] .cabinet .chart-title {
+  color: var(--retro-amber);
+  font-family: var(--sans);
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+:root[data-interface-style='style-1'] .cabinet .chart-tooltip {
+  border: 1px solid var(--retro-green);
+  border-radius: 1px;
+  background: var(--retro-black);
+  box-shadow: 4px 4px 0 var(--retro-black), 0 0 12px color-mix(in srgb, var(--retro-green) 12%, transparent);
+  color: var(--retro-green);
+  font-family: var(--sans);
+}
+
+/* Dialogs: hardware window frame, shared by both modal implementations. */
+:root[data-interface-style='style-1'] .cabinet :is(.modal-backdrop, .modal-overlay, .chart-fullscreen-backdrop) {
+  background:
+    repeating-linear-gradient(180deg, color-mix(in srgb, var(--retro-green) 1.8%, transparent) 0 1px, transparent 1px 4px),
+    var(--overlay);
+  backdrop-filter: blur(2px);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.modal, .modal-content, .weight-chart-fullscreen) {
+  border: 3px double var(--retro-amber);
+  border-radius: 2px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--retro-amber) 5.5%, transparent), transparent 18%),
+    linear-gradient(var(--retro-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--retro-grid) 1px, transparent 1px),
+    var(--panel);
+  background-size: auto, 22px 22px, 22px 22px, auto;
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.72), inset 0 0 0 1px var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.modal-head, .meal-menu-shopping-modal-head) {
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--retro-case-light);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.modal-head, .meal-menu-shopping-modal-head) h2,
+:root[data-interface-style='style-1'] .cabinet .modal-content > h3 {
+  color: var(--retro-amber);
+  text-transform: uppercase;
+}
+
+:root[data-interface-style='style-1'] .cabinet .icon-close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--retro-red);
+  border-radius: 1px;
+  background: var(--warn-bg);
+  box-shadow: 2px 2px 0 var(--retro-black);
+  color: var(--retro-red);
+  font-family: var(--sans);
+  font-size: 22px;
+}
+
+:root[data-interface-style='style-1'] .cabinet .icon-close:hover {
+  background: var(--retro-red);
+  color: var(--on-accent);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.popover, .nutrition-task-info, .calorie-adaptation-info, .diary-macro-products-popover, .meal-menu-plan-picker-options) {
+  border: 2px solid var(--retro-case-light);
+  border-radius: 1px;
+  background: var(--sidebar);
+  box-shadow: 5px 5px 0 var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.banner.info, .meal-menu-plan-notice) {
+  border: 1px solid var(--retro-green);
+  border-radius: 1px;
+  background: var(--info-bg);
+  color: var(--retro-green);
+}
+
+:root[data-interface-style='style-1'] .cabinet :is(.banner.error, .meal-menu-error) {
+  border: 1px solid var(--retro-red);
+  border-radius: 1px;
+  background: var(--warn-bg);
+  color: var(--retro-red);
+}
+
+:root[data-interface-style='style-1'] .interface-style-option {
+  border-width: 2px;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--ink) 2%, transparent) 0 2px, transparent 2px 7px),
+    var(--surface);
+  box-shadow: 3px 3px 0 var(--retro-black);
+}
+
+:root[data-interface-style='style-1'] .interface-style-option.active {
+  border-color: var(--retro-amber);
+  background: color-mix(in srgb, var(--info-bg) 88%, var(--retro-amber) 12%);
+  box-shadow: 3px 3px 0 var(--retro-black), inset 4px 0 0 var(--retro-amber);
+}
+
+:root[data-interface-style='style-1'] .interface-style-option :is(strong, small) {
+  font-family: var(--sans);
+  letter-spacing: 0.035em;
+}
+
+/* Retain the project's responsive layouts while simplifying the console frame. */
+@media (max-width: 1024px) {
+  :root[data-interface-style='style-1'] .cabinet {
+    grid-template-columns: 1fr;
+    min-height: 100vh;
+    height: auto;
+    overflow: visible;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .sidebar {
+    border-right: 0;
+    border-bottom: 3px double var(--retro-case-light);
+    box-shadow: 0 7px 0 rgba(0, 0, 0, 0.28);
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .main {
+    padding: 24px 24px 48px;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .topbar {
+    padding-right: 168px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root[data-interface-style='style-1'] .cabinet::after {
+    opacity: 0.42;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .sidebar {
+    padding: 12px;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .sidebar-content::before {
+    content: '';
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .mobile-sidebar-toggle {
+    border: 1px solid var(--retro-amber);
+    border-radius: 1px;
+    background: var(--panel);
+    box-shadow: 3px 3px 0 var(--retro-black);
+    color: var(--retro-amber);
+    font-family: var(--sans);
+    text-transform: uppercase;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .main {
+    padding: 18px 12px 38px;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .topbar {
+    min-height: 62px;
+    padding: 11px 52px 11px 13px;
+    border-left-width: 5px;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .topbar::after {
+    content: '';
+    right: 51px;
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--retro-green);
+    box-shadow: 0 0 8px var(--retro-green);
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .topbar h1 {
+    font-size: 20px;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet :is(.daily-tasks-tabs, .calories-tabs) {
+    gap: 4px;
+    padding: 4px;
+    overflow-x: auto;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet :is(.daily-tasks-tab, .calories-tab) {
+    flex: 0 0 auto;
+    padding: 9px 11px;
+    font-size: 10px;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet :is(
+    .task-row,
+    .calories-header,
+    .food-form,
+    .meal-menu-plan-controls,
+    .meal-menu-editor,
+    .meal-menu-card,
+    .exercise-statistics,
+    .diary-data-section,
+    .diary-nutrition-statistics,
+    .diary-macro-calculator
+  ) {
+    border-left-width: 3px;
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.62), inset 0 0 0 1px color-mix(in srgb, var(--ink) 4%, transparent);
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .diary-calendar {
+    padding: 10px;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .calendar-grid {
+    gap: 3px;
+  }
+
+  :root[data-interface-style='style-1'] .cabinet .calendar-day {
+    box-shadow: inset 0 0 0 1px var(--retro-black);
+  }
+
+  :root[data-interface-style='style-1'] .cabinet :is(.modal, .modal-content, .weight-chart-fullscreen) {
+    border-width: 2px;
+    box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.72), inset 0 0 0 1px var(--retro-black);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-interface-style='style-1'] .cabinet *,
+  :root[data-interface-style='style-1'] .cabinet *::before,
+  :root[data-interface-style='style-1'] .cabinet *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  :root[data-interface-style='style-1'] .cabinet::after {
+    display: none;
+  }
+
+  :root[data-interface-style='style-1'] body.meal-menu-shopping-print-active.meal-menu-shopping-print-monochrome .cabinet {
+    --ink: #000;
+    --muted: #000;
+    --paper: #fff;
+    --panel: #fff;
+    --line: #000;
+    --moss: #000;
+    --moss-deep: #000;
+    --leaf: #000;
+    --surface: #fff;
+    --surface-muted: #fff;
+    --retro-black: #000;
+    --retro-amber: #000;
+    --retro-green: #000;
+    --retro-grid: transparent;
+  }
+
+  :root[data-interface-style='style-1'] body.meal-menu-shopping-print-active .cabinet :is(
+    .meal-menu-shopping-overlay,
+    .modal-content.meal-menu-shopping-modal,
+    .meal-menu-shopping-table-wrap
+  ) {
+    background: var(--panel);
+    box-shadow: none;
+  }
+}
+
+@media (forced-colors: active) {
+  :root[data-interface-style='style-1'] *,
+  :root[data-interface-style='style-1'] *::before,
+  :root[data-interface-style='style-1'] *::after {
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+}

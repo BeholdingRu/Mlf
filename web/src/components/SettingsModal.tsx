@@ -4,16 +4,20 @@ import { useAuth } from '../hooks/useAuth'
 import { getAuthErrorMessage } from '../lib/auth-errors'
 import {
   applyFontScale,
+  applyInterfaceStyle,
   applyTheme,
   fontScales,
   getSavedFontScale,
+  getSavedInterfaceStyle,
   getSavedTheme,
   normalizeFontScale,
+  normalizeInterfaceStyle,
   normalizeShabbatTheme,
   normalizeTheme,
   shabbatThemes,
   themes,
   type FontScale,
+  type InterfaceStyleId,
   type ShabbatThemeId,
   type ThemeId,
 } from '../lib/theme'
@@ -33,6 +37,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     saveAnnualCycleEnabled,
     saveShabbatTheme,
     saveTheme,
+    saveInterfaceStyle,
     saveNegativeHabitsSecurity,
     isAdmin,
     adminMode,
@@ -61,6 +66,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   )
   const [fontScale, setFontScale] = useState<FontScale>(() =>
     profile ? normalizeFontScale(profile.font_scale) : getSavedFontScale(),
+  )
+  const [interfaceStyle, setInterfaceStyle] = useState<InterfaceStyleId>(() =>
+    profile ? normalizeInterfaceStyle(profile.interface_style) : getSavedInterfaceStyle(),
   )
   const [timeZone, setTimeZone] = useState(profile?.time_zone ?? 'Europe/Moscow')
   const [cityName, setCityName] = useState(profile?.city_name ?? '')
@@ -96,6 +104,26 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       setTheme(previousTheme)
       applyTheme(previousTheme)
       setError(err instanceof Error ? err.message : 'Не удалось сохранить тему')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function selectInterfaceStyle(nextStyle: InterfaceStyleId) {
+    if (nextStyle === interfaceStyle || busy) return
+    const previousStyle = profile
+      ? normalizeInterfaceStyle(profile.interface_style)
+      : getSavedInterfaceStyle()
+    setInterfaceStyle(nextStyle)
+    applyInterfaceStyle(nextStyle)
+    setBusy(true)
+    setError(null)
+    try {
+      await saveInterfaceStyle(nextStyle)
+    } catch (err) {
+      setInterfaceStyle(previousStyle)
+      applyInterfaceStyle(previousStyle)
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить стиль интерфейса')
     } finally {
       setBusy(false)
     }
@@ -294,6 +322,33 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     <span>{option.name}</span>
                   </button>
                 ))}
+              </div>
+
+              <div className="interface-style-setting">
+                <h4>Стиль интерфейса</h4>
+                <p className="hint">Меняет шрифты, форму панелей и оформление элементов независимо от выбранной цветовой схемы.</p>
+                <div className="interface-style-options" role="group" aria-label="Стиль интерфейса">
+                  {([
+                    ['style-1', 'Стиль 1', 'Ретро-пульт и моноширинная типографика'],
+                    ['style-2', 'Стиль 2', 'Пространственный интерфейс будущего'],
+                  ] as const).map(([styleId, label, description]) => (
+                    <label
+                      key={styleId}
+                      className={`interface-style-option${interfaceStyle === styleId ? ' active' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={interfaceStyle === styleId}
+                        disabled={busy}
+                        onChange={(event) => selectInterfaceStyle(event.target.checked ? styleId : 'default')}
+                      />
+                      <span>
+                        <strong>{label}</strong>
+                        <small>{description}</small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="font-scale-setting">

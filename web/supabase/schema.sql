@@ -27,6 +27,8 @@ create table if not exists public.profiles (
     check (calorie_adaptation_baseline_weight > 0),
   calorie_adaptation_baseline_on date,
   theme text not null default 'green',
+  interface_style text not null default 'default'
+    check (interface_style in ('default', 'style-1', 'style-2')),
   font_scale numeric(3, 2) not null default 1 check (font_scale in (0.9, 1, 1.1, 1.2)),
   time_zone text,
   city_name text,
@@ -203,6 +205,15 @@ on conflict (user_id) do update set role = excluded.role;
 
 alter table public.profiles
   add column if not exists theme text not null default 'green';
+
+alter table public.profiles
+  add column if not exists interface_style text not null default 'default';
+
+alter table public.profiles
+  drop constraint if exists profiles_interface_style_check;
+alter table public.profiles
+  add constraint profiles_interface_style_check
+  check (interface_style in ('default', 'style-1', 'style-2'));
 
 alter table public.profiles
   add column if not exists font_scale numeric(3, 2) not null default 1

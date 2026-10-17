@@ -243,6 +243,36 @@
   --overlay: rgba(0, 0, 0, 0.72);
 }
 
+:root[data-theme='k-p'] {
+  color-scheme: dark;
+  --ink: #eafcff;
+  --muted: #91a7bc;
+  --paper: #04050d;
+  --panel: #0b0d1b;
+  --line: #26344e;
+  --moss: #ff2bd6;
+  --moss-deep: #00f6ff;
+  --leaf: #54ff9f;
+  --done: #092a2b;
+  --done-ink: #8dffd0;
+  --warn: #ff536e;
+  --warn-bg: #310d22;
+  --info-bg: #10152b;
+  --training-marker: #ffe659;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.52);
+  --body-glow: #16144a;
+  --body-top: #050611;
+  --sidebar: #070916;
+  --surface: #0e1222;
+  --surface-muted: #12182b;
+  --surface-disabled: #20263a;
+  --track: #222b43;
+  --progress-track: #151a2d;
+  --done-line: #168f72;
+  --on-accent: #050611;
+  --overlay: rgba(1, 2, 9, 0.88);
+}
+
 :root[data-theme='shabbat-dawn'] {
   --ink: #fff3c6;
   --muted: #e4c777;
@@ -7016,7 +7046,8 @@ nav {
   font-weight: 700;
 }
 
-.calendar-day.has-missed-task {
+.calendar-day.has-missed-task,
+.calendar-day.has-moderate-calorie-overrun {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -7035,19 +7066,36 @@ nav {
   pointer-events: none;
 }
 
-.calendar-day.has-missed-task > * {
+.calendar-day.has-moderate-calorie-overrun::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 1px;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, transparent 0 31%, #050505 31% 36%, transparent 36% 64%, #050505 64% 69%, transparent 69% 100%),
+    linear-gradient(0deg, transparent 0 31%, color-mix(in srgb, var(--leaf) 50%, #d7cf28) 31% 36%, transparent 36% 64%, color-mix(in srgb, var(--leaf) 50%, #d7cf28) 64% 69%, transparent 69% 100%);
+  box-shadow: inset 0 0 0 3px #050505, inset 0 0 0 4px color-mix(in srgb, var(--leaf) 50%, #d7cf28);
+  pointer-events: none;
+}
+
+.calendar-day.has-missed-task > *,
+.calendar-day.has-moderate-calorie-overrun > * {
   position: relative;
   z-index: 1;
 }
 
-.calendar-day.has-missed-task > span:first-child {
+.calendar-day.has-missed-task > span:first-child,
+.calendar-day.has-moderate-calorie-overrun > span:first-child {
   padding: 2px 4px;
   border-radius: 5px;
   background: var(--done);
 }
 
 .calendar-day.has-missed-task.selected > span:first-child,
-.calendar-day.has-missed-task.selected .calendar-sunset {
+.calendar-day.has-missed-task.selected .calendar-sunset,
+.calendar-day.has-moderate-calorie-overrun.selected > span:first-child,
+.calendar-day.has-moderate-calorie-overrun.selected .calendar-sunset {
   background: var(--moss);
 }
 
@@ -7105,7 +7153,8 @@ nav {
   border-radius: 9px;
 }
 
-.calendar-day.has-missed-task.nutrition-period-range {
+.calendar-day.has-missed-task.nutrition-period-range,
+.calendar-day.has-moderate-calorie-overrun.nutrition-period-range {
   overflow: visible;
 }
 
@@ -8208,6 +8257,75 @@ nav {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
+}
+
+.interface-style-setting {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.interface-style-setting h4,
+.interface-style-setting p {
+  margin: 0;
+}
+
+.interface-style-setting h4 {
+  font-size: 15px;
+}
+
+.interface-style-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.settings-block .interface-style-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.settings-block .interface-style-option.active {
+  border-color: var(--moss);
+  background: var(--info-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--moss) 20%, transparent);
+}
+
+.settings-block .interface-style-option input {
+  flex: 0 0 auto;
+  margin: 3px 0 0;
+  accent-color: var(--moss);
+}
+
+.settings-block .interface-style-option > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.settings-block .interface-style-option strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.settings-block .interface-style-option small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.settings-block .interface-style-option:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .font-scale-setting {

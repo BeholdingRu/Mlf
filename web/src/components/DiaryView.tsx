@@ -193,6 +193,9 @@ export function DiaryView() {
   const [adminCalorieNormLoading, setAdminCalorieNormLoading] = useState(false)
   const [adminCalorieNormSaving, setAdminCalorieNormSaving] = useState(false)
   const [adminCalorieNormError, setAdminCalorieNormError] = useState<string | null>(null)
+  const [datesWithModerateCalorieOverrun, setDatesWithModerateCalorieOverrun] = useState<Set<string>>(
+    () => new Set(),
+  )
 
   useEffect(() => {
     if (!showMonthSummary && !showNutritionPeriodDetails) return
@@ -549,6 +552,67 @@ export function DiaryView() {
   const monthDays = Array.from({ length: daysInMonth }, (_, index) => index + 1)
   const statisticsMonthStart = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), 1))
   const statisticsMonthEnd = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), daysInMonth))
+  useEffect(() => {
+    let cancelled = false
+    const missedDates = [...datesWithMissedTasks].filter((date) => (
+      date >= statisticsMonthStart
+      && date <= statisticsMonthEnd
+      && date < actualToday
+    ))
+
+    if (missedDates.length === 0) {
+      const clearDatesTimer = window.setTimeout(() => {
+        if (!cancelled) setDatesWithModerateCalorieOverrun(new Set())
+      }, 0)
+      return () => {
+        cancelled = true
+        window.clearTimeout(clearDatesTimer)
+      }
+    }
+
+    const missedDateSet = new Set(missedDates)
+    const caloriesByDate = new Map<string, number>()
+    foodHistoryLogs.forEach((food) => {
+      if (!missedDateSet.has(food.logged_on)) return
+      const calories = (food.weight_grams / 100) * food.calories_per_100g
+      caloriesByDate.set(food.logged_on, (caloriesByDate.get(food.logged_on) ?? 0) + calories)
+    })
+
+    const loadModerateOverruns = async () => {
+      const results = await Promise.all(missedDates.map(async (date) => {
+        try {
+          const calorieNorm = await getCalorieNormOnDate(date)
+          const totalCalories = caloriesByDate.get(date) ?? 0
+          return calorieNorm !== null
+            && calorieNorm > 0
+            && totalCalories > calorieNorm
+            && totalCalories <= calorieNorm * 1.5
+            ? date
+            : null
+        } catch {
+          return null
+        }
+      }))
+
+      if (!cancelled) {
+        setDatesWithModerateCalorieOverrun(new Set(
+          results.filter((date): date is string => date !== null),
+        ))
+      }
+    }
+
+    void loadModerateOverruns()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    actualToday,
+    datesWithMissedTasks,
+    foodHistoryLogs,
+    getCalorieNormOnDate,
+    statisticsMonthEnd,
+    statisticsMonthStart,
+  ])
   const monthSummary = (() => {
     const monthFoodLogs = foodHistoryLogs.filter(
       (food) => food.logged_on >= statisticsMonthStart && food.logged_on <= statisticsMonthEnd,
@@ -980,10 +1044,13 @@ export function DiaryView() {
               const sunsetTime = profile && isFriday && profile.time_zone && profile.city_latitude !== null && profile.city_longitude !== null
                 ? getSunsetTime(iso, profile.city_latitude, profile.city_longitude, profile.time_zone)
                 : null
+              const hasModerateCalorieOverrun = datesWithModerateCalorieOverrun.has(iso)
               const classes = [
                 'calendar-day',
                 datesWithRecords.has(iso) ? 'has-food' : '',
-                datesWithMissedTasks.has(iso) ? 'has-missed-task' : '',
+                hasModerateCalorieOverrun
+                  ? 'has-moderate-calorie-overrun'
+                  : datesWithMissedTasks.has(iso) ? 'has-missed-task' : '',
                 datesWithTraining.has(iso) ? 'has-training' : '',
                 activeSelectedDate === iso ? 'selected' : '',
                 today === iso ? 'today' : '',
