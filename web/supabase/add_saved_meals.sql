@@ -1,4 +1,4 @@
--- Run once in the Supabase SQL editor to store reusable meals.
+-- Run (or rerun after an application update) in the Supabase SQL editor.
 -- Each JSON item keeps the saved product id and its weight; nutrition stays live in saved_products.
 create table if not exists public.saved_meals (
   id uuid primary key default gen_random_uuid(),
@@ -39,8 +39,12 @@ create table if not exists public.saved_meal_plans (
     jsonb_typeof(saved_meal_ids) = 'array'
     and jsonb_array_length(saved_meal_ids) between 1 and 100
   ),
+  detached_group_signature text,
   created_at timestamptz not null default now()
 );
+
+alter table public.saved_meal_plans
+  add column if not exists detached_group_signature text;
 
 create index if not exists saved_meal_plans_user_date_idx
   on public.saved_meal_plans (user_id, planned_on, created_at);
@@ -54,3 +58,79 @@ create policy "saved_meal_plans_all_own" on public.saved_meal_plans
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Replaces and removes planner rows in one transaction. This prevents a
+-- temporary network failure from leaving duplicated or partially regrouped plans.
+drop function if exists public.sync_saved_meal_plans(jsonb, uuid[]);
+create function public.sync_saved_meal_plans(
+  replacement_rows jsonb default '[]'::jsonb,
+  removed_ids uuid[] default '{}'::uuid[]
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+  if jsonb_typeof(replacement_rows) <> 'array' then
+    raise exception 'replacement_rows must be a JSON array';
+  end if;
+
+  insert into public.saved_meal_plans (
+    id,
+    user_id,
+    planned_on,
+    saved_meal_ids,
+    detached_group_signature,
+    created_at
+  )
+  select
+    replacement.id,
+    current_user_id,
+    replacement.planned_on,
+    replacement.saved_meal_ids,
+    replacement.detached_group_signature,
+    coalesce(replacement.created_at, now())
+  from jsonb_to_recordset(replacement_rows) as replacement (
+    id uuid,
+    planned_on date,
+    saved_meal_ids jsonb,
+    detached_group_signature text,
+    created_at timestamptz
+  )
+  on conflict (id) do update
+  set
+    planned_on = excluded.planned_on,
+    saved_meal_ids = excluded.saved_meal_ids,
+    detached_group_signature = excluded.detached_group_signature
+  where public.saved_meal_plans.user_id = current_user_id;
+
+  delete from public.saved_meal_plans as plan
+  where plan.user_id = current_user_id
+    and plan.id = any(coalesce(removed_ids, '{}'::uuid[]))
+    and not exists (
+      select 1
+      from jsonb_array_elements(replacement_rows) as replacement
+      where (replacement ->> 'id')::uuid = plan.id
+    );
+
+  return (
+    select coalesce(jsonb_agg(to_jsonb(plan) order by plan.created_at), '[]'::jsonb)
+    from public.saved_meal_plans as plan
+    where plan.user_id = current_user_id
+      and exists (
+        select 1
+        from jsonb_array_elements(replacement_rows) as replacement
+        where (replacement ->> 'id')::uuid = plan.id
+      )
+  );
+end;
+$$;
+
+revoke all on function public.sync_saved_meal_plans(jsonb, uuid[]) from public, anon;
+grant execute on function public.sync_saved_meal_plans(jsonb, uuid[]) to authenticated;

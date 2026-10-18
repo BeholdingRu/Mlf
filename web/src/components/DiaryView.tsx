@@ -651,7 +651,7 @@ export function DiaryView() {
       completedExercises: monthCompletedExercises.length,
     }
   })()
-  const today = adminMode && testDate ? testDate : localISODate()
+  const today = adminMode && testDate ? testDate : actualToday
 
   const previousMonth = () => {
     setVisibleMonth(new Date(activeMonth.getFullYear(), activeMonth.getMonth() - 1, 1))
@@ -2608,7 +2608,10 @@ function MacroNutrientCalculator({
                     className="delete-button"
                     aria-label={`Удалить ${entry.name} из калькулятора`}
                     title="Удалить"
-                    onClick={() => setProductEntries((current) => current.filter((item) => item.id !== entry.id))}
+                    onClick={() => {
+                      if (!window.confirm(`Удалить «${entry.name}» из калькулятора КБЖУ?`)) return
+                      setProductEntries((current) => current.filter((item) => item.id !== entry.id))
+                    }}
                   >
                     ×
                   </button>

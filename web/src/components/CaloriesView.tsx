@@ -1,21 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useData } from '../hooks/useData'
-import { MealMenuView, MealPlannerView } from './MealMenuView'
-import { ProductsView } from './ProductsView'
 import { DEFAULT_PRODUCT_CATEGORY, PRODUCT_CATEGORIES, type ProductCategory } from '../lib/product-categories'
 import { getCalorieAdaptation } from '../lib/calorie-adaptation'
 import { FluidSubtabIndicator } from './FluidSubtabIndicator'
+import { getSavedMealGroupIds } from '../lib/saved-meal-groups'
 
 type CaloriesSubTab = 'consumption' | 'products' | 'planner' | 'menu'
-
-type MenuFocusRequest = {
-  groupKey: string
-  requestId: number
-}
 
 const CALORIES_SUB_TAB_STORAGE_KEY = 'mlf:calories-sub-tab'
 const FOOD_ADD_DRAFT_STORAGE_KEY = 'mlf:food-add-draft'
 const MOBILE_CALORIES_SUMMARY_QUERY = '(max-width: 768px)'
+
+const MealMenuView = lazy(() => import('./MealMenuView').then((module) => ({
+  default: module.MealMenuView,
+})))
+const MealPlannerView = lazy(() => import('./MealMenuView').then((module) => ({
+  default: module.MealPlannerView,
+})))
+const ProductsView = lazy(() => import('./ProductsView').then((module) => ({
+  default: module.ProductsView,
+})))
 
 type FoodAddDraft = {
   name: string
@@ -74,6 +78,8 @@ export function CaloriesView() {
     weightLogs,
     foodLogs,
     savedProducts,
+    savedMeals,
+    savedMealPlans,
     addSavedProduct,
     setSavedProductFavorite,
     logFoodToday,
@@ -81,10 +87,13 @@ export function CaloriesView() {
     deleteFoodLog,
     saveCaloriesNorm,
     saveCalorieAdaptationEnabled,
+    syncSavedMealPlanGrouping,
   } = useData()
   const [foodAddDraft] = useState<FoodAddDraft | null>(getSavedFoodAddDraft)
   const [subTab, setSubTab] = useState<CaloriesSubTab>(getSavedCaloriesSubTab)
-  const [menuFocusRequest, setMenuFocusRequest] = useState<MenuFocusRequest | null>(null)
+  const [mountedSubTabs, setMountedSubTabs] = useState<Set<CaloriesSubTab>>(
+    () => new Set([subTab]),
+  )
   const [productName, setProductName] = useState(foodAddDraft?.name ?? '')
   const [weightGrams, setWeightGrams] = useState(foodAddDraft?.weightGrams ?? '')
   const [caloriesPer100g, setCaloriesPer100g] = useState(foodAddDraft?.calories ?? '')
@@ -111,9 +120,35 @@ export function CaloriesView() {
     () => window.matchMedia(MOBILE_CALORIES_SUMMARY_QUERY).matches,
   )
   const [caloriesSummaryExpanded, setCaloriesSummaryExpanded] = useState(false)
+  const [mealPlanSyncError, setMealPlanSyncError] = useState<string | null>(null)
   const dailyNormInputRef = useRef<HTMLInputElement>(null)
   const adaptationInfoRef = useRef<HTMLDivElement>(null)
   const adaptationInfoButtonRef = useRef<HTMLButtonElement>(null)
+  const mealPlanSyncRef = useRef<{
+    sync: (groups: string[][]) => Promise<void>
+    groups: string[][]
+    running: boolean
+    pending: boolean
+    timer: number | null
+    retryCount: number
+  }>({
+    sync: syncSavedMealPlanGrouping,
+    groups: [],
+    running: false,
+    pending: false,
+    timer: null,
+    retryCount: 0,
+  })
+
+  const savedMealGroupIds = useMemo(() => getSavedMealGroupIds(savedMeals), [savedMeals])
+  const mealGroupingSignature = useMemo(
+    () => savedMealGroupIds.map((mealIds) => mealIds.join(':')).join('|'),
+    [savedMealGroupIds],
+  )
+  const savedMealIdentitySignature = useMemo(
+    () => savedMeals.map((meal) => meal.id).sort().join('|'),
+    [savedMeals],
+  )
 
   const calorieAdaptation = getCalorieAdaptation(profile, weightLogs)
   const dailyNorm = calorieAdaptation.effectiveNorm ?? 0
@@ -146,6 +181,61 @@ export function CaloriesView() {
   useEffect(() => {
     window.sessionStorage.setItem(CALORIES_SUB_TAB_STORAGE_KEY, subTab)
   }, [subTab])
+
+  useEffect(() => {
+    mealPlanSyncRef.current.sync = syncSavedMealPlanGrouping
+    mealPlanSyncRef.current.groups = savedMealGroupIds
+  }, [savedMealGroupIds, syncSavedMealPlanGrouping])
+
+  useEffect(() => {
+    const coordinator = mealPlanSyncRef.current
+    coordinator.pending = true
+    coordinator.retryCount = 0
+    if (coordinator.running) return undefined
+    if (coordinator.timer !== null) window.clearTimeout(coordinator.timer)
+
+    coordinator.timer = window.setTimeout(() => {
+      coordinator.timer = null
+      coordinator.running = true
+      const synchronize = async () => {
+        do {
+          coordinator.pending = false
+          try {
+            await coordinator.sync(coordinator.groups)
+            coordinator.retryCount = 0
+            setMealPlanSyncError(null)
+          } catch (syncError) {
+            setMealPlanSyncError(syncError instanceof Error
+              ? syncError.message
+              : 'Не удалось синхронизировать меню с планировщиком')
+            if (coordinator.retryCount < 2) {
+              coordinator.retryCount += 1
+              await new Promise<void>((resolve) => {
+                window.setTimeout(resolve, coordinator.retryCount * 1_500)
+              })
+              coordinator.pending = true
+            }
+          }
+        } while (coordinator.pending)
+        coordinator.running = false
+      }
+      void synchronize()
+    }, 120)
+
+    return () => {
+      if (coordinator.timer !== null && !coordinator.running) {
+        window.clearTimeout(coordinator.timer)
+        coordinator.timer = null
+      }
+    }
+  }, [mealGroupingSignature, savedMealIdentitySignature, savedMealPlans.length])
+
+  const openSubTab = (nextSubTab: CaloriesSubTab) => {
+    setMountedSubTabs((current) => (
+      current.has(nextSubTab) ? current : new Set(current).add(nextSubTab)
+    ))
+    setSubTab(nextSubTab)
+  }
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(MOBILE_CALORIES_SUMMARY_QUERY)
@@ -398,34 +488,35 @@ export function CaloriesView() {
         <button
           type="button"
           className={subTab === 'consumption' ? 'calories-tab active' : 'calories-tab'}
-          onClick={() => setSubTab('consumption')}
+          onClick={() => openSubTab('consumption')}
         >
           Потребление
         </button>
         <button
           type="button"
           className={subTab === 'planner' ? 'calories-tab active' : 'calories-tab'}
-          onClick={() => setSubTab('planner')}
+          onClick={() => openSubTab('planner')}
         >
           Планировщик
         </button>
         <button
           type="button"
           className={subTab === 'menu' ? 'calories-tab active' : 'calories-tab'}
-          onClick={() => setSubTab('menu')}
+          onClick={() => openSubTab('menu')}
         >
           Меню
         </button>
         <button
           type="button"
           className={subTab === 'products' ? 'calories-tab active' : 'calories-tab'}
-          onClick={() => setSubTab('products')}
+          onClick={() => openSubTab('products')}
         >
           Продукты
         </button>
       </nav>
+      {mealPlanSyncError && <p className="banner error">{mealPlanSyncError}</p>}
 
-      <div className="calories-panel" hidden={subTab !== 'consumption'}>
+      {mountedSubTabs.has('consumption') && <div className="calories-panel" hidden={subTab !== 'consumption'}>
         <>
           <div className="calories-header">
             <div className="calories-info">
@@ -840,27 +931,22 @@ export function CaloriesView() {
             )}
           </div>
         </>
-      </div>
-      <div className="calories-panel" hidden={subTab !== 'planner'}>
-        <MealPlannerView
-          onOpenMeal={(groupKey) => {
-            setMenuFocusRequest((current) => ({
-              groupKey,
-              requestId: (current?.requestId ?? 0) + 1,
-            }))
-            setSubTab('menu')
-          }}
-        />
-      </div>
-      <div className="calories-panel" hidden={subTab !== 'menu'}>
-        <MealMenuView
-          key={menuFocusRequest?.requestId ?? 0}
-          focusRequest={menuFocusRequest}
-        />
-      </div>
-      <div className="calories-panel" hidden={subTab !== 'products'}>
-        <ProductsView />
-      </div>
+      </div>}
+      {mountedSubTabs.has('planner') && <div className="calories-panel" hidden={subTab !== 'planner'}>
+        <Suspense fallback={<p className="muted">Загрузка планировщика…</p>}>
+          <MealPlannerView />
+        </Suspense>
+      </div>}
+      {mountedSubTabs.has('menu') && <div className="calories-panel" hidden={subTab !== 'menu'}>
+        <Suspense fallback={<p className="muted">Загрузка меню…</p>}>
+          <MealMenuView />
+        </Suspense>
+      </div>}
+      {mountedSubTabs.has('products') && <div className="calories-panel" hidden={subTab !== 'products'}>
+        <Suspense fallback={<p className="muted">Загрузка продуктов…</p>}>
+          <ProductsView />
+        </Suspense>
+      </div>}
     </div>
   )
 }

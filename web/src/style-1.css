@@ -319,6 +319,16 @@
   transform: translate(2px, 2px);
 }
 
+:root[data-interface-style='style-1'] .cabinet .meal-menu-filter-button.active {
+  background: var(--retro-amber);
+  color: var(--on-accent);
+}
+
+:root[data-interface-style='style-1'] .cabinet .meal-menu-day-plan-edit.active {
+  background: var(--retro-amber);
+  color: var(--on-accent);
+}
+
 :root[data-interface-style='style-1'] .cabinet :is(.danger, .delete-button) {
   border-color: var(--retro-red);
   color: var(--retro-red);

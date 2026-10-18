@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { WeightChart } from './WeightChart'
 import { useData } from '../hooks/useData'
-import { localISODate, percent } from '../lib/dates'
+import { isoDateInTimeZone, localISODate, percent } from '../lib/dates'
 import { getCountdownTaskProgress, getRegularTaskProgress, russianDays } from '../lib/task-progress'
 import type { WeightLog } from '../lib/types'
 import { FluidSubtabIndicator } from './FluidSubtabIndicator'
@@ -60,7 +60,7 @@ export function StatsView() {
   )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [testDate, setTestDate] = useState(localISODate)
+  const [testDate, setTestDate] = useState(() => isoDateInTimeZone(profile?.time_zone))
   const [testWeight, setTestWeight] = useState('')
   const [testWeightLogs, setTestWeightLogs] = useState<WeightLog[]>(getSavedTestWeightLogs)
   const [weightChartWeekday, setWeightChartWeekday] = useState<WeightChartWeekday>(getSavedWeightChartWeekday)

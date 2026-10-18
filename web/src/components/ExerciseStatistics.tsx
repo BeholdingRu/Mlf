@@ -47,7 +47,11 @@ export function ExerciseStatistics({ exercises, from, to, periodLabel, onClose }
     const groups = new Map<string, ScheduledExercise[]>()
 
     for (const exercise of completed) {
-      const key = exercise.exercise_name.trim().toLocaleLowerCase('ru-RU')
+      const key = [
+        exercise.category.trim().toLocaleLowerCase('ru-RU'),
+        exercise.exercise_type,
+        exercise.exercise_name.trim().toLocaleLowerCase('ru-RU'),
+      ].join('\u0000')
       groups.set(key, [...(groups.get(key) ?? []), exercise])
     }
 
@@ -62,7 +66,11 @@ export function ExerciseStatistics({ exercises, from, to, periodLabel, onClose }
         averageSets: averageNumericField(items, 'sets'),
         averageRestSeconds: averageRestDuration(items),
       }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'ru-RU'))
+      .sort((a, b) => (
+        a.name.localeCompare(b.name, 'ru-RU')
+        || a.category.localeCompare(b.category, 'ru-RU')
+        || a.exerciseType.localeCompare(b.exerciseType, 'ru-RU')
+      ))
   }, [allTimeEnabled, exercises, selectedPeriod])
 
   const activePeriodLabel = allTimeEnabled ? 'за всё время' : selectedPeriod.label

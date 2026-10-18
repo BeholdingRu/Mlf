@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useData } from '../hooks/useData'
-import { localISODate, parseISODate } from '../lib/dates'
+import { isoDateInTimeZone, localISODate, parseISODate } from '../lib/dates'
 import type { ExerciseCategory, ExerciseType, SavedExercise, ScheduledExercise } from '../lib/types'
 import { ExerciseStatistics } from './ExerciseStatistics'
 import { FluidSubtabIndicator } from './FluidSubtabIndicator'
@@ -85,6 +85,7 @@ function DoubleVolumeIcon() {
 
 export function TrainingView() {
   const {
+    profile,
     savedExercises,
     scheduledExercises,
     addSavedExercise,
@@ -95,7 +96,7 @@ export function TrainingView() {
     moveScheduledExercise,
     updateScheduledExercise,
   } = useData()
-  const today = localISODate()
+  const today = isoDateInTimeZone(profile?.time_zone)
   const hasTodayExercises = scheduledExercises.some((exercise) => exercise.planned_on === today)
   const [exerciseDraft] = useState<ExerciseDraft | null>(getSavedExerciseDraft)
   const [subTab, setSubTab] = useState<TrainingSubTab>(() => getSavedTrainingSubTab(hasTodayExercises))
@@ -111,10 +112,10 @@ export function TrainingView() {
   const [editRestTimerEnabled, setEditRestTimerEnabled] = useState(false)
   const [editDoubleVolume, setEditDoubleVolume] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [plannedDate, setPlannedDate] = useState(() => localISODate())
+  const [plannedDate, setPlannedDate] = useState(() => today)
   const [visibleMonth, setVisibleMonth] = useState(() => {
-    const today = new Date()
-    return new Date(today.getFullYear(), today.getMonth(), 1)
+    const todayDate = parseISODate(today)
+    return new Date(todayDate.getFullYear(), todayDate.getMonth(), 1)
   })
   const [plannedCategory, setPlannedCategory] = useState<ExerciseCategory | null>(null)
   const [scheduleStatisticsOpen, setScheduleStatisticsOpen] = useState(false)

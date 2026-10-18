@@ -4673,11 +4673,31 @@ nav {
 
 .meal-menu-toolbar {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: flex-start;
+  gap: 10px;
 }
 
 .meal-menu-add-button {
   min-width: 240px;
+}
+
+.meal-menu-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.meal-menu-filter-button {
+  min-width: 112px;
+}
+
+.meal-menu-filter-button.active {
+  border-color: var(--moss);
+  background: var(--moss);
+  color: var(--on-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--moss) 30%, transparent);
 }
 
 .meal-menu-planner {
@@ -5001,7 +5021,7 @@ nav {
 
 .meal-menu-day-plan {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
@@ -5010,8 +5030,172 @@ nav {
   background: var(--surface-muted);
 }
 
+.meal-menu-day-plan-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.meal-menu-day-plan-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.meal-menu-plan-group-marker {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+}
+
+button.meal-menu-plan-group-marker.active:hover:not(:disabled) {
+  background: var(--info-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--moss) 25%, transparent);
+}
+
+button.meal-menu-plan-group-marker.active:focus-visible {
+  outline: 2px solid var(--leaf);
+  outline-offset: 2px;
+}
+
+.meal-menu-plan-group-marker.inactive {
+  cursor: default;
+  opacity: 0.42;
+}
+
+button.meal-menu-plan-group-marker.inactive {
+  cursor: pointer;
+  transition: opacity 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+button.meal-menu-plan-group-marker.inactive:hover:not(:disabled) {
+  background: var(--info-bg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--moss) 18%, transparent);
+  opacity: 0.72;
+}
+
+button.meal-menu-plan-group-marker.inactive:focus-visible {
+  outline: 2px solid var(--leaf);
+  outline-offset: 2px;
+  opacity: 0.72;
+}
+
+button.meal-menu-plan-group-marker.inactive:disabled {
+  cursor: wait;
+}
+
+.meal-menu-plan-group-marker.inactive .meal-menu-group-icon {
+  border-color: var(--line);
+  background: var(--surface-muted);
+  box-shadow: none;
+  color: var(--muted);
+}
+
+.meal-menu-day-plan-actions > button {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  margin: 0;
+}
+
+.edit-button.meal-menu-day-plan-edit {
+  font-size: 17px;
+}
+
+.edit-button.meal-menu-day-plan-edit.active {
+  border-color: var(--moss);
+  background: var(--moss);
+  color: var(--on-accent);
+  opacity: 1;
+}
+
+.meal-menu-day-plan-edit svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.meal-menu-plan-editor {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+}
+
+.meal-menu-plan-editor-name {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.meal-menu-plan-editor-name input {
+  width: 100%;
+  min-width: 0;
+}
+
+.modal-content.meal-menu-plan-modal {
+  display: grid;
+  width: min(100%, 960px);
+  max-width: 960px;
+  max-height: calc(100dvh - 40px);
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.meal-menu-plan-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modal-content .meal-menu-plan-modal-head h3 {
+  margin: 0 0 6px;
+}
+
+.meal-menu-plan-modal-head .icon-close {
+  flex: 0 0 auto;
+}
+
+.meal-menu-plan-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.meal-menu-plan-modal-actions > button {
+  min-width: 150px;
+}
+
+.meal-menu-plan-modal-group {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.meal-menu-plan-group-editor {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
 .meal-menu-day-plan-link {
   display: inline-flex;
+  flex: 1 1 auto;
   align-items: center;
   min-width: 0;
   gap: 7px;
@@ -5023,6 +5207,14 @@ nav {
   overflow-wrap: anywhere;
   font-weight: 700;
   text-align: left;
+}
+
+.meal-menu-day-plan-chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--moss-deep);
+  font-size: 16px;
+  line-height: 1;
 }
 
 .meal-menu-day-plan-link:hover:not(:disabled),
@@ -5856,6 +6048,18 @@ nav {
     width: 100%;
   }
 
+  .meal-menu-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .meal-menu-filter-button {
+    min-width: 0;
+    width: 100%;
+    padding-inline: 8px;
+  }
+
   .meal-menu-editor,
   .meal-menu-list {
     gap: 12px;
@@ -5881,6 +6085,24 @@ nav {
 
   .meal-menu-shopping-overlay {
     padding: 10px;
+  }
+
+  .meal-menu-plan-modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-content.meal-menu-plan-modal {
+    max-height: calc(100dvh - 20px);
+    padding: 16px;
+  }
+
+  .meal-menu-plan-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .meal-menu-plan-modal-actions > button {
+    width: 100%;
   }
 
   .modal-content.meal-menu-shopping-modal {

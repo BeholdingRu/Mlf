@@ -1,12 +1,6 @@
-import { useState, useEffect } from 'react'
-import { DailyTasks } from '../components/DailyTasks'
-import { SettingsModal } from '../components/SettingsModal'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { Sidebar } from '../components/Sidebar'
-import { StatsView } from '../components/StatsView'
-import { CaloriesView } from '../components/CaloriesView'
-import { TrainingView } from '../components/TrainingView'
-import { DiaryView } from '../components/DiaryView'
-import { PathView } from '../components/PathView'
+import { LazySectionBoundary } from '../components/LazySectionBoundary'
 import { useData } from '../hooks/useData'
 import { useViewport } from '../hooks/useViewport'
 import type { CabinetTab } from '../lib/types'
@@ -20,7 +14,7 @@ import {
   normalizeTheme,
 } from '../lib/theme'
 import { isShabbatActive } from '../lib/shabbat'
-import { isoDateInTimeZone, localISODate } from '../lib/dates'
+import { isoDateInTimeZone } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 import { getCountdownTaskProgress, getRegularTaskProgressDays } from '../lib/task-progress'
 import { getNextBibleLocation, isBibleReadingTask, type BibleNavigationTarget } from '../lib/bible-books'
@@ -28,6 +22,28 @@ import { ADMIN_TEST_TIME_CHANGE_EVENT, getAdminTestTime } from '../lib/admin-tes
 
 const CABINET_TAB_STORAGE_KEY = 'mlf:cabinet-tab'
 const CABINET_TABS: CabinetTab[] = ['daily', 'calories', 'training', 'path', 'all', 'diary']
+
+const DailyTasks = lazy(() => import('../components/DailyTasks').then((module) => ({
+  default: module.DailyTasks,
+})))
+const StatsView = lazy(() => import('../components/StatsView').then((module) => ({
+  default: module.StatsView,
+})))
+const CaloriesView = lazy(() => import('../components/CaloriesView').then((module) => ({
+  default: module.CaloriesView,
+})))
+const TrainingView = lazy(() => import('../components/TrainingView').then((module) => ({
+  default: module.TrainingView,
+})))
+const DiaryView = lazy(() => import('../components/DiaryView').then((module) => ({
+  default: module.DiaryView,
+})))
+const PathView = lazy(() => import('../components/PathView').then((module) => ({
+  default: module.PathView,
+})))
+const SettingsModal = lazy(() => import('../components/SettingsModal').then((module) => ({
+  default: module.SettingsModal,
+})))
 
 function getSavedCabinetTab(): CabinetTab {
   if (window.matchMedia('(max-width: 768px)').matches) return 'calories'
@@ -40,15 +56,16 @@ export function CabinetPage() {
   const { adminMode, loading, error, profile, tasks, completions, scheduledExercises } = useData()
   const viewport = useViewport()
   const [tab, setTab] = useState<CabinetTab>(getSavedCabinetTab)
+  const [mountedTabs, setMountedTabs] = useState<Set<CabinetTab>>(() => new Set([tab]))
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bibleNavigationRequest, setBibleNavigationRequest] = useState<BibleNavigationTarget | null>(null)
   const [currentTime, setCurrentTime] = useState(() => new Date())
-  const today = localISODate(currentTime)
+  const today = isoDateInTimeZone(profile?.time_zone, currentTime)
   const todayExercises = scheduledExercises.filter((exercise) => exercise.planned_on === today)
   const trainingStatus = todayExercises.length === 0
     ? null
     : todayExercises.every((exercise) => exercise.completed) ? 'completed' : 'planned'
-  const bibleToday = isoDateInTimeZone(profile?.time_zone, currentTime)
+  const bibleToday = today
   const hasIncompleteDailyTasks = tasks.some((task) => {
     const taskToday = isBibleReadingTask(task) ? bibleToday : today
     const automaticTask = task.withdrawal_syndrome || task.inverted_logic || (profile?.weight_enabled && isNutritionTask(task))
@@ -117,14 +134,19 @@ export function CabinetPage() {
       ...nextLocation,
       requestId: (current?.requestId ?? 0) + 1,
     }))
-    setTab('path')
+    openTab('path')
+  }
+
+  function openTab(nextTab: CabinetTab) {
+    setMountedTabs((current) => current.has(nextTab) ? current : new Set(current).add(nextTab))
+    setTab(nextTab)
   }
 
   return (
     <div className="cabinet">
       <Sidebar
         tab={tab}
-        onTab={setTab}
+        onTab={openTab}
         onOpenSettings={() => setSettingsOpen(true)}
         trainingStatus={trainingStatus}
         hasIncompleteDailyTasks={hasIncompleteDailyTasks}
@@ -152,41 +174,71 @@ export function CabinetPage() {
         </header>
         {loading && <p className="muted">Загрузка кабинета…</p>}
         {error && <p className="banner error">{error}</p>}
-        {!loading && (
+        {!loading && mountedTabs.has('daily') && (
           <div hidden={tab !== 'daily'}>
-            <DailyTasks onContinueBibleReading={continueBibleReading} />
+            <LazySectionBoundary label="ежедневные задачи">
+              <Suspense fallback={<p className="muted">Загрузка раздела…</p>}>
+                <DailyTasks onContinueBibleReading={continueBibleReading} />
+              </Suspense>
+            </LazySectionBoundary>
           </div>
         )}
-        {!loading && (
+        {!loading && mountedTabs.has('all') && (
           <div hidden={tab !== 'all'}>
-            <StatsView />
+            <LazySectionBoundary label="статистику">
+              <Suspense fallback={<p className="muted">Загрузка раздела…</p>}>
+                <StatsView />
+              </Suspense>
+            </LazySectionBoundary>
           </div>
         )}
-        {!loading && (
+        {!loading && mountedTabs.has('calories') && (
           <div hidden={tab !== 'calories'}>
-            <CaloriesView />
+            <LazySectionBoundary label="учёт калорий">
+              <Suspense fallback={<p className="muted">Загрузка раздела…</p>}>
+                <CaloriesView />
+              </Suspense>
+            </LazySectionBoundary>
           </div>
         )}
-        {!loading && (
+        {!loading && mountedTabs.has('training') && (
           <div hidden={tab !== 'training'}>
-            <TrainingView />
+            <LazySectionBoundary label="тренировки">
+              <Suspense fallback={<p className="muted">Загрузка раздела…</p>}>
+                <TrainingView />
+              </Suspense>
+            </LazySectionBoundary>
           </div>
         )}
-        {!loading && (
+        {!loading && mountedTabs.has('diary') && (
           <div hidden={tab !== 'diary'}>
-            <DiaryView />
+            <LazySectionBoundary label="дневник">
+              <Suspense fallback={<p className="muted">Загрузка раздела…</p>}>
+                <DiaryView />
+              </Suspense>
+            </LazySectionBoundary>
           </div>
         )}
-        {!loading && (
+        {!loading && mountedTabs.has('path') && (
           <div hidden={tab !== 'path'}>
-            <PathView
-              key={bibleNavigationRequest?.requestId ?? 'path'}
-              bibleNavigationRequest={bibleNavigationRequest}
-            />
+            <LazySectionBoundary label="путь">
+              <Suspense fallback={<p className="muted">Загрузка раздела…</p>}>
+                <PathView
+                  key={bibleNavigationRequest?.requestId ?? 'path'}
+                  bibleNavigationRequest={bibleNavigationRequest}
+                />
+              </Suspense>
+            </LazySectionBoundary>
           </div>
         )}
       </main>
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <LazySectionBoundary label="настройки">
+          <Suspense fallback={<p className="banner">Загрузка настроек…</p>}>
+            <SettingsModal onClose={() => setSettingsOpen(false)} />
+          </Suspense>
+        </LazySectionBoundary>
+      )}
     </div>
   )
 }

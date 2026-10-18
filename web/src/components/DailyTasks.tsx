@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { useData } from '../hooks/useData'
-import { daysInclusive, isoDateInTimeZone, localISODate, parseISODate, percent } from '../lib/dates'
+import { daysInclusive, isoDateInTimeZone, parseISODate, percent } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 import {
   getCountdownTaskProgress,
@@ -136,7 +136,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const [invertedConfirmationTaskId, setInvertedConfirmationTaskId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const today = localISODate()
+  const today = isoDateInTimeZone(profile?.time_zone)
   const bibleToday = isoDateInTimeZone(profile?.time_zone)
   const [testDate, setTestDate] = useState(() => window.sessionStorage.getItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY) ?? today)
   const testToday = adminMode && testDate ? testDate : today

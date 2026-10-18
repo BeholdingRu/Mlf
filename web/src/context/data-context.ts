@@ -109,6 +109,14 @@ export type DataContextValue = {
   updateMindfulnessNote: (id: string, title: string, content: string, categoryId: string) => Promise<void>
   deleteMindfulnessNote: (id: string) => Promise<void>
   logFoodToday: (productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
+  logFoodsToday: (foods: Array<{
+    productName: string
+    weightGrams: number
+    caloriesPer100g: number
+    proteinsPer100g: number
+    fatsPer100g: number
+    carbohydratesPer100g: number
+  }>) => Promise<void>
   logFoodOnDate: (loggedOn: string, productName: string, weightGrams: number, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number) => Promise<void>
   updateFoodLogWeight: (id: string, weightGrams: number) => Promise<void>
   updateFoodLogProductName: (id: string, productName: string) => Promise<void>
@@ -119,8 +127,16 @@ export type DataContextValue = {
   deleteSavedProduct: (id: string) => Promise<void>
   addSavedMeal: (name: string, items: SavedMealItem[]) => Promise<void>
   updateSavedMeal: (id: string, name: string, items: SavedMealItem[]) => Promise<void>
+  updateSavedMeals: (updates: Array<{
+    id: string
+    name: string
+    items: SavedMealItem[]
+  }>) => Promise<void>
   deleteSavedMeal: (id: string) => Promise<void>
   scheduleSavedMeals: (plannedOn: string, savedMealIds: string[]) => Promise<void>
+  ungroupSavedMealPlan: (id: string) => Promise<void>
+  regroupSavedMealPlans: (planIds: string[]) => Promise<void>
+  syncSavedMealPlanGrouping: (mealGroups: string[][]) => Promise<void>
   deleteSavedMealPlan: (id: string) => Promise<void>
   addSavedExercise: (name: string, category: ExerciseCategory, exerciseType: ExerciseType, restTimerEnabled: boolean, doubleVolume: boolean) => Promise<void>
   updateSavedExercise: (id: string, name: string, exerciseType: ExerciseType, restTimerEnabled: boolean, doubleVolume: boolean) => Promise<void>

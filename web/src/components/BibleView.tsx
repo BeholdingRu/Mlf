@@ -140,35 +140,50 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
       chaptersTodayDateRef.current = readingDate
       chaptersTodayRef.current = 0
     }
-    if (readingUserId) {
-      recordLocalBibleChapter(
-        readingUserId,
-        readingDate,
-        bookOrder,
-        chapterNumber,
-        chaptersTodayRef.current,
-      )
+    if (chaptersTodayRef.current >= 5) {
+      if (readingUserId) {
+        recordLocalBibleChapter(
+          readingUserId,
+          readingDate,
+          bookOrder,
+          chapterNumber,
+          chaptersTodayRef.current,
+        )
+      }
+      return
     }
-    if (chaptersTodayRef.current >= 5) return
     const chapterKey = `${readingDate}:${bookOrder}:${chapterNumber}`
     if (recordedChapterKeysRef.current.has(chapterKey)) return
     recordedChapterKeysRef.current.add(chapterKey)
     chapterRecordQueueRef.current = chapterRecordQueueRef.current
       .then(async () => {
-        if (chaptersTodayRef.current >= 5) return
-        const nextProgress = await recordBibleChapterReadRef.current(bookOrder, chapterNumber)
-        if (nextProgress) {
-          chaptersTodayRef.current = nextProgress.chaptersToday
-          chaptersTodayDateRef.current = readingDate
+        if (chaptersTodayRef.current >= 5) {
           if (readingUserId) {
             recordLocalBibleChapter(
               readingUserId,
               readingDate,
               bookOrder,
               chapterNumber,
-              nextProgress.chaptersToday,
+              chaptersTodayRef.current,
             )
           }
+          return
+        }
+        const nextProgress = await recordBibleChapterReadRef.current(bookOrder, chapterNumber)
+        if (!nextProgress) {
+          recordedChapterKeysRef.current.delete(chapterKey)
+          return
+        }
+        chaptersTodayRef.current = nextProgress.chaptersToday
+        chaptersTodayDateRef.current = readingDate
+        if (readingUserId) {
+          recordLocalBibleChapter(
+            readingUserId,
+            readingDate,
+            bookOrder,
+            chapterNumber,
+            nextProgress.chaptersToday,
+          )
         }
       })
       .catch(() => {
@@ -449,7 +464,7 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   }
 
   async function removeBookmark(bookmark: BibleBookmark) {
-    if (bookmarkBusy) return
+    if (bookmarkBusy || !window.confirm(`Удалить закладку «${bookmark.title}»?`)) return
     setBookmarkBusy(true)
     setBookmarkError(null)
     try {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { localISODate } from '../lib/dates'
+import { isoDateInTimeZone } from '../lib/dates'
 import { useData } from '../hooks/useData'
 import { ADMIN_TEST_TIME_CHANGE_EVENT, getAdminTestTime } from '../lib/admin-test-time'
 import { getFridaySunsetCountdownSeconds, isShabbatActive } from '../lib/shabbat'
@@ -26,7 +26,7 @@ export function WeightWidget() {
 
   if (!profile?.weight_enabled) return null
 
-  const today = localISODate()
+  const today = isoDateInTimeZone(profile.time_zone, currentTime)
   const todayLog = weightLogs.find((w) => w.logged_on === today)
   const current = weightLogs.reduce<WeightLog | null>(
     (latest, log) => (!latest || log.logged_on > latest.logged_on ? log : latest),

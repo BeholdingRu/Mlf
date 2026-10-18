@@ -533,6 +533,21 @@
   transform: translateY(-2px);
 }
 
+:root[data-interface-style='style-2'] .meal-menu-filter-button.active,
+:root[data-interface-style='style-2'] .meal-menu-filter-button.active:hover:not(:disabled) {
+  border-color: var(--future-accent);
+  background: var(--future-accent);
+  color: var(--on-accent);
+  box-shadow: 0 10px 26px var(--future-halo);
+}
+
+:root[data-interface-style='style-2'] .meal-menu-day-plan-edit.active,
+:root[data-interface-style='style-2'] .meal-menu-day-plan-edit.active:hover:not(:disabled) {
+  border-color: var(--future-accent);
+  background: var(--future-accent);
+  color: var(--on-accent);
+}
+
 :root[data-interface-style='style-2'] :is(.danger, .delete-button) {
   border-color: color-mix(in srgb, var(--future-danger) 62%, var(--line));
   background: color-mix(in srgb, var(--future-danger) 7%, transparent);

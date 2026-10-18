@@ -11,6 +11,25 @@ import {
 } from '../lib/supabase'
 import { AuthContext, type AuthContextValue } from './auth-context'
 const RECOVERY_REQUIRED_STORAGE_KEY = 'mlf:recovery-password-required'
+const SESSION_USER_STORAGE_KEY = 'mlf:session-user-id'
+
+function scopeApplicationSessionStorage(userId: string | null) {
+  const previousUserId = window.sessionStorage.getItem(SESSION_USER_STORAGE_KEY)
+  if (previousUserId !== userId) {
+    const keysToRemove = Array.from(
+      { length: window.sessionStorage.length },
+      (_, index) => window.sessionStorage.key(index),
+    ).filter((key): key is string => (
+      key?.startsWith('mlf:') === true
+      && key !== RECOVERY_REQUIRED_STORAGE_KEY
+      && key !== SESSION_USER_STORAGE_KEY
+    ))
+    keysToRemove.forEach((key) => window.sessionStorage.removeItem(key))
+  }
+
+  if (userId) window.sessionStorage.setItem(SESSION_USER_STORAGE_KEY, userId)
+  else window.sessionStorage.removeItem(SESSION_USER_STORAGE_KEY)
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
@@ -26,11 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const client = requireSupabase()
     client.auth.getSession().then(({ data }) => {
       if (!active) return
+      scopeApplicationSessionStorage(data.session?.user.id ?? null)
       setSession(data.session)
       setLoading(false)
     })
     const { data: sub } = client.auth.onAuthStateChange((event, next) => {
       if (!active) return
+      scopeApplicationSessionStorage(next?.user.id ?? null)
       setSession(next)
       if (event === 'PASSWORD_RECOVERY') {
         window.sessionStorage.setItem(RECOVERY_REQUIRED_STORAGE_KEY, 'true')

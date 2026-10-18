@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -59,6 +60,7 @@ import { getPathDayCompletionDate, isSabbathSchoolTask } from '../lib/sabbath-sc
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
+const DATABASE_PAGE_SIZE = 1_000
 const SAVED_MEAL_NAME_MAX_LENGTH = 120
 const SAVED_MEAL_ITEMS_MAX_COUNT = 100
 const EMPTY_BIBLE_TREE_PROGRESS: BibleTreeProgress = {
@@ -66,6 +68,29 @@ const EMPTY_BIBLE_TREE_PROGRESS: BibleTreeProgress = {
   chaptersToday: 0,
   startedOn: null,
   available: false,
+}
+
+function createClientUuid(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
+  }
+  const bytes = new Uint8Array(16)
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    globalThis.crypto.getRandomValues(bytes)
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256)
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0'))
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`
+}
+
+function getDetachedMealGroupSignature(value: string | null | undefined): string | null {
+  if (!value) return null
+  return value.split('|', 1)[0] || null
 }
 
 type BibleTreeProgressRpcRow = {
@@ -99,9 +124,16 @@ function isSavedMealsFeatureMissing(error: { code?: string; message?: string } |
 }
 
 function isSavedMealPlansFeatureMissing(error: { code?: string; message?: string } | null) {
+  const message = error?.message ?? ''
   return error?.code === '42P01'
     || error?.code === 'PGRST205'
-    || error?.message?.includes('saved_meal_plans') === true
+    || (
+      error?.code === 'PGRST202'
+      && message.includes('sync_saved_meal_plans')
+    )
+    || message.includes('relation "public.saved_meal_plans" does not exist')
+    || message.includes("Could not find the table 'public.saved_meal_plans'")
+    || message.includes('Could not find the function public.sync_saved_meal_plans')
 }
 
 function normalizeSavedMealItems(items: unknown): SavedMealItem[] {
@@ -172,6 +204,30 @@ async function withDataLoadTimeout<T>(request: PromiseLike<T>): Promise<T> {
   }
 }
 
+type DatabasePageError = {
+  code?: string
+  message: string
+}
+
+type DatabasePage<T> = {
+  data: T[] | null
+  error: DatabasePageError | null
+}
+
+async function loadAllDatabaseRows<T>(
+  loadPage: (from: number, to: number) => PromiseLike<DatabasePage<T>>,
+): Promise<DatabasePage<T>> {
+  const rows: T[] = []
+
+  for (let from = 0; ; from += DATABASE_PAGE_SIZE) {
+    const page = await loadPage(from, from + DATABASE_PAGE_SIZE - 1)
+    if (page.error) return { data: null, error: page.error }
+    const pageRows = page.data ?? []
+    rows.push(...pageRows)
+    if (pageRows.length < DATABASE_PAGE_SIZE) return { data: rows, error: null }
+  }
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const userId = user?.id
@@ -211,6 +267,49 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const nutritionReconciliationQueueRef = useRef<Promise<void>>(Promise.resolve())
   const nutritionCatchUpSignatureRef = useRef<string | null>(null)
   const foodHistoryLogsRef = useRef<FoodLog[]>([])
+  const savedMealsRef = useRef<SavedMeal[]>([])
+  const savedMealPlansRef = useRef<SavedMealPlan[]>([])
+  const savedMealPlanMutationQueueRef = useRef<Promise<void>>(Promise.resolve())
+
+  useLayoutEffect(() => {
+    savedMealsRef.current = savedMeals
+    savedMealPlansRef.current = savedMealPlans
+  }, [savedMealPlans, savedMeals])
+
+  const replaceSavedMealPlans = useCallback((
+    update: (current: SavedMealPlan[]) => SavedMealPlan[],
+  ) => {
+    const nextPlans = update(savedMealPlansRef.current)
+    savedMealPlansRef.current = nextPlans
+    setSavedMealPlans(nextPlans)
+  }, [])
+
+  const enqueueSavedMealPlanMutation = useCallback(<T,>(
+    mutation: () => Promise<T>,
+  ): Promise<T> => {
+    const result = savedMealPlanMutationQueueRef.current.then(mutation, mutation)
+    savedMealPlanMutationQueueRef.current = result.then(
+      () => undefined,
+      () => undefined,
+    )
+    return result
+  }, [])
+
+  const reloadSavedMealPlans = useCallback(async () => {
+    if (!userId) return false
+    try {
+      const { data, error: reloadError } = await requireSupabase()
+        .from('saved_meal_plans')
+        .select('*')
+        .eq('user_id', userId)
+        .order('planned_on')
+      if (reloadError) return false
+      replaceSavedMealPlans(() => (data ?? []) as SavedMealPlan[])
+      return true
+    } catch {
+      return false
+    }
+  }, [replaceSavedMealPlans, userId])
   const bibleChaptersReadToday = bibleDailyReading.userId === (userId ?? null)
     && bibleDailyReading.date === bibleReadingDate
     ? bibleDailyReading.count
@@ -239,27 +338,48 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       responses = await withDataLoadTimeout(Promise.all([
         client.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        client.from('tasks').select('*').eq('user_id', userId).order('sort_order'),
-        client.from('task_completions').select('*').eq('user_id', userId),
-        client.from('weight_logs').select('*').eq('user_id', userId).order('logged_on', {
-          ascending: false,
-        }),
-        client
-          .from('daily_food_logs')
-          .select('*')
-          .eq('user_id', userId)
-          .order('logged_on', { ascending: false })
-          .order('created_at'),
-        client.from('saved_products').select('*').eq('user_id', userId).order('name'),
-        client.from('saved_meals').select('*').eq('user_id', userId).order('created_at'),
-        client.from('saved_meal_plans').select('*').eq('user_id', userId).order('planned_on'),
-        client.from('saved_exercises').select('*').eq('user_id', userId).order('name'),
-        client.from('scheduled_exercises').select('*').eq('user_id', userId).order('planned_on').order('sort_order'),
-        client.from('path_day_confirmations').select('*').eq('user_id', userId),
-        client.from('course_lesson_completions').select('*').eq('user_id', userId),
-        client.from('mindfulness_categories').select('*').eq('user_id', userId).order('created_at'),
-        client.from('mindfulness_notes').select('*').eq('user_id', userId).order('updated_at', { ascending: false }),
-        client.from('bible_bookmarks').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+        loadAllDatabaseRows<Task>((from, to) => client
+          .from('tasks').select('*').eq('user_id', userId)
+          .order('sort_order').order('id').range(from, to)),
+        loadAllDatabaseRows<TaskCompletion>((from, to) => client
+          .from('task_completions').select('*').eq('user_id', userId)
+          .order('completed_on').order('id').range(from, to)),
+        loadAllDatabaseRows<WeightLog>((from, to) => client
+          .from('weight_logs').select('*').eq('user_id', userId)
+          .order('logged_on', { ascending: false }).order('id').range(from, to)),
+        loadAllDatabaseRows<FoodLog>((from, to) => client
+          .from('daily_food_logs').select('*').eq('user_id', userId)
+          .order('logged_on', { ascending: false }).order('created_at').order('id').range(from, to)),
+        loadAllDatabaseRows<SavedProduct>((from, to) => client
+          .from('saved_products').select('*').eq('user_id', userId)
+          .order('name').order('id').range(from, to)),
+        loadAllDatabaseRows<SavedMeal>((from, to) => client
+          .from('saved_meals').select('*').eq('user_id', userId)
+          .order('created_at').order('id').range(from, to)),
+        loadAllDatabaseRows<SavedMealPlan>((from, to) => client
+          .from('saved_meal_plans').select('*').eq('user_id', userId)
+          .order('planned_on').order('created_at').order('id').range(from, to)),
+        loadAllDatabaseRows<SavedExercise>((from, to) => client
+          .from('saved_exercises').select('*').eq('user_id', userId)
+          .order('name').order('id').range(from, to)),
+        loadAllDatabaseRows<ScheduledExercise>((from, to) => client
+          .from('scheduled_exercises').select('*').eq('user_id', userId)
+          .order('planned_on').order('sort_order').order('id').range(from, to)),
+        loadAllDatabaseRows<PathDayConfirmation>((from, to) => client
+          .from('path_day_confirmations').select('*').eq('user_id', userId)
+          .order('cycle_started_on').order('id').range(from, to)),
+        loadAllDatabaseRows<CourseLessonCompletion>((from, to) => client
+          .from('course_lesson_completions').select('*').eq('user_id', userId)
+          .order('course_id').order('lesson_number').order('id').range(from, to)),
+        loadAllDatabaseRows<MindfulnessCategory>((from, to) => client
+          .from('mindfulness_categories').select('*').eq('user_id', userId)
+          .order('created_at').order('id').range(from, to)),
+        loadAllDatabaseRows<MindfulnessNote>((from, to) => client
+          .from('mindfulness_notes').select('*').eq('user_id', userId)
+          .order('updated_at', { ascending: false }).order('id').range(from, to)),
+        loadAllDatabaseRows<BibleBookmark>((from, to) => client
+          .from('bible_bookmarks').select('*').eq('user_id', userId)
+          .order('created_at', { ascending: false }).order('id').range(from, to)),
       ]))
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить данны кабинета')
@@ -374,8 +494,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setMindfulnessCategories((mindfulnessCategoriesRes.data ?? []) as MindfulnessCategory[])
     setMindfulnessNotes((mindfulnessNotesRes.data ?? []) as MindfulnessNote[])
     setBibleBookmarks((bibleBookmarksRes.data ?? []) as BibleBookmark[])
+    savedMealsRef.current = normalizedSavedMeals
     setSavedMeals(normalizedSavedMeals)
-    setSavedMealPlans((mealPlansRes.data ?? []) as SavedMealPlan[])
+    const loadedSavedMealPlans = (mealPlansRes.data ?? []) as SavedMealPlan[]
+    savedMealPlansRef.current = loadedSavedMealPlans
+    setSavedMealPlans(loadedSavedMealPlans)
     setSavedProducts(normalizedSavedProducts)
     setSavedExercises((exercisesRes.data ?? []) as SavedExercise[])
     setScheduledExercises((scheduledExercisesRes.data ?? []) as ScheduledExercise[])
@@ -871,8 +994,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const verifiedServerCount = bibleTreeProgressDate === completedOn
       ? bibleTreeProgress.chaptersToday
       : 0
-    const chaptersReadForCompletion = Math.max(bibleChaptersReadToday, verifiedServerCount)
-    const targetReached = chaptersReadForCompletion >= target
+    const targetReached = target <= 5
+      ? verifiedServerCount >= target
+      : verifiedServerCount >= 5 && bibleChaptersReadToday >= target
     // An existing completion may have been confirmed manually. Automatic
     // reconciliation only creates missing completions and never removes them.
     if (!targetReached || bibleReadingVerifiedDate !== completedOn || existingCompletion) return
@@ -953,9 +1077,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (profile?.weight_enabled && task && isNutritionTask(task)) {
           throw new Error('Эта задача отмечается автоматически по дневной норме калорий')
         }
-        const today = task && isBibleReadingTask(task)
-          ? isoDateInTimeZone(profile?.time_zone)
-          : localISODate()
+        const today = isoDateInTimeZone(profile?.time_zone)
         const existing = completions.find(
           (c) => c.task_id === taskId && c.completed_on === today,
         )
@@ -1022,7 +1144,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
               && !isBibleReadingTask({ title, task_kind: taskKind })
               && invertedLogic,
             countdown_enabled: countdownEnabled,
-            withdrawal_started_on: withdrawalSyndrome ? localISODate() : null,
+            withdrawal_started_on: withdrawalSyndrome
+              ? isoDateInTimeZone(profile?.time_zone)
+              : null,
           })
           .select('*')
           .single()
@@ -1064,7 +1188,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const inversionChanged = nextPatch.inverted_logic !== undefined
           && nextPatch.inverted_logic !== currentTask?.inverted_logic
         const markedToday = completions.some(
-          (completion) => completion.task_id === id && completion.completed_on === localISODate(),
+          (completion) => (
+            completion.task_id === id
+            && completion.completed_on === isoDateInTimeZone(profile?.time_zone)
+          ),
         )
         if (inversionChanged && markedToday) {
           throw new Error('Инверсию логики нельзя изменить после отметки задачи за сегодня')
@@ -1102,7 +1229,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : task)))
       },
       async restartWithdrawalTask(taskId) {
-        const tomorrow = new Date()
+        const tomorrow = parseISODate(isoDateInTimeZone(profile?.time_zone))
         tomorrow.setDate(tomorrow.getDate() + 1)
         const { data, error: updError } = await requireSupabase()
           .from('tasks')
@@ -1155,7 +1282,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!user || !profile) return
         const started =
           profile.weight_started_on ??
-          (target != null ? localISODate() : null)
+          (target != null ? isoDateInTimeZone(profile.time_zone) : null)
         const { data, error: updError } = await requireSupabase()
           .from('profiles')
           .update({
@@ -1181,7 +1308,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
       async logTodayWeight(value) {
         if (!user) return
-        const today = localISODate()
+        const today = isoDateInTimeZone(profile?.time_zone)
         const { data, error: upsertError } = await requireSupabase()
           .from('weight_logs')
           .upsert(
@@ -1675,6 +1802,51 @@ export function DataProvider({ children }: { children: ReactNode }) {
         foodHistoryLogsRef.current = nextHistoryLogs
         setFoodHistoryLogs(nextHistoryLogs)
       },
+      async logFoodsToday(foods) {
+        if (!user) throw new Error('Пользователь не авторизован')
+        if (foods.length === 0) return
+
+        const today = isoDateInTimeZone(profile?.time_zone)
+        const rows = foods.map((food) => {
+          const productName = food.productName.trim()
+          const nutritionValues = [
+            food.weightGrams,
+            food.caloriesPer100g,
+            food.proteinsPer100g,
+            food.fatsPer100g,
+            food.carbohydratesPer100g,
+          ]
+          if (
+            !productName
+            || nutritionValues.some((value) => !Number.isFinite(value))
+            || food.weightGrams <= 0
+            || nutritionValues.slice(1).some((value) => value < 0)
+          ) {
+            throw new Error('Проверьте продукты и их КБЖУ перед копированием')
+          }
+          return {
+            id: createClientUuid(),
+            user_id: user.id,
+            logged_on: today,
+            product_name: productName,
+            weight_grams: food.weightGrams,
+            calories_per_100g: food.caloriesPer100g,
+            proteins_per_100g: food.proteinsPer100g,
+            fats_per_100g: food.fatsPer100g,
+            carbohydrates_per_100g: food.carbohydratesPer100g,
+          }
+        })
+
+        const { error: insertError } = await requireSupabase()
+          .from('daily_food_logs')
+          .insert(rows)
+        if (insertError) throw insertError
+        const insertedFoods = rows as FoodLog[]
+        setFoodLogs((previous) => [...previous, ...insertedFoods])
+        const nextHistoryLogs = [...foodHistoryLogsRef.current, ...insertedFoods]
+        foodHistoryLogsRef.current = nextHistoryLogs
+        setFoodHistoryLogs(nextHistoryLogs)
+      },
       async logFoodOnDate(loggedOn, productName, weightGrams, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g) {
         if (!user || !isAdmin || !adminMode) {
           throw new Error('Добавление доступно только в режиме администратора')
@@ -1761,11 +1933,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
       async addSavedProduct(name, caloriesPer100g, proteinsPer100g, fatsPer100g, carbohydratesPer100g, category, isFavorite) {
         if (!user) throw new Error('Пользователь не авторизован')
+        const normalizedName = name.trim()
+        const normalizedNameKey = normalizedName.toLocaleLowerCase('ru-RU')
+        if (!normalizedName) throw new Error('Введите название продукта')
+        if (savedProducts.some((product) => (
+          product.name.trim().toLocaleLowerCase('ru-RU') === normalizedNameKey
+        ))) {
+          throw new Error('Продукт с таким названием уже сохранён')
+        }
         const { data, error: insError } = await requireSupabase()
           .from('saved_products')
           .insert({
             user_id: user.id,
-          name,
+          name: normalizedName,
           calories_per_100g: caloriesPer100g,
           proteins_per_100g: proteinsPer100g,
           fats_per_100g: fatsPer100g,
@@ -1789,11 +1969,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!existingProduct) {
           throw new Error('Продукт больше не найден в разделе «Продукты»')
         }
+        const normalizedName = name.trim()
+        const normalizedNameKey = normalizedName.toLocaleLowerCase('ru-RU')
+        if (!normalizedName) throw new Error('Введите название продукта')
+        if (savedProducts.some((product) => (
+          product.id !== id
+          && product.name.trim().toLocaleLowerCase('ru-RU') === normalizedNameKey
+        ))) {
+          throw new Error('Продукт с таким названием уже сохранён')
+        }
 
         const { data, error: updError } = await requireSupabase()
           .from('saved_products')
           .update({
-          name,
+          name: normalizedName,
           calories_per_100g: caloriesPer100g,
           proteins_per_100g: proteinsPer100g,
           fats_per_100g: fatsPer100g,
@@ -1836,10 +2025,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ))
         const client = requireSupabase()
         if (!usedInMeal) {
-          const { data: currentMeals, error: mealsError } = await client
-            .from('saved_meals')
-            .select('id,user_id,name,items,created_at')
-            .eq('user_id', user.id)
+          const { data: currentMeals, error: mealsError } = await loadAllDatabaseRows<SavedMeal>(
+            (from, to) => client
+              .from('saved_meals')
+              .select('id,user_id,name,items,created_at')
+              .eq('user_id', user.id)
+              .order('created_at')
+              .order('id')
+              .range(from, to),
+          )
           if (mealsError && !isSavedMealsFeatureMissing(mealsError)) throw mealsError
           usedInMeal = ((currentMeals ?? []) as SavedMeal[])
             .map(normalizeSavedMeal)
@@ -1985,6 +2179,88 @@ export function DataProvider({ children }: { children: ReactNode }) {
           meal.id === id ? savedMeal : meal
         )))
       },
+      async updateSavedMeals(updates) {
+        if (!user) throw new Error('Пользователь не авторизован')
+        if (updates.length === 0) return
+
+        const uniqueUpdateIds = new Set(updates.map((update) => update.id))
+        if (uniqueUpdateIds.size !== updates.length) {
+          throw new Error('Один приём пищи нельзя сохранить дважды за одну операцию')
+        }
+        const existingMealIds = new Set(savedMeals.map((meal) => meal.id))
+        if (updates.some((update) => !existingMealIds.has(update.id))) {
+          throw new Error('Один из приёмов пищи больше не найден')
+        }
+
+        const normalizedUpdates = updates.map((update) => {
+          const normalizedName = update.name.trim()
+          if (!normalizedName) {
+            throw new Error('Введите название приёма пищи')
+          }
+          if (normalizedName.length > SAVED_MEAL_NAME_MAX_LENGTH) {
+            throw new Error(`Название приёма пищи не должно превышать ${SAVED_MEAL_NAME_MAX_LENGTH} символов`)
+          }
+          if (!Array.isArray(update.items) || update.items.length === 0) {
+            throw new Error(`Добавьте хотя бы один продукт в «${normalizedName}»`)
+          }
+          if (update.items.length > SAVED_MEAL_ITEMS_MAX_COUNT) {
+            throw new Error(`В одном приёме пищи может быть не более ${SAVED_MEAL_ITEMS_MAX_COUNT} продуктов`)
+          }
+          const normalizedItems = normalizeSavedMealItems(update.items)
+          if (normalizedItems.length !== update.items.length) {
+            throw new Error(`Проверьте продукты и их вес в «${normalizedName}»`)
+          }
+          return { id: update.id, name: normalizedName, items: normalizedItems }
+        })
+
+        const normalizedNames = normalizedUpdates.map((update) => update.name.toLocaleLowerCase('ru'))
+        if (new Set(normalizedNames).size !== normalizedNames.length) {
+          throw new Error('Названия приёмов пищи должны отличаться')
+        }
+
+        const savedProductIds = [...new Set(normalizedUpdates.flatMap((update) => (
+          update.items.map((item) => item.saved_product_id)
+        )))]
+        const client = requireSupabase()
+        const { data: existingProducts, error: productsError } = await client
+          .from('saved_products')
+          .select('id')
+          .eq('user_id', user.id)
+          .in('id', savedProductIds)
+        if (productsError) throw productsError
+        if ((existingProducts ?? []).length !== savedProductIds.length) {
+          throw new Error('Один из продуктов больше не найден в разделе «Продукты»')
+        }
+
+        const { data, error: upsertError } = await client
+          .from('saved_meals')
+          .upsert(normalizedUpdates.map((update) => ({
+            id: update.id,
+            user_id: user.id,
+            name: update.name,
+            items: update.items,
+          })), { onConflict: 'id' })
+          .select('*')
+        if (upsertError) {
+          if (isSavedMealsFeatureMissing(upsertError)) {
+            throw new Error('Таблица меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          if (upsertError.code === '23505') {
+            throw new Error('Приём пищи с таким названием уже сохранён')
+          }
+          throw upsertError
+        }
+
+        const normalizedMeals = (data ?? []).flatMap((row) => {
+          const meal = normalizeSavedMeal(row as SavedMeal)
+          return meal ? [meal] : []
+        })
+        if (normalizedMeals.length !== normalizedUpdates.length) {
+          throw new Error('Не удалось прочитать все сохранённые приёмы пищи')
+        }
+        const updatedMealsById = new Map(normalizedMeals.map((meal) => [meal.id, meal]))
+        setSavedMeals((previous) => previous.map((meal) => updatedMealsById.get(meal.id) ?? meal))
+      },
       async deleteSavedMeal(id) {
         if (!user) throw new Error('Пользователь не авторизован')
         const { error: delError } = await requireSupabase()
@@ -1996,37 +2272,305 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSavedMeals((previous) => previous.filter((meal) => meal.id !== id))
       },
       async scheduleSavedMeals(plannedOn, savedMealIds) {
-        if (!user) throw new Error('Пользователь не авторизован')
-        const uniqueMealIds = [...new Set(savedMealIds)]
-        if (!/^\d{4}-\d{2}-\d{2}$/u.test(plannedOn) || uniqueMealIds.length === 0) {
-          throw new Error('Выберите дату и приём пищи')
+        return enqueueSavedMealPlanMutation(async () => {
+          if (!user) throw new Error('Пользователь не авторизован')
+          const uniqueMealIds = [...new Set(savedMealIds)]
+          if (!/^\d{4}-\d{2}-\d{2}$/u.test(plannedOn) || uniqueMealIds.length === 0) {
+            throw new Error('Выберите дату и приём пищи')
+          }
+          const existingIds = new Set(savedMealsRef.current.map((meal) => meal.id))
+          if (uniqueMealIds.some((id) => !existingIds.has(id))) {
+            throw new Error('Один из приёмов пищи больше не найден')
+          }
+          const { data, error: insertError } = await requireSupabase()
+            .from('saved_meal_plans')
+            .insert({ user_id: user.id, planned_on: plannedOn, saved_meal_ids: uniqueMealIds })
+            .select('*')
+            .single()
+          if (insertError) {
+            if (isSavedMealPlansFeatureMissing(insertError)) {
+              throw new Error('Выполните обновлённый файл supabase/add_saved_meals.sql в Supabase')
+            }
+            throw insertError
+          }
+          replaceSavedMealPlans((previous) => [...previous, data as SavedMealPlan])
+        })
+      },
+      async ungroupSavedMealPlan(id) {
+        return enqueueSavedMealPlanMutation(async () => {
+          if (!user) throw new Error('Пользователь не авторизован')
+          const plan = savedMealPlansRef.current.find((item) => item.id === id)
+          if (!plan) throw new Error('Запланированный приём пищи больше не найден')
+          if (plan.saved_meal_ids.length < 2) return
+
+          const groupSignature = [...plan.saved_meal_ids].sort().join(':')
+          const detachedGroupSignature = `${groupSignature}|${plan.id}`
+          const client = requireSupabase()
+          const { data: existingDetachedRows, error: detachedLookupError } = await client
+            .from('saved_meal_plans')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('detached_group_signature', detachedGroupSignature)
+          if (detachedLookupError) {
+            if (isSavedMealPlansFeatureMissing(detachedLookupError)) {
+              throw new Error('Выполните обновлённый файл supabase/add_saved_meals.sql в Supabase')
+            }
+            throw detachedLookupError
+          }
+          const existingDetachedPlans = (existingDetachedRows ?? []) as SavedMealPlan[]
+          const existingDetachedMealIds = new Set(
+            existingDetachedPlans.flatMap((item) => item.saved_meal_ids),
+          )
+          if (
+            existingDetachedPlans.length === plan.saved_meal_ids.length
+            && existingDetachedPlans.every((item) => item.saved_meal_ids.length === 1)
+            && plan.saved_meal_ids.every((mealId) => existingDetachedMealIds.has(mealId))
+          ) {
+            replaceSavedMealPlans((previous) => [
+              ...previous.filter((item) => (
+                item.id !== id
+                && item.detached_group_signature !== detachedGroupSignature
+              )),
+              ...existingDetachedPlans,
+            ])
+            return
+          }
+          const replacementPlans = plan.saved_meal_ids.map((mealId, index) => ({
+            id: index === 0 ? plan.id : createClientUuid(),
+            user_id: user.id,
+            planned_on: plan.planned_on,
+            saved_meal_ids: [mealId],
+            detached_group_signature: detachedGroupSignature,
+            created_at: index === 0 ? plan.created_at : new Date().toISOString(),
+          }))
+          const { data, error: upsertError } = await client
+            .from('saved_meal_plans')
+            .upsert(replacementPlans, { onConflict: 'id' })
+            .select('*')
+          if (upsertError) {
+            if (isSavedMealPlansFeatureMissing(upsertError)) {
+              throw new Error('Выполните обновлённый файл supabase/add_saved_meals.sql в Supabase')
+            }
+            throw upsertError
+          }
+
+          const ungroupedPlans = (data ?? []) as SavedMealPlan[]
+          if (ungroupedPlans.length !== replacementPlans.length) {
+            throw new Error('Не удалось разгруппировать приёмы пищи')
+          }
+          replaceSavedMealPlans((previous) => [
+            ...previous.filter((item) => item.id !== id),
+            ...ungroupedPlans,
+          ])
+        })
+      },
+      async regroupSavedMealPlans(planIds) {
+        return enqueueSavedMealPlanMutation(async () => {
+          if (!user) throw new Error('Пользователь не авторизован')
+          const uniquePlanIds = [...new Set(planIds)]
+          const plans = uniquePlanIds.flatMap((planId) => {
+            const plan = savedMealPlansRef.current.find((item) => item.id === planId)
+            return plan ? [plan] : []
+          })
+          if (
+            plans.length < 2
+            || plans.length !== uniquePlanIds.length
+            || plans.some((plan) => plan.saved_meal_ids.length !== 1)
+          ) {
+            throw new Error('Не удалось найти все разгруппированные приёмы пищи')
+          }
+          if (plans.some((plan) => plan.planned_on !== plans[0].planned_on)) {
+            throw new Error('Сгруппировать можно только приёмы пищи на одну дату')
+          }
+          const detachedInstances = new Set(plans.map((plan) => plan.detached_group_signature))
+          if (detachedInstances.size !== 1 || detachedInstances.has(null)) {
+            throw new Error('Можно сгруппировать только приёмы пищи из одной разгруппированной группы')
+          }
+          const uniqueMealIds = [...new Set(plans.flatMap((plan) => plan.saved_meal_ids))]
+          if (uniqueMealIds.length !== plans.length) {
+            throw new Error('В разгруппированной группе обнаружены повторяющиеся приёмы пищи')
+          }
+
+          const targetPlan = plans[0]
+          const removedPlanIds = uniquePlanIds.slice(1)
+          const client = requireSupabase()
+          const replacementPlan = {
+            id: targetPlan.id,
+            planned_on: targetPlan.planned_on,
+            saved_meal_ids: uniqueMealIds,
+            detached_group_signature: null,
+            created_at: targetPlan.created_at,
+          }
+          const { data, error: syncError } = await client.rpc('sync_saved_meal_plans', {
+            replacement_rows: [replacementPlan],
+            removed_ids: removedPlanIds,
+          })
+          if (syncError) {
+            if (isSavedMealPlansFeatureMissing(syncError)) {
+              throw new Error('Выполните обновлённый файл supabase/add_saved_meals.sql в Supabase')
+            }
+            throw syncError
+          }
+          const groupedPlan = (data as SavedMealPlan[] | null)?.[0]
+          if (!groupedPlan) {
+            throw new Error('Не удалось прочитать сгруппированный план питания')
+          }
+          replaceSavedMealPlans((previous) => [
+            ...previous.filter((plan) => !uniquePlanIds.includes(plan.id)),
+            groupedPlan,
+          ])
+        })
+      },
+      async syncSavedMealPlanGrouping(mealGroups) {
+        return enqueueSavedMealPlanMutation(async () => {
+        const currentSavedMealPlans = savedMealPlansRef.current
+        if (!user || currentSavedMealPlans.length === 0) return
+
+        const normalizedGroups = mealGroups
+          .map((mealIds) => [...new Set(mealIds)].sort())
+          .filter((mealIds) => mealIds.length > 1)
+          .map((mealIds) => ({
+            mealIds,
+            signature: mealIds.join(':'),
+          }))
+        const groupByMealId = new Map<string, { mealIds: string[]; signature: string }>()
+        normalizedGroups.forEach((group) => {
+          group.mealIds.forEach((mealId) => groupByMealId.set(mealId, group))
+        })
+        const existingMealIds = new Set(savedMealsRef.current.map((meal) => meal.id))
+        const plansByDate = new Map<string, SavedMealPlan[]>()
+        currentSavedMealPlans.forEach((plan) => {
+          plansByDate.set(plan.planned_on, [
+            ...(plansByDate.get(plan.planned_on) ?? []),
+            plan,
+          ])
+        })
+
+        const upsertRows: SavedMealPlan[] = []
+        const deleteIds: string[] = []
+        const arraysEqual = (left: string[], right: string[]) => (
+          left.length === right.length && left.every((item, index) => item === right[index])
+        )
+
+        plansByDate.forEach((datePlans, plannedOn) => {
+          const protectedPlans = datePlans.filter((plan) => {
+            if (plan.saved_meal_ids.length !== 1 || !plan.detached_group_signature) return false
+            const currentGroup = groupByMealId.get(plan.saved_meal_ids[0])
+            return currentGroup?.signature === getDetachedMealGroupSignature(
+              plan.detached_group_signature,
+            )
+          })
+          const protectedIds = new Set(protectedPlans.map((plan) => plan.id))
+          const automaticPlans = datePlans.filter((plan) => !protectedIds.has(plan.id))
+          const flattenedMealIds = automaticPlans.flatMap((plan) => (
+            plan.saved_meal_ids.filter((mealId) => existingMealIds.has(mealId))
+          ))
+          const mealCounts = new Map<string, number>()
+          flattenedMealIds.forEach((mealId) => {
+            mealCounts.set(mealId, (mealCounts.get(mealId) ?? 0) + 1)
+          })
+
+          const desiredMealIdGroups: string[][] = []
+          const processedGroupSignatures = new Set<string>()
+          flattenedMealIds.forEach((mealId) => {
+            const group = groupByMealId.get(mealId)
+            if (!group) {
+              desiredMealIdGroups.push([mealId])
+              return
+            }
+            if (processedGroupSignatures.has(group.signature)) return
+            processedGroupSignatures.add(group.signature)
+            const completeGroupCount = Math.min(
+              ...group.mealIds.map((groupMealId) => mealCounts.get(groupMealId) ?? 0),
+            )
+            for (let index = 0; index < completeGroupCount; index += 1) {
+              desiredMealIdGroups.push(group.mealIds)
+            }
+          })
+
+          const unusedPlans = [...automaticPlans]
+          desiredMealIdGroups.forEach((savedMealIds) => {
+            let matchingIndex = unusedPlans.findIndex((plan) => (
+              arraysEqual(plan.saved_meal_ids, savedMealIds)
+              && !plan.detached_group_signature
+            ))
+            if (matchingIndex < 0) matchingIndex = unusedPlans.length > 0 ? 0 : -1
+            const reusablePlan = matchingIndex >= 0
+              ? unusedPlans.splice(matchingIndex, 1)[0]
+              : null
+            if (
+              reusablePlan
+              && arraysEqual(reusablePlan.saved_meal_ids, savedMealIds)
+              && !reusablePlan.detached_group_signature
+            ) {
+              return
+            }
+
+            upsertRows.push({
+              id: reusablePlan?.id ?? createClientUuid(),
+              user_id: user.id,
+              planned_on: plannedOn,
+              saved_meal_ids: savedMealIds,
+              detached_group_signature: null,
+              created_at: reusablePlan?.created_at ?? new Date().toISOString(),
+            })
+          })
+          deleteIds.push(...unusedPlans.map((plan) => plan.id))
+        })
+
+        if (upsertRows.length === 0 && deleteIds.length === 0) return
+        let syncResult
+        try {
+          syncResult = await requireSupabase().rpc(
+            'sync_saved_meal_plans',
+            {
+              replacement_rows: upsertRows.map((plan) => ({
+                id: plan.id,
+                planned_on: plan.planned_on,
+                saved_meal_ids: plan.saved_meal_ids,
+                detached_group_signature: plan.detached_group_signature ?? null,
+                created_at: plan.created_at,
+              })),
+              removed_ids: deleteIds,
+            },
+          )
+        } catch (syncRequestError) {
+          await reloadSavedMealPlans()
+          throw syncRequestError
         }
-        const existingIds = new Set(savedMeals.map((meal) => meal.id))
-        if (uniqueMealIds.some((id) => !existingIds.has(id))) {
-          throw new Error('Один из приёмов пищи больше не найден')
-        }
-        const { data, error: insertError } = await requireSupabase()
-          .from('saved_meal_plans')
-          .insert({ user_id: user.id, planned_on: plannedOn, saved_meal_ids: uniqueMealIds })
-          .select('*')
-          .single()
-        if (insertError) {
-          if (isSavedMealPlansFeatureMissing(insertError)) {
+        const { data, error: syncError } = syncResult
+        if (syncError) {
+          await reloadSavedMealPlans()
+          if (isSavedMealPlansFeatureMissing(syncError)) {
             throw new Error('Выполните обновлённый файл supabase/add_saved_meals.sql в Supabase')
           }
-          throw insertError
+          throw syncError
         }
-        setSavedMealPlans((previous) => [...previous, data as SavedMealPlan])
+        const savedRows = (data ?? []) as SavedMealPlan[]
+        if (savedRows.length !== upsertRows.length) {
+          await reloadSavedMealPlans()
+          throw new Error('Не удалось прочитать синхронизированные планы питания')
+        }
+
+        const replacedIds = new Set(upsertRows.map((plan) => plan.id))
+        const deletedIds = new Set(deleteIds)
+        replaceSavedMealPlans((previous) => [
+          ...previous.filter((plan) => !replacedIds.has(plan.id) && !deletedIds.has(plan.id)),
+          ...savedRows,
+        ])
+        })
       },
       async deleteSavedMealPlan(id) {
-        if (!user) throw new Error('Пользователь не авторизован')
-        const { error: deleteError } = await requireSupabase()
-          .from('saved_meal_plans')
-          .delete()
-          .eq('id', id)
-          .eq('user_id', user.id)
-        if (deleteError) throw deleteError
-        setSavedMealPlans((previous) => previous.filter((plan) => plan.id !== id))
+        return enqueueSavedMealPlanMutation(async () => {
+          if (!user) throw new Error('Пользователь не авторизован')
+          const { error: deleteError } = await requireSupabase()
+            .from('saved_meal_plans')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id)
+          if (deleteError) throw deleteError
+          replaceSavedMealPlans((previous) => previous.filter((plan) => plan.id !== id))
+        })
       },
       async addSavedExercise(name, category, exerciseType, restTimerEnabled, doubleVolume) {
         if (!user) return
@@ -2086,6 +2630,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       async scheduleExercise(plannedOn, exercise) {
         if (!user) return
         const dayExercises = scheduledExercises.filter((item) => item.planned_on === plannedOn)
+        const nextSortOrder = dayExercises.reduce(
+          (maximum, item) => Math.max(maximum, item.sort_order),
+          -1,
+        ) + 1
         const { data, error: insError } = await requireSupabase()
           .from('scheduled_exercises')
           .insert({
@@ -2096,7 +2644,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             exercise_type: exercise.exercise_type,
             rest_timer_enabled: exercise.rest_timer_enabled,
             double_volume: exercise.double_volume,
-            sort_order: dayExercises.length,
+            sort_order: nextSortOrder,
           })
           .select('*')
           .single()
@@ -2121,21 +2669,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const target = dayExercises[index + (direction === 'up' ? -1 : 1)]
         if (!target) return
 
-        const { error: firstError } = await requireSupabase()
-          .from('scheduled_exercises')
-          .update({ sort_order: target.sort_order })
-          .eq('id', current.id)
-        if (firstError) throw firstError
-        const { error: secondError } = await requireSupabase()
-          .from('scheduled_exercises')
-          .update({ sort_order: current.sort_order })
-          .eq('id', target.id)
-        if (secondError) throw secondError
-        setScheduledExercises((prev) => prev.map((exercise) => {
-          if (exercise.id === current.id) return { ...exercise, sort_order: target.sort_order }
-          if (exercise.id === target.id) return { ...exercise, sort_order: current.sort_order }
-          return exercise
-        }))
+        const client = requireSupabase()
+        const { data, error: swapError } = await client.rpc('swap_scheduled_exercise_order', {
+          first_exercise_id: current.id,
+          second_exercise_id: target.id,
+        })
+        if (swapError?.code === 'PGRST202' || swapError?.code === '42883') {
+          // Compatibility fallback until add_scheduled_exercises.sql is rerun.
+          const { error: firstError } = await client
+            .from('scheduled_exercises')
+            .update({ sort_order: target.sort_order })
+            .eq('id', current.id)
+          if (firstError) throw firstError
+          const { error: secondError } = await client
+            .from('scheduled_exercises')
+            .update({ sort_order: current.sort_order })
+            .eq('id', target.id)
+          if (secondError) throw secondError
+          setScheduledExercises((prev) => prev.map((exercise) => {
+            if (exercise.id === current.id) return { ...exercise, sort_order: target.sort_order }
+            if (exercise.id === target.id) return { ...exercise, sort_order: current.sort_order }
+            return exercise
+          }))
+          return
+        }
+        if (swapError) throw swapError
+        const swappedExercises = (data ?? []) as ScheduledExercise[]
+        const swappedById = new Map(swappedExercises.map((exercise) => [exercise.id, exercise]))
+        setScheduledExercises((prev) => prev.map((exercise) => (
+          swappedById.get(exercise.id) ?? exercise
+        )))
       },
       async updateScheduledExercise(id, patch) {
         const { data, error: updError } = await requireSupabase()
@@ -2176,6 +2739,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       adminMode,
       setAdminMode,
       refresh,
+      enqueueSavedMealPlanMutation,
+      replaceSavedMealPlans,
+      reloadSavedMealPlans,
       getCalorieNormOnDate,
       saveCalorieNormOnDate,
       reconcileNutritionTaskDate,

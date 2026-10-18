@@ -7,7 +7,11 @@ import {
   type ProductCategory,
 } from '../lib/product-categories'
 import type { SavedMeal, SavedMealItem, SavedProduct } from '../lib/types'
-import { localISODate } from '../lib/dates'
+import { isoDateInTimeZone, localISODate, parseISODate } from '../lib/dates'
+import {
+  getMealGroupIdentifier,
+  normalizeMealGroupIdentifier,
+} from '../lib/saved-meal-groups'
 
 const MENU_MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -48,6 +52,8 @@ type SavedMealGroup = {
   meals: SavedMeal[]
 }
 
+type MealMenuFilter = 'groups' | 'breakfast' | 'dinner'
+
 type SavedMealGroupDraft = {
   id: string
   name: string
@@ -77,6 +83,9 @@ type ImportedShoppingValues = {
 }
 
 const HIDDEN_PRODUCT_ID_COLUMN_INDEX = 6
+const MAX_SHOPPING_IMPORT_FILE_SIZE = 10 * 1024 * 1024
+const MAX_SHOPPING_IMPORT_ENTRY_COUNT = 500
+const MAX_SHOPPING_IMPORT_UNCOMPRESSED_SIZE = 50 * 1024 * 1024
 const HIDE_PRODUCT_ID_COLUMN_FEATURE: Feature<File | Blob | ArrayBuffer> = {
   files: {
     transform: {
@@ -108,7 +117,25 @@ function applyColorTint(hexColor: string, tint: number): string {
 
 async function readShoppingCellBackgrounds(file: File): Promise<Map<number, Partial<Record<number, string>>>> {
   const { strFromU8, unzipSync } = await import('fflate')
-  const archive = unzipSync(new Uint8Array(await file.arrayBuffer()))
+  let entryCount = 0
+  let uncompressedSize = 0
+  const archive = unzipSync(new Uint8Array(await file.arrayBuffer()), {
+    filter(entry) {
+      entryCount += 1
+      uncompressedSize += entry.originalSize
+      if (
+        entryCount > MAX_SHOPPING_IMPORT_ENTRY_COUNT
+        || uncompressedSize > MAX_SHOPPING_IMPORT_UNCOMPRESSED_SIZE
+      ) {
+        throw new Error('Excel-файл слишком большой или содержит слишком много данных')
+      }
+      return entry.name === 'xl/workbook.xml'
+        || entry.name === 'xl/_rels/workbook.xml.rels'
+        || entry.name === 'xl/styles.xml'
+        || entry.name === 'xl/theme/theme1.xml'
+        || /^xl\/worksheets\/[^/]+\.xml$/u.test(entry.name)
+    },
+  })
   const readXml = (path: string) => {
     const contents = archive[path]
     if (!contents) return null
@@ -240,13 +267,19 @@ function normalizeProductName(value: string): string {
   return value.trim().toLocaleLowerCase('ru-RU')
 }
 
-function getMealGroupIdentifier(name: string): string | null {
-  const match = name.match(/\(([^()]*)\)/u)
-  return match && match[1].length > 0 ? match[1] : null
-}
+const BREAKFAST_NAME_PATTERN = /(^|[^\p{L}])завтрак(?:а|у|ом|е|и|ов|ам|ами|ах)?(?=$|[^\p{L}])/iu
+const DINNER_NAME_PATTERN = /(^|[^\p{L}])ужин(?:а|у|ом|е|ы|ов|ам|ами|ах)?(?=$|[^\p{L}])/iu
 
-function normalizeMealGroupIdentifier(identifier: string): string {
-  return identifier.toLocaleLowerCase('ru-RU')
+function matchesMealMenuFilter(
+  group: SavedMealGroup,
+  filter: MealMenuFilter | null,
+): boolean {
+  if (filter === null) return true
+  if (filter === 'groups') return group.identifier !== null
+  if (group.identifier !== null) return false
+
+  const pattern = filter === 'breakfast' ? BREAKFAST_NAME_PATTERN : DINNER_NAME_PATTERN
+  return group.meals.some((meal) => pattern.test(meal.name))
 }
 
 function getCopiedMealName(name: string, savedMeals: SavedMeal[]): string {
@@ -260,7 +293,7 @@ function getCopiedMealName(name: string, savedMeals: SavedMeal[]): string {
   let copyNumber = 1
 
   while (copyNumber < 1_000) {
-    const suffix = copyNumber === 1 ? ' (копия)' : ` (копия ${copyNumber})`
+    const suffix = copyNumber === 1 ? ' — копия' : ` — копия ${copyNumber}`
     const copiedName = `${baseName.slice(0, 120 - suffix.length).trimEnd()}${suffix}`
     if (!existingNames.has(normalizeProductName(copiedName))) return copiedName
     copyNumber += 1
@@ -631,6 +664,434 @@ function SavedMealCard({
         </div>
       )}
     </article>
+  )
+}
+
+function PlannerMealEditor({
+  meal,
+  productMap,
+  onSave,
+  onClose,
+}: {
+  meal: SavedMeal
+  productMap: ReadonlyMap<string, SavedProduct>
+  onSave: (name: string, items: SavedMealItem[]) => Promise<void>
+  onClose: () => void
+}) {
+  const addedProductCounter = useRef(0)
+  const [name, setName] = useState(meal.name)
+  const [items, setItems] = useState<DraftMealItem[]>(() => meal.items.map((item, index) => ({
+    ...item,
+    draftId: `${meal.id}-${index}`,
+    weightInput: String(item.weight_grams),
+  })))
+  const [productDraft, setProductDraft] = useState<SavedMealGroupProductDraft>(
+    EMPTY_GROUP_PRODUCT_DRAFT,
+  )
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const sortedProducts = useMemo(
+    () => [...productMap.values()].sort((left, right) => (
+      MENU_NAME_COLLATOR.compare(left.name, right.name)
+    )),
+    [productMap],
+  )
+
+  const addProduct = () => {
+    const product = productMap.get(productDraft.productId)
+    if (!product) {
+      setError('Выберите продукт для добавления')
+      return
+    }
+
+    const weight = parseNumber(productDraft.weightInput)
+    if (!productDraft.weightInput.trim() || !Number.isFinite(weight) || weight <= 0) {
+      setError('Укажите вес добавляемого продукта больше нуля')
+      return
+    }
+    if (items.length >= 100) {
+      setError('В один приём пищи можно добавить не более 100 продуктов')
+      return
+    }
+
+    addedProductCounter.current += 1
+    setItems((current) => [...current, {
+      draftId: `${meal.id}-planner-added-${addedProductCounter.current}`,
+      saved_product_id: product.id,
+      weight_grams: weight,
+      weightInput: String(weight),
+    }])
+    setProductDraft(EMPTY_GROUP_PRODUCT_DRAFT)
+    setError(null)
+  }
+
+  const saveMeal = async () => {
+    if (!name.trim()) {
+      setError('Укажите название приёма пищи')
+      return
+    }
+    if (items.length === 0) {
+      setError('В приёме пищи должен остаться хотя бы один продукт')
+      return
+    }
+    if (items.some((item) => {
+      const weight = parseNumber(item.weightInput)
+      return !item.weightInput.trim() || !Number.isFinite(weight) || weight <= 0
+    })) {
+      setError('Укажите граммовку больше нуля для каждого продукта')
+      return
+    }
+    if (items.some((item) => !productMap.has(item.saved_product_id))) {
+      setError('Один из продуктов был удалён. Уберите его из списка перед сохранением')
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave(name.trim(), items.map(({
+        draftId: _draftId,
+        weightInput,
+        ...item
+      }) => ({
+        ...item,
+        weight_grams: parseNumber(weightInput),
+      })))
+      onClose()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить приём пищи')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="meal-menu-plan-editor" aria-label={`Редактирование приёма пищи «${meal.name}»`}>
+      <label className="meal-menu-plan-editor-name">
+        <span>Название приёма пищи</span>
+        <input
+          type="text"
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value)
+            setError(null)
+          }}
+          maxLength={120}
+          autoComplete="off"
+          disabled={saving}
+        />
+      </label>
+      <MealItemsTable
+        items={items}
+        productMap={productMap}
+        caption={`Продукты в приёме пищи «${meal.name}»`}
+        editingDisabled={saving}
+        onWeightChange={(draftId, value) => {
+          const parsedWeight = parseNumber(value)
+          setItems((current) => current.map((item) => item.draftId === draftId
+            ? {
+                ...item,
+                weightInput: value,
+                weight_grams: Number.isFinite(parsedWeight) && parsedWeight > 0
+                  ? parsedWeight
+                  : 0,
+              }
+            : item))
+          setError(null)
+        }}
+        onRemove={(draftId) => {
+          setItems((current) => current.filter((item) => item.draftId !== draftId))
+          setError(null)
+        }}
+      />
+      <div className="meal-menu-group-product-addition">
+        <label>
+          <span>Добавить продукт</span>
+          <select
+            value={productDraft.productId}
+            onChange={(event) => {
+              setProductDraft((current) => ({ ...current, productId: event.target.value }))
+              setError(null)
+            }}
+            disabled={saving || sortedProducts.length === 0}
+          >
+            <option value="">Выберите продукт</option>
+            {sortedProducts.map((product) => (
+              <option key={product.id} value={product.id}>{product.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Вес, г</span>
+          <input
+            type="number"
+            min="0.1"
+            step="0.1"
+            inputMode="decimal"
+            value={productDraft.weightInput}
+            onChange={(event) => {
+              setProductDraft((current) => ({ ...current, weightInput: event.target.value }))
+              setError(null)
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.repeat || saving) return
+              event.preventDefault()
+              addProduct()
+            }}
+            disabled={saving}
+          />
+        </label>
+        <button
+          type="button"
+          className="ghost"
+          onClick={addProduct}
+          disabled={saving || sortedProducts.length === 0}
+        >
+          Добавить
+        </button>
+      </div>
+      {error && <p className="meal-menu-error" role="alert">{error}</p>}
+      <div className="meal-menu-editor-actions">
+        <button type="button" className="primary" onClick={() => void saveMeal()} disabled={saving}>
+          {saving ? 'Сохранение…' : 'Сохранить'}
+        </button>
+        <button type="button" className="ghost" onClick={onClose} disabled={saving}>
+          Отмена
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function PlannerMealGroupEditor({
+  meals,
+  productMap,
+  onSave,
+  onClose,
+}: {
+  meals: SavedMeal[]
+  productMap: ReadonlyMap<string, SavedProduct>
+  onSave: (drafts: SavedMealGroupDraft[]) => Promise<void>
+  onClose: () => void
+}) {
+  const addedProductCounter = useRef(0)
+  const [drafts, setDrafts] = useState<SavedMealGroupDraft[]>(() => meals.map((meal) => ({
+    id: meal.id,
+    name: meal.name,
+    items: meal.items.map((item, index) => ({
+      ...item,
+      draftId: `${meal.id}-${index}`,
+      weightInput: String(item.weight_grams),
+    })),
+  })))
+  const [productDrafts, setProductDrafts] = useState<Record<string, SavedMealGroupProductDraft>>(
+    () => Object.fromEntries(meals.map((meal) => [meal.id, { ...EMPTY_GROUP_PRODUCT_DRAFT }])),
+  )
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const sortedProducts = useMemo(
+    () => [...productMap.values()].sort((left, right) => (
+      MENU_NAME_COLLATOR.compare(left.name, right.name)
+    )),
+    [productMap],
+  )
+
+  const addProduct = (mealId: string) => {
+    const productDraft = productDrafts[mealId] ?? EMPTY_GROUP_PRODUCT_DRAFT
+    const product = productMap.get(productDraft.productId)
+    if (!product) {
+      setError('Выберите продукт для добавления')
+      return
+    }
+
+    const weight = parseNumber(productDraft.weightInput)
+    if (!productDraft.weightInput.trim() || !Number.isFinite(weight) || weight <= 0) {
+      setError('Укажите вес добавляемого продукта больше нуля')
+      return
+    }
+    const mealDraft = drafts.find((draft) => draft.id === mealId)
+    if (!mealDraft) return
+    if (mealDraft.items.length >= 100) {
+      setError('В один приём пищи можно добавить не более 100 продуктов')
+      return
+    }
+
+    addedProductCounter.current += 1
+    setDrafts((current) => current.map((draft) => draft.id === mealId
+      ? {
+          ...draft,
+          items: [...draft.items, {
+            draftId: `${mealId}-planner-group-added-${addedProductCounter.current}`,
+            saved_product_id: product.id,
+            weight_grams: weight,
+            weightInput: String(weight),
+          }],
+        }
+      : draft))
+    setProductDrafts((current) => ({
+      ...current,
+      [mealId]: { ...EMPTY_GROUP_PRODUCT_DRAFT },
+    }))
+    setError(null)
+  }
+
+  const saveGroup = async () => {
+    if (drafts.some((draft) => !draft.name.trim())) {
+      setError('Укажите название каждого приёма пищи')
+      return
+    }
+    if (drafts.some((draft) => draft.items.length === 0)) {
+      setError('В каждом приёме пищи должен остаться хотя бы один продукт')
+      return
+    }
+    if (drafts.some((draft) => draft.items.some((item) => {
+      const weight = parseNumber(item.weightInput)
+      return !item.weightInput.trim() || !Number.isFinite(weight) || weight <= 0
+    }))) {
+      setError('Укажите граммовку больше нуля для каждого продукта')
+      return
+    }
+    if (drafts.some((draft) => draft.items.some((item) => (
+      !productMap.has(item.saved_product_id)
+    )))) {
+      setError('Один из продуктов был удалён. Уберите его из списка перед сохранением')
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave(drafts)
+      onClose()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить группу')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="meal-menu-plan-group-editor" aria-label="Редактирование группы приёмов пищи">
+      {meals.map((meal) => {
+        const draft = drafts.find((item) => item.id === meal.id)
+        if (!draft) return null
+        const productDraft = productDrafts[meal.id] ?? EMPTY_GROUP_PRODUCT_DRAFT
+
+        return (
+          <section key={meal.id} className="meal-menu-group-meal">
+            <div className="meal-menu-group-meal-title">
+              <input
+                className="meal-menu-group-name-input"
+                type="text"
+                value={draft.name}
+                onChange={(event) => {
+                  const name = event.target.value
+                  setDrafts((current) => current.map((item) => (
+                    item.id === meal.id ? { ...item, name } : item
+                  )))
+                  setError(null)
+                }}
+                maxLength={120}
+                disabled={saving}
+                aria-label={`Название приёма пищи «${meal.name}»`}
+              />
+              <MealNutritionInline items={draft.items} productMap={productMap} />
+            </div>
+            <MealItemsTable
+              items={draft.items}
+              productMap={productMap}
+              caption={`Продукты в приёме пищи «${meal.name}»`}
+              editingDisabled={saving}
+              onWeightChange={(draftId, value) => {
+                const parsedWeight = parseNumber(value)
+                setDrafts((current) => current.map((item) => item.id === meal.id
+                  ? {
+                      ...item,
+                      items: item.items.map((product) => product.draftId === draftId
+                        ? {
+                            ...product,
+                            weightInput: value,
+                            weight_grams: Number.isFinite(parsedWeight) && parsedWeight > 0
+                              ? parsedWeight
+                              : 0,
+                          }
+                        : product),
+                    }
+                  : item))
+                setError(null)
+              }}
+              onRemove={(draftId) => {
+                setDrafts((current) => current.map((item) => item.id === meal.id
+                  ? { ...item, items: item.items.filter((product) => product.draftId !== draftId) }
+                  : item))
+                setError(null)
+              }}
+            />
+            <div className="meal-menu-group-product-addition">
+              <label>
+                <span>Добавить продукт</span>
+                <select
+                  value={productDraft.productId}
+                  onChange={(event) => {
+                    setProductDrafts((current) => ({
+                      ...current,
+                      [meal.id]: { ...productDraft, productId: event.target.value },
+                    }))
+                    setError(null)
+                  }}
+                  disabled={saving || sortedProducts.length === 0}
+                >
+                  <option value="">Выберите продукт</option>
+                  {sortedProducts.map((product) => (
+                    <option key={product.id} value={product.id}>{product.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Вес, г</span>
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={productDraft.weightInput}
+                  onChange={(event) => {
+                    setProductDrafts((current) => ({
+                      ...current,
+                      [meal.id]: { ...productDraft, weightInput: event.target.value },
+                    }))
+                    setError(null)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' || event.repeat || saving) return
+                    event.preventDefault()
+                    addProduct(meal.id)
+                  }}
+                  disabled={saving}
+                />
+              </label>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => addProduct(meal.id)}
+                disabled={saving || sortedProducts.length === 0}
+              >
+                Добавить
+              </button>
+            </div>
+          </section>
+        )
+      })}
+      {error && <p className="meal-menu-error" role="alert">{error}</p>}
+      <div className="meal-menu-editor-actions">
+        <button type="button" className="primary" onClick={() => void saveGroup()} disabled={saving}>
+          {saving ? 'Сохранение…' : 'Сохранить группу'}
+        </button>
+        <button type="button" className="ghost" onClick={onClose} disabled={saving}>
+          Отмена
+        </button>
+      </div>
+    </section>
   )
 }
 
@@ -1006,30 +1467,40 @@ function SavedMealGroupCard({
   )
 }
 
-export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string) => void }) {
+export function MealPlannerView() {
   const {
+    profile,
     savedProducts,
     savedMeals,
     savedMealPlans,
-    logFoodToday,
+    logFoodsToday,
     scheduleSavedMeals,
+    updateSavedMeal,
+    updateSavedMeals,
+    ungroupSavedMealPlan,
+    regroupSavedMealPlans,
     deleteSavedMealPlan,
   } = useData()
-  const [selectedPlanDate, setSelectedPlanDate] = useState(() => localISODate())
+  const profileToday = isoDateInTimeZone(profile?.time_zone)
+  const [selectedPlanDate, setSelectedPlanDate] = useState(() => profileToday)
   const [visiblePlanMonth, setVisiblePlanMonth] = useState(() => {
-    const today = new Date()
+    const today = parseISODate(profileToday)
     return new Date(today.getFullYear(), today.getMonth(), 1)
   })
   const [selectedPlanGroupKey, setSelectedPlanGroupKey] = useState('')
   const [planPickerOpen, setPlanPickerOpen] = useState(false)
   const [planBusy, setPlanBusy] = useState(false)
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null)
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null)
+  const [ungroupingPlanId, setUngroupingPlanId] = useState<string | null>(null)
+  const [regroupingGroupKey, setRegroupingGroupKey] = useState<string | null>(null)
   const [copyingToConsumption, setCopyingToConsumption] = useState(false)
   const [planError, setPlanError] = useState<string | null>(null)
   const [planNotice, setPlanNotice] = useState<string | null>(null)
   const [shoppingRangeOpen, setShoppingRangeOpen] = useState(false)
-  const [shoppingFrom, setShoppingFrom] = useState(() => localISODate())
-  const [shoppingTo, setShoppingTo] = useState(() => localISODate())
+  const [shoppingFrom, setShoppingFrom] = useState(() => profileToday)
+  const [shoppingTo, setShoppingTo] = useState(() => profileToday)
   const [shoppingCalendarPickingEnd, setShoppingCalendarPickingEnd] = useState(false)
   const [shoppingError, setShoppingError] = useState<string | null>(null)
   const [shoppingResult, setShoppingResult] = useState<ShoppingListResult | null>(null)
@@ -1058,10 +1529,14 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
     () => new Map(savedProducts.map((product) => [product.id, product])),
     [savedProducts],
   )
+  const savedMealMap = useMemo(
+    () => new Map(savedMeals.map((meal) => [meal.id, meal])),
+    [savedMeals],
+  )
   const selectedDatePlanNutrition = useMemo(() => new Map(
     selectedDatePlans.map((plan) => {
       const meals = plan.saved_meal_ids.flatMap((mealId) => {
-        const meal = savedMeals.find((item) => item.id === mealId)
+        const meal = savedMealMap.get(mealId)
         return meal ? [meal] : []
       })
       const nutrition = getMealTotals(
@@ -1073,7 +1548,7 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
         hasMissingData: nutrition.hasMissingProduct || meals.length !== plan.saved_meal_ids.length,
       }]
     }),
-  ), [savedMeals, savedProductMap, selectedDatePlans])
+  ), [savedMealMap, savedProductMap, selectedDatePlans])
   const selectedDateTotals = useMemo(() => {
     const totals = [...selectedDatePlanNutrition.values()].reduce<NutritionTotals>(
       (result, nutrition) => ({
@@ -1121,6 +1596,18 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [planPickerOpen])
+
+  useEffect(() => {
+    if (editingPlanId === null && expandedPlanId === null) return undefined
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setEditingPlanId(null)
+      setExpandedPlanId(null)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [editingPlanId, expandedPlanId])
 
   useEffect(() => {
     if (!shoppingResult) return undefined
@@ -1375,11 +1862,13 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
 
     setShoppingExportError(null)
     try {
+      if (file.size > MAX_SHOPPING_IMPORT_FILE_SIZE) {
+        throw new Error('Excel-файл не должен превышать 10 МБ')
+      }
       const { readSheet } = await import('read-excel-file/browser')
-      const [rows, rowBackgrounds] = await Promise.all([
-        readSheet(file, 'Закупки'),
-        readShoppingCellBackgrounds(file),
-      ])
+      // Validate the archive before the spreadsheet parser expands it.
+      const rowBackgrounds = await readShoppingCellBackgrounds(file)
+      const rows = await readSheet(file, 'Закупки')
       const normalizeHeader = (value: unknown) => String(value ?? '').trim().toLocaleLowerCase('ru-RU')
       const headerRowIndex = rows.findIndex((row) => (
         row.some((cell) => normalizeHeader(cell) === 'id продукта')
@@ -1466,10 +1955,67 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
     setPlanNotice(null)
     try {
       await deleteSavedMealPlan(id)
+      setExpandedPlanId((current) => current === id ? null : current)
     } catch (error) {
       setPlanError(error instanceof Error ? error.message : 'Не удалось удалить приём пищи из планировщика')
     } finally {
       setDeletingPlanId(null)
+    }
+  }
+
+  const handleUngroupMealPlan = async (id: string, label: string) => {
+    const selectedDateLabel = new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date(`${selectedPlanDate}T12:00:00`))
+    const confirmed = window.confirm(
+      `Разгруппировать приёмы пищи «${label}» в планировщике на ${selectedDateLabel}? В меню они останутся одной группой.`,
+    )
+    if (!confirmed) return
+
+    setUngroupingPlanId(id)
+    setPlanError(null)
+    setPlanNotice(null)
+    setEditingPlanId(null)
+    setExpandedPlanId(null)
+    try {
+      await ungroupSavedMealPlan(id)
+      setPlanNotice('Приёмы пищи разгруппированы для выбранной даты')
+    } catch (error) {
+      setPlanError(error instanceof Error ? error.message : 'Не удалось разгруппировать приёмы пищи')
+    } finally {
+      setUngroupingPlanId(null)
+    }
+  }
+
+  const handleRegroupMealPlans = async (
+    groupKey: string,
+    label: string,
+    planIds: string[],
+  ) => {
+    const selectedDateLabel = new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date(`${selectedPlanDate}T12:00:00`))
+    const confirmed = window.confirm(
+      `Снова сгруппировать приёмы пищи «${label}» в планировщике на ${selectedDateLabel}?`,
+    )
+    if (!confirmed) return
+
+    setRegroupingGroupKey(groupKey)
+    setPlanError(null)
+    setPlanNotice(null)
+    setEditingPlanId(null)
+    setExpandedPlanId(null)
+    try {
+      await regroupSavedMealPlans(planIds)
+      setPlanNotice('Приёмы пищи снова сгруппированы для выбранной даты')
+    } catch (error) {
+      setPlanError(error instanceof Error ? error.message : 'Не удалось сгруппировать приёмы пищи')
+    } finally {
+      setRegroupingGroupKey(null)
     }
   }
 
@@ -1480,7 +2026,7 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
     }
 
     const plannedMeals = selectedDatePlans.flatMap((plan) => plan.saved_meal_ids.flatMap((mealId) => {
-      const meal = savedMeals.find((item) => item.id === mealId)
+      const meal = savedMealMap.get(mealId)
       return meal ? [meal] : []
     }))
     const plannedMealCount = selectedDatePlans.reduce(
@@ -1519,17 +2065,14 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
     setPlanError(null)
     setPlanNotice(null)
     try {
-      for (const { item, product } of products) {
-        if (!product) continue
-        await logFoodToday(
-          product.name,
-          item.weight_grams,
-          product.calories_per_100g,
-          product.proteins_per_100g,
-          product.fats_per_100g,
-          product.carbohydrates_per_100g,
-        )
-      }
+      await logFoodsToday(products.flatMap(({ item, product }) => product ? [{
+        productName: product.name,
+        weightGrams: item.weight_grams,
+        caloriesPer100g: product.calories_per_100g,
+        proteinsPer100g: product.proteins_per_100g,
+        fatsPer100g: product.fats_per_100g,
+        carbohydratesPer100g: product.carbohydrates_per_100g,
+      }] : []))
       setPlanNotice('Все продукты добавлены в потребление за сегодня')
     } catch (error) {
       setPlanError(error instanceof Error ? error.message : 'Не удалось скопировать продукты в потребление')
@@ -1574,7 +2117,7 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
     const productWeights = new Map<string, { name: string; weightGrams: number }>()
     for (const plan of periodPlans) {
       for (const mealId of plan.saved_meal_ids) {
-        const meal = savedMeals.find((item) => item.id === mealId)
+        const meal = savedMealMap.get(mealId)
         if (!meal) continue
         for (const item of meal.items) {
           const product = savedProductMap.get(item.saved_product_id)
@@ -1602,7 +2145,7 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
 
   const getPlanLabel = (mealIds: string[]) => {
     const meals = mealIds.flatMap((id) => {
-      const meal = savedMeals.find((item) => item.id === id)
+      const meal = savedMealMap.get(id)
       return meal ? [meal] : []
     })
     if (meals.length > 1) {
@@ -1625,9 +2168,39 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
     return meals.map((meal) => meal.name).join(', ') || 'Удалённый приём пищи'
   }
 
-  const getPlanGroup = (mealIds: string[]) => (
-    mealGroups.find((group) => group.meals.some((meal) => mealIds.includes(meal.id))) ?? null
-  )
+  const getPlanGroup = (mealIds: string[]) => {
+    const uniqueMealIds = new Set(mealIds)
+    if (uniqueMealIds.size !== mealIds.length) return null
+    if (mealIds.length === 1) {
+      return mealGroups.find((group) => group.meals.some((meal) => meal.id === mealIds[0])) ?? null
+    }
+    return mealGroups.find((group) => (
+      group.identifier !== null
+      && group.meals.length === mealIds.length
+      && group.meals.every((meal) => uniqueMealIds.has(meal.id))
+    )) ?? null
+  }
+
+  const activePlanModalId = editingPlanId ?? expandedPlanId
+  const activePlanModalPlan = activePlanModalId === null
+    ? null
+    : selectedDatePlans.find((plan) => plan.id === activePlanModalId) ?? null
+  const activePlanModalMeals = activePlanModalPlan
+    ? activePlanModalPlan.saved_meal_ids.flatMap((mealId) => {
+        const meal = savedMealMap.get(mealId)
+        return meal ? [meal] : []
+      })
+    : []
+  const activePlanModalMeal = activePlanModalMeals.length === 1
+    ? activePlanModalMeals[0]
+    : null
+  const activePlanModalLabel = activePlanModalPlan
+    ? getPlanLabel(activePlanModalPlan.saved_meal_ids)
+    : ''
+  const closePlanMealModal = () => {
+    setEditingPlanId(null)
+    setExpandedPlanId(null)
+  }
 
   return (
     <section className="meal-menu meal-planner-view" aria-label="Планировщик питания">
@@ -1652,7 +2225,7 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
                 'calendar-day',
                 plannedDates.has(date) ? 'has-meal-plan' : '',
                 selectedPlanDate === date ? 'selected' : '',
-                localISODate() === date ? 'today' : '',
+                profileToday === date ? 'today' : '',
                 shoppingRangeSelected ? 'shopping-range' : '',
                 shoppingRangeOpen && date === shoppingFrom ? 'shopping-range-start' : '',
                 shoppingRangeOpen && date === shoppingTo ? 'shopping-range-end' : '',
@@ -1664,6 +2237,8 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
                   className={classes}
                   onClick={() => {
                     setSelectedPlanDate(date)
+                    setEditingPlanId(null)
+                    setExpandedPlanId(null)
                     handleShoppingCalendarDate(date)
                     setPlanError(null)
                     setPlanNotice(null)
@@ -1811,28 +2386,136 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
               const planLabel = getPlanLabel(plan.saved_meal_ids)
               const planGroup = getPlanGroup(plan.saved_meal_ids)
               const groupKey = planGroup?.key ?? null
+              const groupedPlan = plan.saved_meal_ids.length > 1 && planGroup?.identifier !== null
+              const ungroupedGroupMeal = plan.saved_meal_ids.length === 1
+                && planGroup?.identifier !== null
+                && Boolean(plan.detached_group_signature)
+              const ungroupedGroupPlans = ungroupedGroupMeal && planGroup
+                ? selectedDatePlans.filter((candidate) => (
+                    candidate.saved_meal_ids.length === 1
+                    && candidate.detached_group_signature === plan.detached_group_signature
+                    && planGroup.meals.some((meal) => meal.id === candidate.saved_meal_ids[0])
+                  ))
+                : []
+              const ungroupedMealIds = new Set(
+                ungroupedGroupPlans.map((candidate) => candidate.saved_meal_ids[0]),
+              )
+              const canRegroup = planGroup !== null
+                && planGroup.identifier !== null
+                && ungroupedGroupPlans.length === planGroup.meals.length
+                && ungroupedMealIds.size === planGroup.meals.length
+                && planGroup.meals.every((meal) => ungroupedMealIds.has(meal.id))
+              const regrouping = planGroup !== null && regroupingGroupKey === planGroup.key
+              const editableMeal = plan.saved_meal_ids.length === 1
+                ? savedMealMap.get(plan.saved_meal_ids[0]) ?? null
+                : null
+              const editing = editingPlanId === plan.id && editableMeal !== null
+              const expanded = expandedPlanId === plan.id
               const nutrition = selectedDatePlanNutrition.get(plan.id)
               return (
-                <div key={plan.id} className="meal-menu-day-plan">
-                  <button
-                    type="button"
-                    className="meal-menu-day-plan-link"
-                    onClick={() => groupKey && onOpenMeal(groupKey)}
-                    disabled={!groupKey}
-                    title={groupKey ? 'Открыть в меню' : undefined}
-                  >
-                    {planGroup?.identifier && <MealGroupIcon />}
-                    <span>{planLabel}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="delete-button"
-                    onClick={() => void handleDeleteMealPlan(plan.id, plan.saved_meal_ids, planLabel)}
-                    disabled={deletingPlanId === plan.id}
-                    aria-label={`Удалить план «${planLabel}»`}
-                  >
-                    {deletingPlanId === plan.id ? '…' : '×'}
-                  </button>
+                <div key={plan.id} className={`meal-menu-day-plan${editing ? ' editing' : ''}`}>
+                  <div className="meal-menu-day-plan-main">
+                    {groupedPlan && (
+                      <button
+                        type="button"
+                        className="meal-menu-plan-group-marker active"
+                        onClick={() => void handleUngroupMealPlan(plan.id, planLabel)}
+                        disabled={ungroupingPlanId === plan.id}
+                        aria-label={`Разгруппировать «${planLabel}» на выбранную дату`}
+                        title="Разгруппировать на выбранную дату"
+                      >
+                        {ungroupingPlanId === plan.id ? <span aria-hidden="true">…</span> : <MealGroupIcon />}
+                      </button>
+                    )}
+                    {ungroupedGroupMeal && planGroup && (
+                      canRegroup ? (
+                        <button
+                          type="button"
+                          className="meal-menu-plan-group-marker inactive"
+                          onClick={() => void handleRegroupMealPlans(
+                            planGroup.key,
+                            planGroup.identifier ?? planLabel,
+                            [
+                              plan.id,
+                              ...ungroupedGroupPlans
+                                .filter((candidate) => candidate.id !== plan.id)
+                                .map((candidate) => candidate.id),
+                            ],
+                          )}
+                          disabled={regrouping}
+                          aria-label={`Снова сгруппировать «${planGroup.identifier ?? planLabel}» на выбранную дату`}
+                          title="Снова сгруппировать на выбранную дату"
+                        >
+                          {regrouping ? <span aria-hidden="true">…</span> : <MealGroupIcon />}
+                        </button>
+                      ) : (
+                        <span
+                          className="meal-menu-plan-group-marker inactive disabled"
+                          aria-label="Приём пищи разгруппирован только для этой даты"
+                          title="Других приёмов этой группы на выбранной дате нет"
+                        >
+                          <MealGroupIcon />
+                        </span>
+                      )
+                    )}
+                    <button
+                      type="button"
+                      className="meal-menu-day-plan-link"
+                      onClick={() => {
+                        if (groupKey) {
+                          setExpandedPlanId((current) => current === plan.id ? null : plan.id)
+                        }
+                      }}
+                      disabled={!groupKey || editing || ungroupingPlanId === plan.id || regrouping}
+                      title={groupKey
+                        ? editableMeal
+                          ? 'Показать продукты'
+                          : 'Показать состав группы'
+                        : undefined}
+                      aria-expanded={groupKey ? expanded : undefined}
+                    >
+                      <span>{planLabel}</span>
+                      {groupKey && (
+                        <span className="meal-menu-day-plan-chevron" aria-hidden="true">
+                          {expanded ? '⌃' : '⌄'}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                  <div className="meal-menu-day-plan-actions">
+                    {editableMeal && (
+                      <button
+                        type="button"
+                        className={`edit-button meal-menu-day-plan-edit${editing ? ' active' : ''}`}
+                        onClick={() => {
+                          setExpandedPlanId(null)
+                          setEditingPlanId((current) => current === plan.id ? null : plan.id)
+                        }}
+                        disabled={deletingPlanId === plan.id || ungroupingPlanId === plan.id || regrouping}
+                        aria-label={editing
+                          ? `Отменить редактирование приёма пищи «${planLabel}»`
+                          : `Редактировать приём пищи «${planLabel}»`}
+                        aria-pressed={editing}
+                        title={editing ? 'Отменить редактирование' : 'Редактировать приём пищи'}
+                      >
+                        {editing ? (
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <circle cx="12" cy="12" r="8.5" />
+                            <path d="M6 6l12 12" />
+                          </svg>
+                        ) : '✎'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="delete-button"
+                      onClick={() => void handleDeleteMealPlan(plan.id, plan.saved_meal_ids, planLabel)}
+                      disabled={deletingPlanId === plan.id || editing || ungroupingPlanId === plan.id || regrouping}
+                      aria-label={`Удалить план «${planLabel}»`}
+                    >
+                      {deletingPlanId === plan.id ? '…' : '×'}
+                    </button>
+                  </div>
                   {nutrition && (
                     <p className="meal-menu-day-plan-nutrition">
                       <strong>КБЖУ:</strong>
@@ -1857,6 +2540,136 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
           </div>
         </div>
       </section>
+      {activePlanModalMeals.length > 0 && activePlanModalPlan && (
+        <div
+          className="modal-overlay meal-menu-plan-modal-overlay"
+          role="presentation"
+          onClick={closePlanMealModal}
+        >
+          <section
+            className="modal-content meal-menu-plan-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="meal-menu-plan-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="meal-menu-plan-modal-head">
+              <div>
+                <h3 id="meal-menu-plan-modal-title">
+                  {editingPlanId === activePlanModalPlan.id
+                    ? activePlanModalMeals.length > 1
+                      ? `Редактировать группу «${activePlanModalLabel}»`
+                      : 'Редактировать приём пищи'
+                    : activePlanModalLabel}
+                </h3>
+                {editingPlanId !== activePlanModalPlan.id && (
+                  <MealNutritionInline
+                    items={activePlanModalMeals.flatMap((meal) => meal.items)}
+                    productMap={savedProductMap}
+                  />
+                )}
+              </div>
+              <button
+                type="button"
+                className="icon-close"
+                onClick={closePlanMealModal}
+                aria-label="Закрыть окно приёма пищи"
+              >
+                ×
+              </button>
+            </header>
+            {editingPlanId === activePlanModalPlan.id && activePlanModalMeals.length > 1 ? (
+              <PlannerMealGroupEditor
+                key={activePlanModalMeals.map((meal) => meal.id).join(':')}
+                meals={activePlanModalMeals}
+                productMap={savedProductMap}
+                onSave={async (drafts) => {
+                  await updateSavedMeals(drafts.map((draft) => ({
+                    id: draft.id,
+                    name: draft.name.trim(),
+                    items: draft.items.map(({ draftId: _draftId, weightInput, ...item }) => ({
+                      ...item,
+                      weight_grams: parseNumber(weightInput),
+                    })),
+                  })))
+                }}
+                onClose={closePlanMealModal}
+              />
+            ) : editingPlanId === activePlanModalPlan.id && activePlanModalMeal ? (
+              <PlannerMealEditor
+                key={activePlanModalMeal.id}
+                meal={activePlanModalMeal}
+                productMap={savedProductMap}
+                onSave={(name, items) => updateSavedMeal(activePlanModalMeal.id, name, items)}
+                onClose={closePlanMealModal}
+              />
+            ) : activePlanModalMeals.length > 1 ? (
+              <>
+                <div className="meal-menu-plan-modal-group">
+                  {activePlanModalMeals.map((meal) => (
+                    <section key={meal.id} className="meal-menu-group-meal">
+                      <div className="meal-menu-group-meal-head">
+                        <div className="meal-menu-group-meal-title">
+                          <h4>{meal.name}</h4>
+                          <MealNutritionInline items={meal.items} productMap={savedProductMap} />
+                        </div>
+                      </div>
+                      <MealItemsTable
+                        items={meal.items}
+                        productMap={savedProductMap}
+                        caption={`Продукты в приёме пищи «${meal.name}»`}
+                      />
+                    </section>
+                  ))}
+                  <MealGroupTotals
+                    meals={activePlanModalMeals}
+                    identifier={activePlanModalLabel}
+                    productMap={savedProductMap}
+                  />
+                </div>
+                <div className="meal-menu-plan-modal-actions">
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => {
+                      setExpandedPlanId(null)
+                      setEditingPlanId(activePlanModalPlan.id)
+                    }}
+                  >
+                    Редактировать
+                  </button>
+                  <button type="button" className="ghost" onClick={closePlanMealModal}>
+                    Закрыть
+                  </button>
+                </div>
+              </>
+            ) : activePlanModalMeal ? (
+              <>
+                <MealItemsTable
+                  items={activePlanModalMeal.items}
+                  productMap={savedProductMap}
+                  caption={`Продукты в приёме пищи «${activePlanModalMeal.name}»`}
+                />
+                <div className="meal-menu-plan-modal-actions">
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => {
+                      setExpandedPlanId(null)
+                      setEditingPlanId(activePlanModalPlan.id)
+                    }}
+                  >
+                    Редактировать
+                  </button>
+                  <button type="button" className="ghost" onClick={closePlanMealModal}>
+                    Закрыть
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </section>
+        </div>
+      )}
       {shoppingResult && (
         <div
           className="modal-overlay meal-menu-shopping-overlay"
@@ -1994,33 +2807,28 @@ export function MealPlannerView({ onOpenMeal }: { onOpenMeal: (groupKey: string)
   )
 }
 
-export function MealMenuView({
-  focusRequest,
-}: {
-  focusRequest?: { groupKey: string; requestId: number } | null
-}) {
+export function MealMenuView() {
   const {
     savedProducts,
     savedMeals,
     addSavedProduct,
     addSavedMeal,
     updateSavedMeal,
+    updateSavedMeals,
     deleteSavedMeal,
   } = useData()
   const formHeadingId = useId()
   const productSuggestionsId = useId()
   const menuInfoId = useId()
   const draftCounter = useRef(0)
-  const mealListRef = useRef<HTMLDivElement>(null)
   const [editorOpen, setEditorOpen] = useState(false)
+  const [activeFilter, setActiveFilter] = useState<MealMenuFilter | null>(null)
   const [editingMealId, setEditingMealId] = useState<string | null>(null)
   const [mealName, setMealName] = useState('')
   const [selectedProductId, setSelectedProductId] = useState('')
   const [productDraft, setProductDraft] = useState<MealProductDraft>(EMPTY_PRODUCT_DRAFT)
   const [draftItems, setDraftItems] = useState<DraftMealItem[]>([])
-  const [expandedMealGroupKey, setExpandedMealGroupKey] = useState<string | null>(
-    () => focusRequest?.groupKey ?? null,
-  )
+  const [expandedMealGroupKey, setExpandedMealGroupKey] = useState<string | null>(null)
   const [editorError, setEditorError] = useState<string | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null)
@@ -2050,18 +2858,11 @@ export function MealMenuView({
     [savedMeals],
   )
   const mealGroups = useMemo(() => groupSavedMeals(sortedMeals), [sortedMeals])
+  const visibleMealGroups = useMemo(
+    () => mealGroups.filter((group) => matchesMealMenuFilter(group, activeFilter)),
+    [activeFilter, mealGroups],
+  )
 
-  useEffect(() => {
-    if (!focusRequest || !mealGroups.some((group) => group.key === focusRequest.groupKey)) return
-
-    window.requestAnimationFrame(() => {
-      const card = Array.from(
-        mealListRef.current?.querySelectorAll<HTMLElement>('[data-meal-group-key]') ?? [],
-      ).find((element) => element.dataset.mealGroupKey === focusRequest.groupKey)
-      card?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      card?.querySelector<HTMLButtonElement>('.meal-menu-trigger')?.focus({ preventScroll: true })
-    })
-  }, [focusRequest, mealGroups])
   const busy = addingProduct || submitting
   const selectedProduct = selectedProductId ? savedProductMap.get(selectedProductId) ?? null : null
   const existingProductSelected = Boolean(selectedProductId)
@@ -2598,21 +3399,43 @@ export function MealMenuView({
     <section className="meal-menu" aria-label="Сохранённые приёмы пищи">
       <div className="meal-menu-toolbar">
         {!editorOpen && (
-          <button
-            type="button"
-            className="add-button meal-menu-add-button"
-            onClick={() => {
-              resetEditor()
-              setEditorOpen(true)
-            }}
-          >
-            Добавить приём пищи
-          </button>
+          <>
+            <button
+              type="button"
+              className="add-button meal-menu-add-button"
+              onClick={() => {
+                resetEditor()
+                setEditorOpen(true)
+              }}
+            >
+              Добавить приём пищи
+            </button>
+            <div className="meal-menu-filters" aria-label="Фильтры приёмов пищи">
+              {([
+                ['groups', 'Группы'],
+                ['breakfast', 'Завтрак'],
+                ['dinner', 'Ужин'],
+              ] as const).map(([filter, label]) => (
+                <button
+                  key={filter}
+                  type="button"
+                  className={`ghost meal-menu-filter-button${activeFilter === filter ? ' active' : ''}`}
+                  aria-pressed={activeFilter === filter}
+                  onClick={() => {
+                    setActiveFilter((current) => current === filter ? null : filter)
+                    setExpandedMealGroupKey(null)
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
       {!editingMealId && mealEditor}
-      <div ref={mealListRef} className="meal-menu-list">
+      <div className="meal-menu-list">
         <div className="meal-menu-list-heading">
           <h3>Сохранённые приёмы пищи</h3>
           <button
@@ -2634,7 +3457,9 @@ export function MealMenuView({
         {listError && <p className="meal-menu-error" role="alert">{listError}</p>}
         {sortedMeals.length === 0 ? (
           <p className="empty">Сохранённых приёмов пищи пока нет</p>
-        ) : mealGroups.map((group) => {
+        ) : visibleMealGroups.length === 0 ? (
+          <p className="empty">В этом разделе приёмов пищи пока нет</p>
+        ) : visibleMealGroups.map((group) => {
           const expanded = expandedMealGroupKey === group.key
           const toggleGroup = () => setExpandedMealGroupKey((current) => (
             current === group.key ? null : group.key
@@ -2655,7 +3480,7 @@ export function MealMenuView({
                 onToggle={toggleGroup}
                 onClose={() => setExpandedMealGroupKey(null)}
                 onSave={async (drafts) => {
-                  await Promise.all(drafts.map((draft) => {
+                  await updateSavedMeals(drafts.map((draft) => {
                     const items: SavedMealItem[] = draft.items.map(({
                       draftId: _draftId,
                       weightInput,
@@ -2664,7 +3489,7 @@ export function MealMenuView({
                       ...item,
                       weight_grams: parseNumber(weightInput),
                     }))
-                    return updateSavedMeal(draft.id, draft.name.trim(), items)
+                    return { id: draft.id, name: draft.name.trim(), items }
                   }))
                 }}
                 onCopy={(meal) => void handleCopyMeal(meal, group.key)}

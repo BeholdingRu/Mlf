@@ -219,6 +219,7 @@ export type SavedMealPlan = {
   user_id: string
   planned_on: string
   saved_meal_ids: string[]
+  detached_group_signature?: string | null
   created_at: string
 }
 

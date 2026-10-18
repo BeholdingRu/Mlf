@@ -774,8 +774,12 @@ create table if not exists public.saved_meal_plans (
     jsonb_typeof(saved_meal_ids) = 'array'
     and jsonb_array_length(saved_meal_ids) between 1 and 100
   ),
+  detached_group_signature text,
   created_at timestamptz not null default now()
 );
+
+alter table public.saved_meal_plans
+  add column if not exists detached_group_signature text;
 
 create table if not exists public.saved_exercises (
   id uuid primary key default gen_random_uuid(),
@@ -848,7 +852,84 @@ create unique index if not exists saved_meals_user_name_unique_idx
 create index if not exists saved_meals_user_created_idx on public.saved_meals (user_id, created_at);
 create index if not exists saved_meal_plans_user_date_idx on public.saved_meal_plans (user_id, planned_on, created_at);
 create index if not exists saved_exercises_user_category_name_idx on public.saved_exercises (user_id, category, name);
+
+with normalized_scheduled_exercise_order as (
+  select
+    exercise.id,
+    (row_number() over (
+      partition by exercise.user_id, exercise.planned_on
+      order by exercise.sort_order, exercise.created_at, exercise.id
+    ) - 1)::integer as sort_order
+  from public.scheduled_exercises as exercise
+)
+update public.scheduled_exercises as exercise
+set sort_order = normalized_scheduled_exercise_order.sort_order
+from normalized_scheduled_exercise_order
+where exercise.id = normalized_scheduled_exercise_order.id
+  and exercise.sort_order <> normalized_scheduled_exercise_order.sort_order;
+
 create index if not exists scheduled_exercises_user_date_order_idx on public.scheduled_exercises (user_id, planned_on, sort_order);
+
+create or replace function public.swap_scheduled_exercise_order(
+  first_exercise_id uuid,
+  second_exercise_id uuid
+)
+returns setof public.scheduled_exercises
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  first_exercise public.scheduled_exercises%rowtype;
+  second_exercise public.scheduled_exercises%rowtype;
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+
+  perform 1
+  from public.scheduled_exercises as exercise
+  where exercise.id in (first_exercise_id, second_exercise_id)
+    and exercise.user_id = current_user_id
+  order by exercise.id
+  for update;
+
+  select exercise.* into first_exercise
+  from public.scheduled_exercises as exercise
+  where exercise.id = first_exercise_id
+    and exercise.user_id = current_user_id;
+
+  select exercise.* into second_exercise
+  from public.scheduled_exercises as exercise
+  where exercise.id = second_exercise_id
+    and exercise.user_id = current_user_id;
+
+  if first_exercise.id is null or second_exercise.id is null then
+    raise exception 'Scheduled exercise not found';
+  end if;
+  if first_exercise.planned_on <> second_exercise.planned_on then
+    raise exception 'Exercises must belong to the same date';
+  end if;
+
+  update public.scheduled_exercises as exercise
+  set sort_order = case
+    when exercise.id = first_exercise.id then second_exercise.sort_order
+    else first_exercise.sort_order
+  end
+  where exercise.id in (first_exercise.id, second_exercise.id)
+    and exercise.user_id = current_user_id;
+
+  return query
+  select exercise.*
+  from public.scheduled_exercises as exercise
+  where exercise.id in (first_exercise.id, second_exercise.id)
+    and exercise.user_id = current_user_id;
+end;
+$$;
+
+revoke all on function public.swap_scheduled_exercise_order(uuid, uuid) from public, anon;
+grant execute on function public.swap_scheduled_exercise_order(uuid, uuid) to authenticated;
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -1015,6 +1096,80 @@ create policy "saved_meals_all_own" on public.saved_meals
 drop policy if exists "saved_meal_plans_all_own" on public.saved_meal_plans;
 create policy "saved_meal_plans_all_own" on public.saved_meal_plans
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop function if exists public.sync_saved_meal_plans(jsonb, uuid[]);
+create function public.sync_saved_meal_plans(
+  replacement_rows jsonb default '[]'::jsonb,
+  removed_ids uuid[] default '{}'::uuid[]
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+begin
+  if current_user_id is null then
+    raise exception 'Authentication required';
+  end if;
+  if jsonb_typeof(replacement_rows) <> 'array' then
+    raise exception 'replacement_rows must be a JSON array';
+  end if;
+
+  insert into public.saved_meal_plans (
+    id,
+    user_id,
+    planned_on,
+    saved_meal_ids,
+    detached_group_signature,
+    created_at
+  )
+  select
+    replacement.id,
+    current_user_id,
+    replacement.planned_on,
+    replacement.saved_meal_ids,
+    replacement.detached_group_signature,
+    coalesce(replacement.created_at, now())
+  from jsonb_to_recordset(replacement_rows) as replacement (
+    id uuid,
+    planned_on date,
+    saved_meal_ids jsonb,
+    detached_group_signature text,
+    created_at timestamptz
+  )
+  on conflict (id) do update
+  set
+    planned_on = excluded.planned_on,
+    saved_meal_ids = excluded.saved_meal_ids,
+    detached_group_signature = excluded.detached_group_signature
+  where public.saved_meal_plans.user_id = current_user_id;
+
+  delete from public.saved_meal_plans as plan
+  where plan.user_id = current_user_id
+    and plan.id = any(coalesce(removed_ids, '{}'::uuid[]))
+    and not exists (
+      select 1
+      from jsonb_array_elements(replacement_rows) as replacement
+      where (replacement ->> 'id')::uuid = plan.id
+    );
+
+  return (
+    select coalesce(jsonb_agg(to_jsonb(plan) order by plan.created_at), '[]'::jsonb)
+    from public.saved_meal_plans as plan
+    where plan.user_id = current_user_id
+      and exists (
+        select 1
+        from jsonb_array_elements(replacement_rows) as replacement
+        where (replacement ->> 'id')::uuid = plan.id
+      )
+  );
+end;
+$$;
+
+revoke all on function public.sync_saved_meal_plans(jsonb, uuid[]) from public, anon;
+grant execute on function public.sync_saved_meal_plans(jsonb, uuid[]) to authenticated;
 
 drop policy if exists "saved_exercises_all_own" on public.saved_exercises;
 create policy "saved_exercises_all_own" on public.saved_exercises
