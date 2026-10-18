@@ -8593,11 +8593,16 @@ nav {
   }
 
   html,
-  body,
-  #root {
+  body {
     height: 100%;
     height: 100dvh; /* Для браузеров которые поддерживают dynamic viewport height */
     max-height: 100%;
+  }
+
+  #root {
+    width: calc(100vw / var(--font-scale));
+    height: calc(100dvh / var(--font-scale));
+    max-height: none;
   }
 
   body {
@@ -8613,9 +8618,11 @@ nav {
 
   .cabinet {
     min-height: 100%;
-    height: 100dvh;
+    height: 100%;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   .sidebar {
@@ -8658,9 +8665,14 @@ nav {
   .sidebar-content {
     display: grid;
     gap: 8px;
+    max-height: calc((100dvh / var(--font-scale)) - var(--mobile-sidebar-toggle-height) - 12px);
     padding: 12px;
     border-top: var(--mobile-sidebar-divider-height) solid var(--line);
     position: relative;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
   }
 
   .sidebar:not(.mobile-menu-open) .sidebar-content {
@@ -8670,9 +8682,69 @@ nav {
   .main {
     flex: 1;
     min-height: 0;
+    overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-x pan-y;
     -webkit-overflow-scrolling: touch;
     padding: 12px 16px var(--mobile-bottom-scroll-padding);
+  }
+
+  .main > div:not([hidden]),
+  .daily-tasks-view,
+  .stats-view,
+  .calories-view,
+  .path-view,
+  .diary-view,
+  .training-planner,
+  .planner-content,
+  .today-workout,
+  .exercise-category,
+  .schedule-common-block,
+  .planned-exercises {
+    min-width: 0;
+  }
+
+  .training-planner,
+  .planner-content,
+  .today-workout,
+  .exercise-category,
+  .schedule-common-block,
+  .planned-exercises,
+  .workout-exercise-fields {
+    touch-action: pan-y;
+  }
+
+  .daily-tasks-tabs,
+  .calories-tabs,
+  .exercise-statistics-table-wrap,
+  .diary-period-details-table-wrap,
+  .meal-menu-table-wrap,
+  .meal-menu-shopping-table-wrap {
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-overlay {
+    align-items: flex-start;
+    width: calc(100vw / var(--font-scale));
+    height: calc(100dvh / var(--font-scale));
+    padding: calc(12px / var(--font-scale));
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-overlay > .modal-content {
+    max-height: calc((100dvh - 24px) / var(--font-scale));
+    margin: auto;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
   }
 
   nav {

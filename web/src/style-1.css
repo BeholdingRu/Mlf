@@ -808,6 +808,14 @@
 }
 
 @media (max-width: 768px) {
+  :root[data-interface-style='style-1'] .cabinet {
+    display: flex;
+    min-height: 100%;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
   :root[data-interface-style='style-1'] .cabinet::after {
     opacity: 0.42;
   }
@@ -831,7 +839,12 @@
   }
 
   :root[data-interface-style='style-1'] .cabinet .main {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding: 18px 12px 38px;
+    -webkit-overflow-scrolling: touch;
   }
 
   :root[data-interface-style='style-1'] .cabinet .topbar {
