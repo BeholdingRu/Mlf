@@ -166,6 +166,25 @@
   z-index: 1;
 }
 
+/* Keep the Bible reading focus layer identical to the default interface.
+ * The spatial background normally occupies .cabinet::before, so it must
+ * yield that layer while a chapter is open. */
+:root[data-interface-style='style-2'] .cabinet:has(.bible-view.chapter-reading)::before {
+  inset: 0;
+  width: auto;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.84);
+  box-shadow: none;
+  animation: none;
+  z-index: 15;
+}
+
+:root[data-interface-style='style-2'] .cabinet:has(.bible-view.chapter-reading) > .main {
+  z-index: auto;
+}
+
 :root[data-interface-style='style-2'] .cabinet ::selection {
   background: color-mix(in srgb, var(--future-accent) 30%, var(--surface));
   color: var(--ink);
