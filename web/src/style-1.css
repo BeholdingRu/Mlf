@@ -494,6 +494,11 @@
   box-shadow: 0 0 8px var(--retro-green);
 }
 
+:root[data-interface-style='style-1'] .cabinet .task-row.yellow-completion-indicator:not(.done):not(.inverted-failed)::after {
+  background: #d7cf28;
+  box-shadow: 0 0 8px #d7cf28;
+}
+
 :root[data-interface-style='style-1'] .cabinet .task-row.inverted-failed {
   border-left-color: var(--retro-red);
   background: linear-gradient(90deg, color-mix(in srgb, var(--retro-red) 10%, transparent), transparent 34%), var(--surface);

@@ -11,6 +11,7 @@ import {
 } from '../lib/task-progress'
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
 import { isBibleReadingTask } from '../lib/bible-books'
+import { isSabbathSchoolTask } from '../lib/sabbath-school-task'
 import { compareRegularTasksForDisplay } from '../lib/daily-task-order'
 import { NegativeHabitsPinForm } from './NegativeHabitsPinForm'
 import { DefaultTaskSettings } from './DefaultTaskSettings'
@@ -475,10 +476,14 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 ? percent(withdrawalPhase.remainingDays, withdrawalPhase.durationDays)
                 : percent(totalDays, task.habit_days)
               const automaticNutritionTask = profile?.weight_enabled && isNutritionTask(task)
+              const usesAutomaticCompletion = automaticNutritionTask
+                || isBibleReadingTask(task)
+                || isSabbathSchoolTask(task)
+              const usesYellowCompletionIndicator = task.inverted_logic || usesAutomaticCompletion
               return (
                 <li
                   key={task.id}
-                  className={`task-row${doneToday && !taskFinished ? task.inverted_logic ? ' inverted-failed' : ' done' : ''}${automaticNutritionTask ? ' automatic' : ''}${habitFormed ? ' habit-formed' : ''}${countdownFinished ? ' countdown-finished' : ''}${withdrawalPhase ? ` withdrawal-${withdrawalPhase.tone}` : ''}`}
+                  className={`task-row${doneToday && !taskFinished ? task.inverted_logic ? ' inverted-failed' : ' done' : ''}${automaticNutritionTask ? ' automatic' : ''}${usesYellowCompletionIndicator ? ' yellow-completion-indicator' : ''}${habitFormed ? ' habit-formed' : ''}${countdownFinished ? ' countdown-finished' : ''}${withdrawalPhase ? ` withdrawal-${withdrawalPhase.tone}` : ''}`}
                 >
                   {withdrawalPhase ? (
                     <button

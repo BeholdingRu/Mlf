@@ -6,7 +6,7 @@ type SidebarProps = {
   tab: CabinetTab
   onTab: (tab: CabinetTab) => void
   onOpenSettings: () => void
-  hasPlannedTraining: boolean
+  trainingStatus: 'planned' | 'completed' | null
   hasIncompleteDailyTasks: boolean
 }
 
@@ -25,7 +25,7 @@ export function Sidebar({
   tab,
   onTab,
   onOpenSettings,
-  hasPlannedTraining,
+  trainingStatus,
   hasIncompleteDailyTasks,
 }: SidebarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(
@@ -35,7 +35,24 @@ export function Sidebar({
   const currentTab = NAV.find((item) => item.id === tab) ?? NAV[0]
   const needsAttention = (item: CabinetTab) => (
     (item === 'daily' && hasIncompleteDailyTasks)
-    || (item === 'training' && hasPlannedTraining)
+    || (item === 'training' && trainingStatus === 'planned')
+  )
+
+  const renderNavLabel = (item: { id: CabinetTab; label: string }) => (
+    <span className={`nav-label-content${needsAttention(item.id) ? ' nav-label-alert' : ''}`}>
+      {item.label}
+      {item.id === 'training' && trainingStatus && (
+        <span
+          className={trainingStatus === 'completed' ? 'nav-training-status completed' : 'nav-training-status'}
+          role="img"
+          aria-label={trainingStatus === 'completed'
+            ? 'Все тренировки на сегодня выполнены'
+            : 'На сегодня запланирована тренировка'}
+        >
+          {trainingStatus === 'completed' ? '✓' : ''}
+        </span>
+      )}
+    </span>
   )
 
   useEffect(() => {
@@ -69,9 +86,7 @@ export function Sidebar({
         aria-controls="sidebar-navigation"
       >
         <span aria-hidden="true">☰</span>
-        <span className={needsAttention(currentTab.id) ? 'nav-label-alert' : undefined}>
-          {currentTab.label}
-        </span>
+        {renderNavLabel(currentTab)}
         <span aria-hidden="true">{mobileMenuOpen ? '⌃' : '⌄'}</span>
       </button>
       <div id="sidebar-navigation" className="sidebar-content">
@@ -93,9 +108,7 @@ export function Sidebar({
               className={tab === item.id ? 'nav-item active' : 'nav-item'}
               onClick={() => onTab(item.id)}
             >
-              <span className={needsAttention(item.id) ? 'nav-label-alert' : undefined}>
-                {item.label}
-              </span>
+              {renderNavLabel(item)}
             </button>
           ))}
         </nav>

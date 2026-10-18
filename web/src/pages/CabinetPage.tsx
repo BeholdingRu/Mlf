@@ -43,10 +43,11 @@ export function CabinetPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bibleNavigationRequest, setBibleNavigationRequest] = useState<BibleNavigationTarget | null>(null)
   const [currentTime, setCurrentTime] = useState(() => new Date())
-  const hasPlannedTraining = scheduledExercises.some(
-    (exercise) => !exercise.completed && exercise.planned_on === localISODate(currentTime),
-  )
   const today = localISODate(currentTime)
+  const todayExercises = scheduledExercises.filter((exercise) => exercise.planned_on === today)
+  const trainingStatus = todayExercises.length === 0
+    ? null
+    : todayExercises.every((exercise) => exercise.completed) ? 'completed' : 'planned'
   const bibleToday = isoDateInTimeZone(profile?.time_zone, currentTime)
   const hasIncompleteDailyTasks = tasks.some((task) => {
     const taskToday = isBibleReadingTask(task) ? bibleToday : today
@@ -125,7 +126,7 @@ export function CabinetPage() {
         tab={tab}
         onTab={setTab}
         onOpenSettings={() => setSettingsOpen(true)}
-        hasPlannedTraining={hasPlannedTraining}
+        trainingStatus={trainingStatus}
         hasIncompleteDailyTasks={hasIncompleteDailyTasks}
       />
       <main className="main">

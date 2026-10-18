@@ -2137,6 +2137,38 @@ nav {
   border-bottom-color: var(--moss-deep);
 }
 
+.nav-label-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-training-status {
+  --nav-training-status-color: color-mix(in srgb, var(--training-marker) 45%, var(--ink));
+  display: inline-grid;
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--nav-training-status-color);
+  box-shadow:
+    0 0 0 1px var(--nav-training-status-color),
+    0 1px 4px color-mix(in srgb, var(--ink) 48%, transparent);
+  color: var(--surface);
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.nav-training-status.completed {
+  width: 13px;
+  height: 13px;
+  border-width: 1px;
+}
+
 .path-view {
   display: grid;
   gap: 24px;
@@ -4296,6 +4328,13 @@ nav {
   background: var(--surface);
 }
 
+.modal-content.exercise-statistics-modal {
+  width: min(1180px, 100%);
+  max-width: 1180px;
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+}
+
 .exercise-statistics-heading {
   display: flex;
   align-items: baseline;
@@ -4311,6 +4350,33 @@ nav {
 .exercise-statistics-heading span {
   color: var(--muted);
   font-size: 13px;
+}
+
+.exercise-statistics-period {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exercise-statistics-period .chart-filter-button {
+  min-width: 46px;
+}
+
+.exercise-statistics-period .calendar-nav {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+}
+
+.exercise-statistics-period > span {
+  min-width: 145px;
+  text-align: center;
+}
+
+.exercise-statistics-modal .exercise-statistics-heading h3 {
+  margin: 0;
 }
 
 .exercise-statistics-table-wrap {

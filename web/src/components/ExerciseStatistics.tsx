@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ScheduledExercise } from '../lib/types'
 
 type ExerciseStatisticsProps = {
@@ -6,14 +6,43 @@ type ExerciseStatisticsProps = {
   from: string
   to: string
   periodLabel: string
+  onClose: () => void
 }
 
 type NumericField = 'weight_kg' | 'repetitions' | 'sets'
 
-export function ExerciseStatistics({ exercises, from, to, periodLabel }: ExerciseStatisticsProps) {
+const MONTHS = [
+  'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
+  'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
+]
+
+export function ExerciseStatistics({ exercises, from, to, periodLabel, onClose }: ExerciseStatisticsProps) {
+  const [allTimeEnabled, setAllTimeEnabled] = useState(false)
+  const [monthOffset, setMonthOffset] = useState(0)
+  const selectedPeriod = useMemo(() => {
+    if (monthOffset === 0) return { from, to, label: periodLabel }
+
+    const [year, month] = from.split('-').map(Number)
+    const selectedMonth = new Date(year, month - 1 + monthOffset, 1)
+    const selectedYear = selectedMonth.getFullYear()
+    const selectedMonthIndex = selectedMonth.getMonth()
+    const monthNumber = String(selectedMonthIndex + 1).padStart(2, '0')
+    const lastDay = new Date(selectedYear, selectedMonthIndex + 1, 0).getDate()
+
+    return {
+      from: `${selectedYear}-${monthNumber}-01`,
+      to: `${selectedYear}-${monthNumber}-${String(lastDay).padStart(2, '0')}`,
+      label: `${MONTHS[selectedMonthIndex]} ${selectedYear}`,
+    }
+  }, [from, monthOffset, periodLabel, to])
   const statistics = useMemo(() => {
     const completed = exercises.filter(
-      (exercise) => exercise.completed && exercise.planned_on >= from && exercise.planned_on <= to,
+      (exercise) => exercise.completed && (
+        allTimeEnabled || (
+          exercise.planned_on >= selectedPeriod.from
+          && exercise.planned_on <= selectedPeriod.to
+        )
+      ),
     )
     const groups = new Map<string, ScheduledExercise[]>()
 
@@ -34,19 +63,77 @@ export function ExerciseStatistics({ exercises, from, to, periodLabel }: Exercis
         averageRestSeconds: averageRestDuration(items),
       }))
       .sort((a, b) => a.name.localeCompare(b.name, 'ru-RU'))
-  }, [exercises, from, to])
+  }, [allTimeEnabled, exercises, selectedPeriod])
+
+  const activePeriodLabel = allTimeEnabled ? 'за всё время' : selectedPeriod.label
+
+  const changeMonth = (direction: -1 | 1) => {
+    setAllTimeEnabled(false)
+    setMonthOffset((offset) => offset + direction)
+  }
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [onClose])
 
   return (
-    <section className="exercise-statistics" aria-label={`Статистика тренировок: ${periodLabel}`}>
-      <div className="exercise-statistics-heading">
-        <h3>Статистика выполненных упражнений (средние значения)</h3>
-        <span>{periodLabel}</span>
-      </div>
-      {statistics.length === 0 ? (
-        <p className="empty">За этот период нет выполненных упражнений.</p>
-      ) : (
-        <div className="exercise-statistics-table-wrap">
-          <table className="exercise-statistics-table">
+    <div className="modal-overlay" role="presentation" onClick={onClose}>
+      <section
+        className="modal-content exercise-statistics exercise-statistics-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Статистика тренировок: ${activePeriodLabel}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="exercise-statistics-heading">
+          <h3>Статистика выполненных упражнений (средние значения)</h3>
+          <div className="exercise-statistics-period">
+            <button
+              type="button"
+              className="calendar-nav"
+              aria-label="Показать предыдущий месяц"
+              onClick={() => changeMonth(-1)}
+            >
+              ←
+            </button>
+            <span>{activePeriodLabel}</span>
+            <button
+              type="button"
+              className="calendar-nav"
+              aria-label="Показать следующий месяц"
+              onClick={() => changeMonth(1)}
+            >
+              →
+            </button>
+            <button
+              type="button"
+              className={`chart-filter-button${allTimeEnabled ? ' active' : ''}`}
+              aria-pressed={allTimeEnabled}
+              onClick={() => setAllTimeEnabled((enabled) => !enabled)}
+            >
+              all
+            </button>
+            <button
+              type="button"
+              className="icon-close"
+              aria-label="Закрыть статистику тренировок"
+              onClick={onClose}
+              autoFocus
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        {statistics.length === 0 ? (
+          <p className="empty">За этот период нет выполненных упражнений.</p>
+        ) : (
+          <div className="exercise-statistics-table-wrap">
+            <table className="exercise-statistics-table">
             <thead>
               <tr>
                 <th>Упражнение</th>
@@ -71,10 +158,11 @@ export function ExerciseStatistics({ exercises, from, to, periodLabel }: Exercis
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
   )
 }
 

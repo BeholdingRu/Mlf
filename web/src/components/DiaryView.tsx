@@ -1855,6 +1855,7 @@ export function DiaryView() {
                 from={statisticsMonthStart}
                 to={statisticsMonthEnd}
                 periodLabel={`${MONTHS[activeMonth.getMonth()].toLocaleLowerCase('ru-RU')} ${activeMonth.getFullYear()}`}
+                onClose={() => setShowTrainingStatistics(false)}
               />
             )}
           </section>

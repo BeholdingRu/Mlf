@@ -55,6 +55,7 @@ import {
   invalidateDatabaseReads,
   readDatabaseOnce,
 } from '../lib/database-read-cache'
+import { getPathDayCompletionDate, isSabbathSchoolTask } from '../lib/sabbath-school-task'
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
@@ -1526,9 +1527,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .select('*')
           .single()
         if (upsertError) throw upsertError
+        const confirmation = data as PathDayConfirmation
         setPathDayConfirmations((previous) => [
           ...previous.filter((confirmation) => confirmation.id !== (data as PathDayConfirmation).id),
-          data as PathDayConfirmation,
+          confirmation,
+        ])
+
+        const completedOn = getPathDayCompletionDate(cycleStartedOn, day)
+        const sabbathSchoolTasks = tasks.filter(isSabbathSchoolTask)
+        if (!completedOn || sabbathSchoolTasks.length === 0) return
+
+        // This is a second way to complete an otherwise manual task. The task
+        // itself stays manual, and the unique task/date key safely merges both
+        // paths when the checkbox was pressed before confirming the S.S. day.
+        const completionResults = await Promise.all(
+          sabbathSchoolTasks.map((task) => requireSupabase()
+            .from('task_completions')
+            .upsert(
+              {
+                task_id: task.id,
+                user_id: user.id,
+                completed_on: completedOn,
+              },
+              { onConflict: 'task_id,completed_on' },
+            )
+            .select('*')
+            .single()),
+        )
+        const failedCompletion = completionResults.find((result) => result.error)
+        if (failedCompletion?.error) throw failedCompletion.error
+
+        const savedCompletions = completionResults.map((result) => result.data as TaskCompletion)
+        const savedTaskIds = new Set(savedCompletions.map((completion) => completion.task_id))
+        setCompletions((previous) => [
+          ...previous.filter((completion) => !(
+            completion.completed_on === completedOn
+            && savedTaskIds.has(completion.task_id)
+          )),
+          ...savedCompletions,
         ])
       },
       async completeCourseLesson(courseId, lessonNumber) {

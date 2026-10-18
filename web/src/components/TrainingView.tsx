@@ -531,6 +531,7 @@ export function TrainingView() {
               from={currentMonthStart}
               to={today}
               periodLabel={`с 1 ${MONTHS_GENITIVE[currentMonthIndex]} по сегодня`}
+              onClose={() => setScheduleStatisticsOpen(false)}
             />
           )}
         </section>

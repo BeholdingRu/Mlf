@@ -805,6 +805,13 @@
   opacity: 1;
 }
 
+:root[data-interface-style='style-2'] .task-row.yellow-completion-indicator:not(.done):not(.inverted-failed)::after {
+  border-color: color-mix(in srgb, #d7cf28 18%, transparent);
+  background: #d7cf28;
+  box-shadow: 0 0 18px color-mix(in srgb, #d7cf28 48%, transparent);
+  opacity: 1;
+}
+
 :root[data-interface-style='style-2'] .task-row > .habit .habit-meta {
   padding-right: 28px;
 }
