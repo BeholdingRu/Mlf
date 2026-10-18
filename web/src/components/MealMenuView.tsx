@@ -2221,11 +2221,12 @@ export function MealPlannerView() {
                 && shoppingTo
                 && date >= shoppingFrom
                 && date <= shoppingTo
+              const isToday = profileToday === date
               const classes = [
                 'calendar-day',
                 plannedDates.has(date) ? 'has-meal-plan' : '',
                 selectedPlanDate === date ? 'selected' : '',
-                profileToday === date ? 'today' : '',
+                isToday ? 'today' : '',
                 shoppingRangeSelected ? 'shopping-range' : '',
                 shoppingRangeOpen && date === shoppingFrom ? 'shopping-range-start' : '',
                 shoppingRangeOpen && date === shoppingTo ? 'shopping-range-end' : '',
@@ -2244,7 +2245,8 @@ export function MealPlannerView() {
                     setPlanNotice(null)
                   }}
                 >
-                  {day}
+                  <span className="calendar-day-number">{day}</span>
+                  {isToday && <span className="calendar-today-hatch" aria-hidden="true" />}
                 </button>
               )
             })}

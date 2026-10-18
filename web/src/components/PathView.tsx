@@ -453,7 +453,7 @@ export function PathView({ bibleNavigationRequest }: { bibleNavigationRequest?: 
                 })}
               </div>
             ) : (
-              <p className="banner error">Выберите город и часовой пояс в настройках, чтобы учитывать заход солнца.</p>
+              <p className="banner error">Выберите часовой пояс в настройках, чтобы учитывать заход солнца.</p>
             )}
             <section className="path-sh-notes" aria-label="Заметки Субботней школы">
               <div className="path-sh-notes-heading">

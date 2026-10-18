@@ -2,21 +2,9 @@
 
 create extension if not exists pgcrypto with schema extensions;
 
-create table if not exists public.registration_access_codes (
-  id uuid primary key default gen_random_uuid(),
-  code_hash text not null unique,
-  is_active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-
-insert into public.registration_access_codes (code_hash)
-values ('eb8301c77dfc545320efd372a93c94d6c4c4b6e0cdfc89b301d5fdba5abd9cd3')
-on conflict (code_hash) do nothing;
-
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
-  alpha_test_consent_at timestamptz,
   weight_enabled boolean not null default false,
   target_weight numeric(6, 1),
   desired_weight numeric(6, 1),
@@ -26,14 +14,14 @@ create table if not exists public.profiles (
   calorie_adaptation_baseline_weight numeric(6, 1)
     check (calorie_adaptation_baseline_weight > 0),
   calorie_adaptation_baseline_on date,
-  theme text not null default 'green',
-  interface_style text not null default 'default'
+  theme text not null default 'dark-gruvbox',
+  interface_style text not null default 'style-1'
     check (interface_style in ('default', 'style-1', 'style-2')),
   font_scale numeric(3, 2) not null default 1 check (font_scale in (0.9, 1, 1.1, 1.2)),
-  time_zone text,
-  city_name text,
-  city_latitude numeric(7, 4),
-  city_longitude numeric(7, 4),
+  time_zone text not null default 'Europe/Moscow',
+  city_name text not null default 'Москва',
+  city_latitude numeric(7, 4) not null default 55.7558,
+  city_longitude numeric(7, 4) not null default 37.6173,
   shabbat_enabled boolean not null default false,
   shabbat_theme text not null default 'shabbat-dawn',
   annual_cycle_enabled boolean not null default false,
@@ -204,10 +192,16 @@ where email = 'nick-p-89@mail.ru'
 on conflict (user_id) do update set role = excluded.role;
 
 alter table public.profiles
-  add column if not exists theme text not null default 'green';
+  add column if not exists theme text not null default 'dark-gruvbox';
 
 alter table public.profiles
-  add column if not exists interface_style text not null default 'default';
+  alter column theme set default 'dark-gruvbox';
+
+alter table public.profiles
+  add column if not exists interface_style text not null default 'style-1';
+
+alter table public.profiles
+  alter column interface_style set default 'style-1';
 
 alter table public.profiles
   drop constraint if exists profiles_interface_style_check;
@@ -220,10 +214,10 @@ alter table public.profiles
   check (font_scale in (0.9, 1, 1.1, 1.2));
 
 alter table public.profiles
-  add column if not exists time_zone text,
-  add column if not exists city_name text,
-  add column if not exists city_latitude numeric(7, 4),
-  add column if not exists city_longitude numeric(7, 4),
+  add column if not exists time_zone text default 'Europe/Moscow',
+  add column if not exists city_name text default 'Москва',
+  add column if not exists city_latitude numeric(7, 4) default 55.7558,
+  add column if not exists city_longitude numeric(7, 4) default 37.6173,
   add column if not exists shabbat_enabled boolean not null default false,
   add column if not exists shabbat_theme text not null default 'shabbat-dawn',
   add column if not exists annual_cycle_enabled boolean not null default false,
@@ -233,6 +227,111 @@ alter table public.profiles
     check (jsonb_typeof(bible_chapter_positions) = 'object'),
   add column if not exists diary_statistics_targets jsonb not null default '{}'::jsonb
     check (jsonb_typeof(diary_statistics_targets) = 'object');
+
+alter table public.profiles
+  alter column time_zone set default 'Europe/Moscow',
+  alter column city_name set default 'Москва',
+  alter column city_latitude set default 55.7558,
+  alter column city_longitude set default 37.6173;
+
+create or replace function public.apply_profile_time_zone_location()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  new.time_zone := coalesce(nullif(new.time_zone, ''), 'Europe/Moscow');
+
+  case new.time_zone
+    when 'Europe/Kaliningrad' then
+      new.city_name := 'Калининград';
+      new.city_latitude := 54.7104;
+      new.city_longitude := 20.4522;
+    when 'Europe/Moscow' then
+      new.city_name := 'Москва';
+      new.city_latitude := 55.7558;
+      new.city_longitude := 37.6173;
+    when 'Europe/Samara' then
+      new.city_name := 'Самара';
+      new.city_latitude := 53.1959;
+      new.city_longitude := 50.1002;
+    when 'Asia/Yekaterinburg' then
+      new.city_name := 'Екатеринбург';
+      new.city_latitude := 56.8389;
+      new.city_longitude := 60.6057;
+    when 'Asia/Omsk' then
+      new.city_name := 'Омск';
+      new.city_latitude := 54.9885;
+      new.city_longitude := 73.3242;
+    when 'Asia/Krasnoyarsk' then
+      new.city_name := 'Красноярск';
+      new.city_latitude := 56.0153;
+      new.city_longitude := 92.8932;
+    when 'Asia/Irkutsk' then
+      new.city_name := 'Иркутск';
+      new.city_latitude := 52.2864;
+      new.city_longitude := 104.3050;
+    when 'Asia/Yakutsk' then
+      new.city_name := 'Якутск';
+      new.city_latitude := 62.0355;
+      new.city_longitude := 129.6755;
+    when 'Asia/Vladivostok' then
+      new.city_name := 'Владивосток';
+      new.city_latitude := 43.1155;
+      new.city_longitude := 131.8855;
+    when 'Asia/Magadan' then
+      new.city_name := 'Магадан';
+      new.city_latitude := 59.5612;
+      new.city_longitude := 150.8301;
+    when 'Asia/Kamchatka' then
+      new.city_name := 'Петропавловск-Камчатский';
+      new.city_latitude := 53.0370;
+      new.city_longitude := 158.6559;
+    else
+      new.time_zone := 'Europe/Moscow';
+      new.city_name := 'Москва';
+      new.city_latitude := 55.7558;
+      new.city_longitude := 37.6173;
+  end case;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists apply_profile_time_zone_location_before_write on public.profiles;
+create trigger apply_profile_time_zone_location_before_write
+  before insert or update on public.profiles
+  for each row execute function public.apply_profile_time_zone_location();
+
+update public.profiles
+set time_zone = coalesce(nullif(time_zone, ''), 'Europe/Moscow');
+
+alter table public.profiles
+  alter column time_zone set not null,
+  alter column city_name set not null,
+  alter column city_latitude set not null,
+  alter column city_longitude set not null;
+
+alter table public.profiles
+  drop constraint if exists profiles_time_zone_check;
+alter table public.profiles
+  add constraint profiles_time_zone_check
+  check (time_zone in (
+    'Europe/Kaliningrad',
+    'Europe/Moscow',
+    'Europe/Samara',
+    'Asia/Yekaterinburg',
+    'Asia/Omsk',
+    'Asia/Krasnoyarsk',
+    'Asia/Irkutsk',
+    'Asia/Yakutsk',
+    'Asia/Vladivostok',
+    'Asia/Magadan',
+    'Asia/Kamchatka'
+  ));
+
+revoke all on function public.apply_profile_time_zone_location() from public, anon, authenticated;
 
 update public.profiles
 set bible_chapter_positions = bible_chapter_positions || jsonb_build_object(
@@ -931,6 +1030,13 @@ $$;
 revoke all on function public.swap_scheduled_exercise_order(uuid, uuid) from public, anon;
 grant execute on function public.swap_scheduled_exercise_order(uuid, uuid) to authenticated;
 
+-- Remove the legacy registration-code gate when this schema is rerun for an
+-- existing project. Standard Supabase Authentication settings remain in force.
+drop trigger if exists validate_registration_access_before_create on auth.users;
+drop function if exists public.validate_registration_access();
+drop function if exists public.is_valid_registration_code(text);
+drop table if exists public.registration_access_codes;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -938,8 +1044,8 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, alpha_test_consent_at)
-  values (new.id, coalesce(new.email, ''), now())
+  insert into public.profiles (id, email)
+  values (new.id, coalesce(new.email, ''))
   on conflict (id) do nothing;
   insert into public.mindfulness_categories (user_id, name)
   values (new.id, 'Субботняя школа'), (new.id, 'Неотсортированные')
@@ -948,52 +1054,6 @@ begin
 end;
 $$;
 
-create or replace function public.is_valid_registration_code(candidate_code text)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public, extensions
-as $$
-  select exists (
-    select 1
-    from public.registration_access_codes
-    where is_active
-      and code_hash = encode(extensions.digest(trim(candidate_code), 'sha256'), 'hex')
-  );
-$$;
-
-create or replace function public.validate_registration_access()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, extensions
-as $$
-declare
-  registration_code text;
-begin
-  registration_code := new.raw_user_meta_data ->> 'registration_code';
-
-  if not public.is_valid_registration_code(registration_code) then
-    raise exception 'Неверный код регистрации';
-  end if;
-
-  if coalesce(new.raw_user_meta_data ->> 'alpha_test_consent', 'false') <> 'true' then
-    raise exception 'Необходимо подтвердить согласие на участие в альфа-тестировании';
-  end if;
-
-  new.raw_user_meta_data := coalesce(new.raw_user_meta_data, '{}'::jsonb)
-    - 'registration_code'
-    - 'alpha_test_consent';
-  return new;
-end;
-$$;
-
-drop trigger if exists validate_registration_access_before_create on auth.users;
-create trigger validate_registration_access_before_create
-  before insert on auth.users
-  for each row execute procedure public.validate_registration_access();
-
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
@@ -1001,7 +1061,6 @@ create trigger on_auth_user_created
 
 alter table public.profiles enable row level security;
 alter table public.calorie_norm_history enable row level security;
-alter table public.registration_access_codes enable row level security;
 alter table public.user_roles enable row level security;
 alter table public.tasks enable row level security;
 alter table public.task_completions enable row level security;
@@ -1019,7 +1078,6 @@ alter table public.saved_exercises enable row level security;
 alter table public.scheduled_exercises enable row level security;
 
 revoke all on table public.user_roles from anon, authenticated;
-revoke all on table public.registration_access_codes from anon, authenticated;
 revoke all on table public.calorie_norm_history from anon;
 grant select, insert, update on table public.calorie_norm_history to authenticated;
 revoke all on table public.saved_meals from anon;
@@ -1027,9 +1085,7 @@ grant select, insert, update, delete on table public.saved_meals to authenticate
 revoke all on table public.saved_meal_plans from anon;
 grant select, insert, update, delete on table public.saved_meal_plans to authenticated;
 revoke all on function public.is_admin() from public;
-revoke all on function public.is_valid_registration_code(text) from public;
 grant execute on function public.is_admin() to authenticated;
-grant execute on function public.is_valid_registration_code(text) to anon, authenticated;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles

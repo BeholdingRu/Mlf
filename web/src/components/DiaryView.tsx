@@ -12,7 +12,7 @@ import {
 import { isoDateInTimeZone, localISODate, parseISODate } from '../lib/dates'
 import { getCalorieAdaptation } from '../lib/calorie-adaptation'
 import { isNutritionTask } from '../lib/nutrition-task'
-import { getSunsetTime } from '../lib/sunset'
+import { getSunsetTime, getTimeZoneOption } from '../lib/sunset'
 import { getRegularTaskProgress } from '../lib/task-progress'
 import { ExerciseStatistics } from './ExerciseStatistics'
 
@@ -100,6 +100,7 @@ export function DiaryView() {
     deleteFoodLog,
   } = useData()
   const actualToday = isoDateInTimeZone(profile?.time_zone)
+  const sunsetTimeZone = getTimeZoneOption(profile?.time_zone)
   const [testDateTime, setTestDateTime] = useState(
     () => getSavedAdminTestDateTime() || dateTimeInputInTimeZone(new Date(), profile?.time_zone),
   )
@@ -651,8 +652,6 @@ export function DiaryView() {
       completedExercises: monthCompletedExercises.length,
     }
   })()
-  const today = adminMode && testDate ? testDate : actualToday
-
   const previousMonth = () => {
     setVisibleMonth(new Date(activeMonth.getFullYear(), activeMonth.getMonth() - 1, 1))
   }
@@ -1041,10 +1040,16 @@ export function DiaryView() {
             {monthDays.map((day) => {
               const iso = localISODate(new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day))
               const isFriday = new Date(activeMonth.getFullYear(), activeMonth.getMonth(), day).getDay() === 5
-              const sunsetTime = profile && isFriday && profile.time_zone && profile.city_latitude !== null && profile.city_longitude !== null
-                ? getSunsetTime(iso, profile.city_latitude, profile.city_longitude, profile.time_zone)
+              const sunsetTime = profile && isFriday
+                ? getSunsetTime(
+                    iso,
+                    sunsetTimeZone.city.latitude,
+                    sunsetTimeZone.city.longitude,
+                    sunsetTimeZone.id,
+                  )
                 : null
               const hasModerateCalorieOverrun = datesWithModerateCalorieOverrun.has(iso)
+              const isToday = actualToday === iso
               const classes = [
                 'calendar-day',
                 datesWithRecords.has(iso) ? 'has-food' : '',
@@ -1053,7 +1058,7 @@ export function DiaryView() {
                   : datesWithMissedTasks.has(iso) ? 'has-missed-task' : '',
                 datesWithTraining.has(iso) ? 'has-training' : '',
                 activeSelectedDate === iso ? 'selected' : '',
-                today === iso ? 'today' : '',
+                isToday ? 'today' : '',
                 showNutritionStatistics && showNutritionPeriod && iso >= nutritionPeriodFrom && iso <= nutritionPeriodTo
                   ? 'nutrition-period-range'
                   : '',
@@ -1069,8 +1074,9 @@ export function DiaryView() {
 
               return (
                 <button key={iso} type="button" className={classes} onClick={() => selectDay(day)} aria-label={sunsetTime ? `${day}, заход солнца ${sunsetTime}` : undefined}>
-                  <span>{day}</span>
+                  <span className="calendar-day-number">{day}</span>
                   {sunsetTime && <small className="calendar-sunset">{sunsetTime}</small>}
+                  {isToday && <span className="calendar-today-hatch" aria-hidden="true" />}
                 </button>
               )
             })}

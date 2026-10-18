@@ -385,17 +385,19 @@ export function TrainingView() {
               {monthDays.map((day) => {
                 const date = localISODate(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day))
                 const trainingStatus = trainingDates.get(date)
+                const isToday = today === date
                 const classes = [
                   'calendar-day',
                   trainingStatus ? 'has-training' : '',
                   trainingStatus?.planned ? 'has-planned-training' : '',
                   trainingStatus?.completed ? 'has-completed-training' : '',
                   plannedDate === date ? 'selected' : '',
-                  today === date ? 'today' : '',
+                  isToday ? 'today' : '',
                 ].filter(Boolean).join(' ')
                 return (
                   <button key={date} type="button" className={classes} onClick={() => setPlannedDate(date)}>
-                    {day}
+                    <span className="calendar-day-number">{day}</span>
+                    {isToday && <span className="calendar-today-hatch" aria-hidden="true" />}
                   </button>
                 )
               })}

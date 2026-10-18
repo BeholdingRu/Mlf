@@ -7,8 +7,7 @@ export type AuthContextValue = {
   loading: boolean
   recoveryRequired: boolean
   signIn: (email: string, password: string) => Promise<void>
-  validateRegistrationCode: (code: string) => Promise<boolean>
-  signUp: (email: string, password: string, registrationCode: string) => Promise<'session' | 'confirm'>
+  signUp: (email: string, password: string) => Promise<'session' | 'confirm'>
   signOut: () => Promise<void>
   requestRecovery: (email: string) => Promise<void>
   verifyRecovery: (email: string, token: string) => Promise<void>

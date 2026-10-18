@@ -4,41 +4,33 @@ export type SunsetCity = {
   longitude: number
 }
 
-export const TIME_ZONES = [
-  { id: 'Europe/Kaliningrad', label: 'Калининград (UTC+2)' },
-  { id: 'Europe/Moscow', label: 'Москва (UTC+3)' },
-  { id: 'Europe/Samara', label: 'Самара (UTC+4)' },
-  { id: 'Asia/Yekaterinburg', label: 'Екатеринбург (UTC+5)' },
-  { id: 'Asia/Omsk', label: 'Омск (UTC+6)' },
-  { id: 'Asia/Krasnoyarsk', label: 'Красноярск (UTC+7)' },
-  { id: 'Asia/Irkutsk', label: 'Иркутск (UTC+8)' },
-  { id: 'Asia/Yakutsk', label: 'Якутск (UTC+9)' },
-  { id: 'Asia/Vladivostok', label: 'Владивосток (UTC+10)' },
-  { id: 'Asia/Magadan', label: 'Магадан (UTC+11)' },
-  { id: 'Asia/Kamchatka', label: 'Петропавловск-Камчатский (UTC+12)' },
-] as const
+export type TimeZoneOption = {
+  id: string
+  label: string
+  city: SunsetCity
+}
 
-export const SUNSET_CITIES: SunsetCity[] = [
-  { name: 'Калининград', latitude: 54.7104, longitude: 20.4522 },
-  { name: 'Москва', latitude: 55.7558, longitude: 37.6173 },
-  { name: 'Санкт-Петербург', latitude: 59.9343, longitude: 30.3351 },
-  { name: 'Воронеж', latitude: 51.6608, longitude: 39.2003 },
-  { name: 'Ростов-на-Дону', latitude: 47.2357, longitude: 39.7015 },
-  { name: 'Самара', latitude: 53.1959, longitude: 50.1002 },
-  { name: 'Казань', latitude: 55.7963, longitude: 49.1088 },
-  { name: 'Уфа', latitude: 54.7388, longitude: 55.9721 },
-  { name: 'Екатеринбург', latitude: 56.8389, longitude: 60.6057 },
-  { name: 'Челябинск', latitude: 55.1644, longitude: 61.4368 },
-  { name: 'Омск', latitude: 54.9885, longitude: 73.3242 },
-  { name: 'Новосибирск', latitude: 55.0084, longitude: 82.9357 },
-  { name: 'Красноярск', latitude: 56.0153, longitude: 92.8932 },
-  { name: 'Иркутск', latitude: 52.2864, longitude: 104.305 },
-  { name: 'Якутск', latitude: 62.0355, longitude: 129.6755 },
-  { name: 'Владивосток', latitude: 43.1155, longitude: 131.8855 },
-  { name: 'Хабаровск', latitude: 48.4802, longitude: 135.0719 },
-  { name: 'Магадан', latitude: 59.5612, longitude: 150.8301 },
-  { name: 'Петропавловск-Камчатский', latitude: 53.037, longitude: 158.6559 },
-]
+export const DEFAULT_TIME_ZONE = 'Europe/Moscow'
+
+export const TIME_ZONES = [
+  { id: 'Europe/Kaliningrad', label: 'UTC+2 — Калининград', city: { name: 'Калининград', latitude: 54.7104, longitude: 20.4522 } },
+  { id: 'Europe/Moscow', label: 'UTC+3 — Москва', city: { name: 'Москва', latitude: 55.7558, longitude: 37.6173 } },
+  { id: 'Europe/Samara', label: 'UTC+4 — Самара', city: { name: 'Самара', latitude: 53.1959, longitude: 50.1002 } },
+  { id: 'Asia/Yekaterinburg', label: 'UTC+5 — Екатеринбург', city: { name: 'Екатеринбург', latitude: 56.8389, longitude: 60.6057 } },
+  { id: 'Asia/Omsk', label: 'UTC+6 — Омск', city: { name: 'Омск', latitude: 54.9885, longitude: 73.3242 } },
+  { id: 'Asia/Krasnoyarsk', label: 'UTC+7 — Красноярск', city: { name: 'Красноярск', latitude: 56.0153, longitude: 92.8932 } },
+  { id: 'Asia/Irkutsk', label: 'UTC+8 — Иркутск', city: { name: 'Иркутск', latitude: 52.2864, longitude: 104.305 } },
+  { id: 'Asia/Yakutsk', label: 'UTC+9 — Якутск', city: { name: 'Якутск', latitude: 62.0355, longitude: 129.6755 } },
+  { id: 'Asia/Vladivostok', label: 'UTC+10 — Владивосток', city: { name: 'Владивосток', latitude: 43.1155, longitude: 131.8855 } },
+  { id: 'Asia/Magadan', label: 'UTC+11 — Магадан', city: { name: 'Магадан', latitude: 59.5612, longitude: 150.8301 } },
+  { id: 'Asia/Kamchatka', label: 'UTC+12 — Петропавловск-Камчатский', city: { name: 'Петропавловск-Камчатский', latitude: 53.037, longitude: 158.6559 } },
+] satisfies readonly TimeZoneOption[]
+
+const defaultTimeZoneOption = TIME_ZONES.find((option) => option.id === DEFAULT_TIME_ZONE)!
+
+export function getTimeZoneOption(timeZone: string | null | undefined): TimeZoneOption {
+  return TIME_ZONES.find((option) => option.id === timeZone) ?? defaultTimeZoneOption
+}
 
 function degreesToRadians(value: number): number {
   return (value * Math.PI) / 180

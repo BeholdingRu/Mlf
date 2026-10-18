@@ -27,7 +27,6 @@ import type {
 } from '../lib/types'
 import type { FontScale, InterfaceStyleId, ShabbatThemeId, ThemeId } from '../lib/theme'
 import type { ProductCategory } from '../lib/product-categories'
-import type { SunsetCity } from '../lib/sunset'
 
 export type DataContextValue = {
   profile: Profile | null
@@ -89,7 +88,7 @@ export type DataContextValue = {
   saveTheme: (theme: ThemeId) => Promise<void>
   saveInterfaceStyle: (style: InterfaceStyleId) => Promise<void>
   saveFontScale: (scale: FontScale) => Promise<void>
-  saveLocation: (timeZone: string, city: SunsetCity | null) => Promise<void>
+  saveLocation: (timeZone: string) => Promise<void>
   saveAnnualCycleEnabled: (enabled: boolean) => Promise<void>
   saveShabbatTheme: (theme: ShabbatThemeId) => Promise<void>
   saveBibleReadingPosition: (bookOrder: number, chapter: number) => Promise<void>

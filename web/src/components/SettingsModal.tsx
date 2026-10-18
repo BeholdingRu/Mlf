@@ -21,7 +21,7 @@ import {
   type ShabbatThemeId,
   type ThemeId,
 } from '../lib/theme'
-import { SUNSET_CITIES, TIME_ZONES, type SunsetCity } from '../lib/sunset'
+import { getTimeZoneOption, TIME_ZONES } from '../lib/sunset'
 import { isShabbatActive } from '../lib/shabbat'
 
 type SettingsModalProps = {
@@ -70,11 +70,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [interfaceStyle, setInterfaceStyle] = useState<InterfaceStyleId>(() =>
     profile ? normalizeInterfaceStyle(profile.interface_style) : getSavedInterfaceStyle(),
   )
-  const [timeZone, setTimeZone] = useState(profile?.time_zone ?? 'Europe/Moscow')
-  const [cityName, setCityName] = useState(profile?.city_name ?? '')
+  const [timeZone, setTimeZone] = useState(() => getTimeZoneOption(profile?.time_zone).id)
   const [annualCycleEnabled, setAnnualCycleEnabled] = useState(profile?.annual_cycle_enabled ?? false)
   const [shabbatTheme, setShabbatTheme] = useState<ShabbatThemeId>(() => normalizeShabbatTheme(profile?.shabbat_theme))
   const shabbatActive = isShabbatActive(profile)
+  const timeZoneOption = getTimeZoneOption(timeZone)
 
   async function changeWeightVisibility(nextEnabled: boolean) {
     const previousEnabled = enabled
@@ -166,13 +166,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   }
 
   async function saveSunsetLocation() {
-    const city = SUNSET_CITIES.find((option) => option.name === cityName) ?? null
     setBusy(true)
     setError(null)
     try {
-      await saveLocation(timeZone, city)
+      await saveLocation(timeZoneOption.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить город и часовой пояс')
+      setError(err instanceof Error ? err.message : 'Не удалось сохранить часовой пояс')
     } finally {
       setBusy(false)
     }
@@ -376,7 +375,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
         <section className="settings-block">
           <h3>Календарь</h3>
-          <p className="hint">Укажите город и часовой пояс для расчёта времени захода солнца.</p>
+          <p className="hint">Выберите часовой пояс. Центровой город для расчёта заката будет назначен автоматически.</p>
           <label htmlFor="settings-time-zone">
             Часовой пояс
             <select
@@ -390,20 +389,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               ))}
             </select>
           </label>
-          <label htmlFor="settings-city">
-            Город
-            <select
-              id="settings-city"
-              value={cityName}
-              onChange={(event) => setCityName(event.target.value)}
-              disabled={busy}
-            >
-              <option value="">Не показывать время заката</option>
-              {SUNSET_CITIES.map((city: SunsetCity) => (
-                <option key={city.name} value={city.name}>{city.name}</option>
-              ))}
-            </select>
-          </label>
+          <p className="hint">Расчёт времени заката: {timeZoneOption.city.name}.</p>
           <button type="button" className="primary compact settings-action" onClick={saveSunsetLocation} disabled={busy}>
             Сохранить календарь
           </button>
@@ -411,7 +397,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             <p className="hint">
               Весь текст Торы разбит на 54 еженедельные части. Каждая из них называется <strong>«парашат ха-шавуа»</strong> (недельная глава).
             </p>
-            {!cityName && <p className="hint">Для праздничного оформления выберите город и сохраните календарь.</p>}
             <label className="toggle">
               <input
                 type="checkbox"

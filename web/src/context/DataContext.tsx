@@ -57,6 +57,7 @@ import {
   readDatabaseOnce,
 } from '../lib/database-read-cache'
 import { getPathDayCompletionDate, isSabbathSchoolTask } from '../lib/sabbath-school-task'
+import { getTimeZoneOption } from '../lib/sunset'
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
@@ -1419,15 +1420,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (updError) throw updError
         setProfile(data as Profile)
       },
-      async saveLocation(timeZone, city) {
+      async saveLocation(timeZone) {
         if (!user || !profile) return
+        const timeZoneOption = getTimeZoneOption(timeZone)
         const { data, error: updError } = await requireSupabase()
           .from('profiles')
           .update({
-            time_zone: timeZone,
-            city_name: city?.name ?? null,
-            city_latitude: city?.latitude ?? null,
-            city_longitude: city?.longitude ?? null,
+            time_zone: timeZoneOption.id,
+            city_name: timeZoneOption.city.name,
+            city_latitude: timeZoneOption.city.latitude,
+            city_longitude: timeZoneOption.city.longitude,
           })
           .eq('id', user.id)
           .select('*')
