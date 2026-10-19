@@ -6042,6 +6042,29 @@ button.meal-menu-plan-group-marker.inactive:disabled {
   }
 }
 
+@media (max-width: 768px) {
+  .meal-menu-plan-modal-overlay > .modal-content.meal-menu-plan-modal {
+    height: calc((100dvh - 24px) / var(--font-scale));
+    min-height: calc((100dvh - 24px) / var(--font-scale));
+    max-height: calc((100dvh - 24px) / var(--font-scale));
+    margin: 0 auto;
+    align-content: start;
+  }
+
+  .meal-menu-weight-field {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  .meal-menu-group-product-addition {
+    grid-template-columns: 1fr;
+  }
+
+  .meal-menu-group-weight-field {
+    order: -1;
+  }
+}
+
 @media (max-width: 600px) {
   .meal-menu-toolbar,
   .meal-menu-add-button {
@@ -6092,7 +6115,6 @@ button.meal-menu-plan-group-marker.inactive:disabled {
   }
 
   .modal-content.meal-menu-plan-modal {
-    max-height: calc(100dvh - 20px);
     padding: 16px;
   }
 
@@ -6146,10 +6168,6 @@ button.meal-menu-plan-group-marker.inactive:disabled {
   .meal-menu-editor-actions .ghost,
   .meal-menu-add-product {
     width: 100%;
-  }
-
-  .meal-menu-group-product-addition {
-    grid-template-columns: 1fr;
   }
 
   .meal-menu-group-product-addition .ghost {

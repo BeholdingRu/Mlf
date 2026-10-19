@@ -805,7 +805,7 @@ function PlannerMealEditor({
         }}
       />
       <div className="meal-menu-group-product-addition">
-        <label>
+        <label className="meal-menu-group-product-field">
           <span>Добавить продукт</span>
           <select
             value={productDraft.productId}
@@ -821,7 +821,7 @@ function PlannerMealEditor({
             ))}
           </select>
         </label>
-        <label>
+        <label className="meal-menu-group-weight-field">
           <span>Вес, г</span>
           <input
             type="number"
@@ -1028,7 +1028,7 @@ function PlannerMealGroupEditor({
               }}
             />
             <div className="meal-menu-group-product-addition">
-              <label>
+              <label className="meal-menu-group-product-field">
                 <span>Добавить продукт</span>
                 <select
                   value={productDraft.productId}
@@ -1047,7 +1047,7 @@ function PlannerMealGroupEditor({
                   ))}
                 </select>
               </label>
-              <label>
+              <label className="meal-menu-group-weight-field">
                 <span>Вес, г</span>
                 <input
                   type="number"
@@ -1378,7 +1378,7 @@ function SavedMealGroupCard({
                 />
                 {editing && draft && (
                   <div className="meal-menu-group-product-addition">
-                    <label>
+                    <label className="meal-menu-group-product-field">
                       <span>Добавить продукт</span>
                       <select
                         value={productAddition.productId}
@@ -1396,7 +1396,7 @@ function SavedMealGroupCard({
                         ))}
                       </select>
                     </label>
-                    <label>
+                    <label className="meal-menu-group-weight-field">
                       <span>Вес, г</span>
                       <input
                         type="number"
