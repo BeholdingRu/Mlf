@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import type { Feature, SheetData } from 'write-excel-file/browser'
 import { useData } from '../hooks/useData'
 import {
@@ -444,6 +445,7 @@ function MealItemsTable({
   onRemove,
   onWeightChange,
   editingDisabled = false,
+  mobileWeightFirst = false,
   caption,
 }: {
   items: Array<SavedMealItem | DraftMealItem>
@@ -451,21 +453,65 @@ function MealItemsTable({
   onRemove?: (draftId: string) => void
   onWeightChange?: (draftId: string, value: string) => void
   editingDisabled?: boolean
+  mobileWeightFirst?: boolean
   caption: string
 }) {
   const { totals, hasMissingProduct } = getMealTotals(items, productMap)
+  const weightTexts = items.map((item) => (
+    'weightInput' in item && typeof item.weightInput === 'string'
+      ? item.weightInput.trim() || '0'
+      : formatNumber(item.weight_grams)
+  ))
+  const totalWeightText = formatNumber(totals.weight)
+  const longestWeightTextLength = Math.max(
+    3,
+    totalWeightText.length,
+    ...weightTexts.map((value) => value.length),
+  )
+  const tableStyle = mobileWeightFirst
+    ? { '--meal-menu-weight-character-count': longestWeightTextLength } as CSSProperties
+    : undefined
+
+  const renderStaticWeight = (value: string) => (
+    <span className="meal-menu-table-weight-value">
+      <span className="meal-menu-table-weight-number">{value}</span>
+      <span className="meal-menu-table-weight-unit">г</span>
+    </span>
+  )
 
   return (
     <div className="meal-menu-table-wrap" role="region" aria-label={caption} tabIndex={0}>
-      <table className="meal-menu-table" aria-label={caption}>
+      <table
+        className={`meal-menu-table${mobileWeightFirst ? ' meal-menu-table-mobile-weight-first' : ''}`}
+        aria-label={caption}
+        style={tableStyle}
+      >
         <thead>
           <tr>
-            <th scope="col">Продукт</th>
-            <th scope="col">Вес</th>
-            <th scope="col">Калории</th>
-            <th scope="col">Белки</th>
-            <th scope="col">Жиры</th>
-            <th scope="col">Углеводы</th>
+            {mobileWeightFirst && <th className="meal-menu-mobile-weight-column" scope="col">Вес</th>}
+            <th className="meal-menu-product-column" scope="col">Продукт</th>
+            <th
+              className={mobileWeightFirst ? 'meal-menu-desktop-weight-column' : undefined}
+              scope="col"
+            >
+              Вес
+            </th>
+            <th scope="col" aria-label="Калории">
+              <span className="meal-menu-table-heading-full">Калории</span>
+              <span className="meal-menu-table-heading-compact" aria-hidden="true">Ккал</span>
+            </th>
+            <th scope="col" aria-label="Белки">
+              <span className="meal-menu-table-heading-full">Белки</span>
+              <span className="meal-menu-table-heading-compact" aria-hidden="true">Б</span>
+            </th>
+            <th scope="col" aria-label="Жиры">
+              <span className="meal-menu-table-heading-full">Жиры</span>
+              <span className="meal-menu-table-heading-compact" aria-hidden="true">Ж</span>
+            </th>
+            <th scope="col" aria-label="Углеводы">
+              <span className="meal-menu-table-heading-full">Углеводы</span>
+              <span className="meal-menu-table-heading-compact" aria-hidden="true">У</span>
+            </th>
             {onRemove && <th scope="col" aria-label="Действия" />}
           </tr>
         </thead>
@@ -475,24 +521,33 @@ function MealItemsTable({
             const nutrition = product ? getItemNutrition(item, product) : null
             const draftId = 'draftId' in item ? item.draftId : null
             const productName = product?.name ?? 'Удалённый продукт'
+            const renderWeight = () => (
+              draftId && onWeightChange && 'weightInput' in item ? (
+                <span className="meal-menu-table-weight-value meal-menu-table-weight-value-editing">
+                  <input
+                    type="number"
+                    className="meal-menu-table-weight-input"
+                    value={item.weightInput}
+                    onChange={(event) => onWeightChange(draftId, event.target.value)}
+                    min="0.1"
+                    step="0.1"
+                    inputMode="decimal"
+                    disabled={editingDisabled}
+                    aria-label={`Вес продукта «${productName}», г`}
+                  />
+                  <span className="meal-menu-table-weight-unit" aria-hidden="true">г</span>
+                </span>
+              ) : renderStaticWeight(formatNumber(item.weight_grams))
+            )
 
             return (
               <tr key={draftId ?? `${item.saved_product_id}-${index}`}>
-                <th scope="row">{productName}</th>
-                <td>
-                  {draftId && onWeightChange && 'weightInput' in item ? (
-                    <input
-                      type="number"
-                      className="meal-menu-table-weight-input"
-                      value={item.weightInput}
-                      onChange={(event) => onWeightChange(draftId, event.target.value)}
-                      min="0.1"
-                      step="0.1"
-                      inputMode="decimal"
-                      disabled={editingDisabled}
-                      aria-label={`Вес продукта «${productName}», г`}
-                    />
-                  ) : `${formatNumber(item.weight_grams)} г`}
+                {mobileWeightFirst && (
+                  <td className="meal-menu-mobile-weight-column">{renderWeight()}</td>
+                )}
+                <th className="meal-menu-product-column" scope="row">{productName}</th>
+                <td className={mobileWeightFirst ? 'meal-menu-desktop-weight-column' : undefined}>
+                  {renderWeight()}
                 </td>
                 <td>{nutrition ? `${formatNumber(nutrition.calories, 0)} ккал` : '—'}</td>
                 <td>{nutrition ? `${formatNumber(nutrition.proteins)} г` : '—'}</td>
@@ -518,8 +573,13 @@ function MealItemsTable({
         </tbody>
         <tfoot>
           <tr className="meal-menu-total-row">
-            <th scope="row">Итого</th>
-            <td>{formatNumber(totals.weight)} г</td>
+            {mobileWeightFirst && (
+              <td className="meal-menu-mobile-weight-column">{renderStaticWeight(totalWeightText)}</td>
+            )}
+            <th className="meal-menu-product-column" scope="row">Итого</th>
+            <td className={mobileWeightFirst ? 'meal-menu-desktop-weight-column' : undefined}>
+              {renderStaticWeight(totalWeightText)}
+            </td>
             <td>{hasMissingProduct ? '—' : `${formatNumber(totals.calories, 0)} ккал`}</td>
             <td>{hasMissingProduct ? '—' : `${formatNumber(totals.proteins)} г`}</td>
             <td>{hasMissingProduct ? '—' : `${formatNumber(totals.fats)} г`}</td>
@@ -784,6 +844,7 @@ function PlannerMealEditor({
       <MealItemsTable
         items={items}
         productMap={productMap}
+        mobileWeightFirst
         caption={`Продукты в приёме пищи «${meal.name}»`}
         editingDisabled={saving}
         onWeightChange={(draftId, value) => {
@@ -805,7 +866,7 @@ function PlannerMealEditor({
         }}
       />
       <div className="meal-menu-group-product-addition">
-        <label className="meal-menu-group-product-field">
+        <label>
           <span>Добавить продукт</span>
           <select
             value={productDraft.productId}
@@ -821,7 +882,7 @@ function PlannerMealEditor({
             ))}
           </select>
         </label>
-        <label className="meal-menu-group-weight-field">
+        <label>
           <span>Вес, г</span>
           <input
             type="number"
@@ -1000,6 +1061,7 @@ function PlannerMealGroupEditor({
             <MealItemsTable
               items={draft.items}
               productMap={productMap}
+              mobileWeightFirst
               caption={`Продукты в приёме пищи «${meal.name}»`}
               editingDisabled={saving}
               onWeightChange={(draftId, value) => {
@@ -1028,7 +1090,7 @@ function PlannerMealGroupEditor({
               }}
             />
             <div className="meal-menu-group-product-addition">
-              <label className="meal-menu-group-product-field">
+              <label>
                 <span>Добавить продукт</span>
                 <select
                   value={productDraft.productId}
@@ -1047,7 +1109,7 @@ function PlannerMealGroupEditor({
                   ))}
                 </select>
               </label>
-              <label className="meal-menu-group-weight-field">
+              <label>
                 <span>Вес, г</span>
                 <input
                   type="number"
@@ -1378,7 +1440,7 @@ function SavedMealGroupCard({
                 />
                 {editing && draft && (
                   <div className="meal-menu-group-product-addition">
-                    <label className="meal-menu-group-product-field">
+                    <label>
                       <span>Добавить продукт</span>
                       <select
                         value={productAddition.productId}
@@ -1396,7 +1458,7 @@ function SavedMealGroupCard({
                         ))}
                       </select>
                     </label>
-                    <label className="meal-menu-group-weight-field">
+                    <label>
                       <span>Вес, г</span>
                       <input
                         type="number"
@@ -2619,6 +2681,7 @@ export function MealPlannerView() {
                       <MealItemsTable
                         items={meal.items}
                         productMap={savedProductMap}
+                        mobileWeightFirst
                         caption={`Продукты в приёме пищи «${meal.name}»`}
                       />
                     </section>
@@ -2650,6 +2713,7 @@ export function MealPlannerView() {
                 <MealItemsTable
                   items={activePlanModalMeal.items}
                   productMap={savedProductMap}
+                  mobileWeightFirst
                   caption={`Продукты в приёме пищи «${activePlanModalMeal.name}»`}
                 />
                 <div className="meal-menu-plan-modal-actions">

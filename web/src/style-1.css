@@ -848,6 +848,10 @@
     text-transform: uppercase;
   }
 
+  :root[data-interface-style='style-1'] .cabinet .sidebar-primary-controls .sidebar-settings-button:hover:not(:disabled) {
+    transform: none;
+  }
+
   :root[data-interface-style='style-1'] .cabinet .main {
     flex: 1;
     min-height: 0;

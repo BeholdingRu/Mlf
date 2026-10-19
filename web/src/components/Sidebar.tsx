@@ -20,6 +20,7 @@ const NAV: { id: CabinetTab; label: string }[] = [
 ]
 
 const MOBILE_SIDEBAR_OPEN_STORAGE_KEY = 'mlf:mobile-sidebar-open'
+const MOBILE_SIDEBAR_QUERY = '(max-width: 768px)'
 
 export function Sidebar({
   tab,
@@ -37,6 +38,19 @@ export function Sidebar({
     (item === 'daily' && hasIncompleteDailyTasks)
     || (item === 'training' && trainingStatus === 'planned')
   )
+
+  const handleTabClick = (nextTab: CabinetTab) => {
+    if (
+      nextTab === tab
+      && mobileMenuOpen
+      && window.matchMedia(MOBILE_SIDEBAR_QUERY).matches
+    ) {
+      setMobileMenuOpen(false)
+      return
+    }
+
+    onTab(nextTab)
+  }
 
   const renderNavLabel = (item: { id: CabinetTab; label: string }) => (
     <span className={`nav-label-content${needsAttention(item.id) ? ' nav-label-alert' : ''}`}>
@@ -90,23 +104,26 @@ export function Sidebar({
         <span aria-hidden="true">{mobileMenuOpen ? '⌃' : '⌄'}</span>
       </button>
       <div id="sidebar-navigation" className="sidebar-content">
-        <WeightWidget />
-        <button
-          type="button"
-          className="primary settings-button sidebar-settings-button"
-          onClick={onOpenSettings}
-          aria-label="Настройки"
-          title="Настройки"
-        >
-          <span aria-hidden="true">⚙</span>
-        </button>
+        <div className="sidebar-primary-controls">
+          <WeightWidget />
+          <button
+            type="button"
+            className="primary settings-button sidebar-settings-button"
+            onClick={onOpenSettings}
+            aria-label="Настройки"
+            title="Настройки"
+          >
+            <span aria-hidden="true">⚙</span>
+          </button>
+        </div>
         <nav>
           {NAV.map((item) => (
             <button
               key={item.id}
               type="button"
               className={tab === item.id ? 'nav-item active' : 'nav-item'}
-              onClick={() => onTab(item.id)}
+              onClick={() => handleTabClick(item.id)}
+              aria-current={tab === item.id ? 'page' : undefined}
             >
               {renderNavLabel(item)}
             </button>

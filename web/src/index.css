@@ -804,6 +804,11 @@ input:not([type]) {
   gap: 18px;
 }
 
+.sidebar-primary-controls {
+  position: relative;
+  min-width: 0;
+}
+
 .weight-block {
   position: relative;
 }
@@ -5645,6 +5650,18 @@ button.meal-menu-plan-group-marker.inactive:disabled {
   background: var(--surface-muted);
 }
 
+.meal-menu-mobile-weight-column {
+  display: none;
+}
+
+.meal-menu-product-column {
+  text-align: left;
+}
+
+.meal-menu-table-heading-compact {
+  display: none;
+}
+
 .meal-menu-table th,
 .meal-menu-table td {
   padding: 10px 12px;
@@ -6043,7 +6060,13 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 @media (max-width: 768px) {
+  .modal-overlay.meal-menu-plan-modal-overlay {
+    padding: calc(12px / var(--font-scale)) 0;
+  }
+
   .meal-menu-plan-modal-overlay > .modal-content.meal-menu-plan-modal {
+    width: 100%;
+    max-width: none;
     height: calc((100dvh - 24px) / var(--font-scale));
     min-height: calc((100dvh - 24px) / var(--font-scale));
     max-height: calc((100dvh - 24px) / var(--font-scale));
@@ -6051,18 +6074,80 @@ button.meal-menu-plan-group-marker.inactive:disabled {
     align-content: start;
   }
 
-  .meal-menu-weight-field {
-    grid-column: 1 / -1;
-    order: -1;
+  .meal-menu-table-mobile-weight-first .meal-menu-mobile-weight-column {
+    display: table-cell;
+    text-align: right;
   }
 
-  .meal-menu-group-product-addition {
-    grid-template-columns: 1fr;
+  .meal-menu-table-mobile-weight-first .meal-menu-desktop-weight-column {
+    display: none;
   }
 
-  .meal-menu-group-weight-field {
-    order: -1;
+  .meal-menu-plan-modal .meal-menu-table-wrap {
+    width: 100%;
+    overflow-x: hidden;
   }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first {
+    width: 100%;
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first th,
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first td {
+    padding: 7px 3px;
+    font-size: 11px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first .meal-menu-mobile-weight-column {
+    width: 1%;
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first .meal-menu-product-column {
+    width: auto;
+  }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first .meal-menu-table-action {
+    width: 34px;
+    padding-right: 3px;
+    padding-left: 3px;
+  }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first .meal-menu-table-weight-input {
+    width: 100%;
+    min-width: 0;
+    padding: 5px 3px;
+  }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first .meal-menu-table-weight-value {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 1ch;
+    align-items: center;
+    width: 100%;
+    min-width: calc(var(--meal-menu-weight-character-count, 3) * 1ch + 1.5ch);
+    gap: 0.5ch;
+    white-space: nowrap;
+  }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first .meal-menu-table-weight-number,
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first .meal-menu-table-weight-unit {
+    text-align: right;
+  }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first .meal-menu-table-heading-full {
+    display: none;
+  }
+
+  .meal-menu-plan-modal .meal-menu-table-mobile-weight-first .meal-menu-table-heading-compact {
+    display: inline;
+  }
+
 }
 
 @media (max-width: 600px) {
@@ -6168,6 +6253,10 @@ button.meal-menu-plan-group-marker.inactive:disabled {
   .meal-menu-editor-actions .ghost,
   .meal-menu-add-product {
     width: 100%;
+  }
+
+  .meal-menu-group-product-addition {
+    grid-template-columns: 1fr;
   }
 
   .meal-menu-group-product-addition .ghost {
@@ -9127,14 +9216,19 @@ button.meal-menu-plan-group-marker.inactive:disabled {
     display: none;
   }
 
-  .sidebar-content .sidebar-settings-button {
+  .sidebar-primary-controls:not(:has(.weight-block)) {
+    min-height: var(--mobile-weight-control-height);
+  }
+
+  .sidebar-primary-controls .sidebar-settings-button {
     display: grid;
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 0;
+    right: 0;
+    bottom: 0;
     z-index: 1;
     width: 52px;
-    height: var(--mobile-weight-control-height);
+    height: auto;
     padding: 0;
     font-size: 24px;
     border-radius: 0 12px 12px 0;
@@ -9807,9 +9901,11 @@ button.meal-menu-plan-group-marker.inactive:disabled {
     gap: 6px;
   }
 
-  .sidebar .sidebar-settings-button {
-    top: 12px;
-    right: 12px;
+  .sidebar-primary-controls .sidebar-settings-button {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    height: auto;
   }
 
   .main {
@@ -10036,11 +10132,12 @@ button.meal-menu-plan-group-marker.inactive:disabled {
     font-size: 13px;
   }
 
-  .sidebar .sidebar-settings-button {
-    top: 12px;
-    right: 12px;
+  .sidebar-primary-controls .sidebar-settings-button {
+    top: 0;
+    right: 0;
+    bottom: 0;
     width: 48px;
-    height: var(--mobile-weight-control-height);
+    height: auto;
     padding: 0;
     font-size: 22px;
   }

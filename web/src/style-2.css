@@ -1231,6 +1231,13 @@
     text-transform: none;
   }
 
+  :root[data-interface-style='style-2'] .sidebar-primary-controls :is(
+    .weight-btn,
+    .sidebar-settings-button
+  ):hover:not(:disabled) {
+    transform: none;
+  }
+
   :root[data-interface-style='style-2'] .sidebar-content {
     gap: 10px;
     margin: 4px 10px 10px;
