@@ -2673,18 +2673,30 @@ export function MealPlannerView() {
   const activePlanModalPlan = activePlanModalId === null
     ? null
     : selectedDatePlans.find((plan) => plan.id === activePlanModalId) ?? null
-  const activePlanModalMeals = activePlanModalPlan
-    ? activePlanModalPlan.saved_meal_ids.flatMap((mealId) => {
+  const activePlanModalDisplayGroup = editingPlanId === null && expandedPlanId !== null
+    ? selectedDatePlanDisplayGroups.find((displayGroup) => (
+        displayGroup.filter !== null
+        && displayGroup.plans.length > 1
+        && displayGroup.plans.some((plan) => plan.id === expandedPlanId)
+      )) ?? null
+    : null
+  const activePlanModalPlans = activePlanModalDisplayGroup?.plans
+    ?? (activePlanModalPlan ? [activePlanModalPlan] : [])
+  const activePlanModalMeals = activePlanModalPlans.flatMap((plan) => (
+    plan.saved_meal_ids.flatMap((mealId) => {
         const meal = savedMealMap.get(mealId)
         return meal ? [meal] : []
       })
-    : []
+  ))
+  const activePlanModalIsFilterGroup = activePlanModalDisplayGroup !== null
   const activePlanModalMeal = activePlanModalMeals.length === 1
     ? activePlanModalMeals[0]
     : null
-  const activePlanModalLabel = activePlanModalPlan
-    ? getPlanLabel(activePlanModalPlan.saved_meal_ids)
-    : ''
+  const activePlanModalLabel = activePlanModalDisplayGroup?.filter
+    ? `Фильтр «${activePlanModalDisplayGroup.filter.name}»`
+    : activePlanModalPlan
+      ? getPlanLabel(activePlanModalPlan.saved_meal_ids)
+      : ''
   const closePlanMealModal = () => {
     setEditingPlanId(null)
     setExpandedPlanId(null)
@@ -3211,8 +3223,8 @@ export function MealPlannerView() {
             ) : activePlanModalMeals.length > 1 ? (
               <>
                 <div className="meal-menu-plan-modal-group">
-                  {activePlanModalMeals.map((meal) => (
-                    <section key={meal.id} className="meal-menu-group-meal">
+                  {activePlanModalMeals.map((meal, mealIndex) => (
+                    <section key={`${meal.id}:${mealIndex}`} className="meal-menu-group-meal">
                       <div className="meal-menu-group-meal-head">
                         <div className="meal-menu-group-meal-title">
                           <h4>{meal.name}</h4>
@@ -3234,16 +3246,18 @@ export function MealPlannerView() {
                   />
                 </div>
                 <div className="meal-menu-plan-modal-actions">
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => {
-                      setExpandedPlanId(null)
-                      setEditingPlanId(activePlanModalPlan.id)
-                    }}
-                  >
-                    Редактировать
-                  </button>
+                  {!activePlanModalIsFilterGroup && (
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => {
+                        setExpandedPlanId(null)
+                        setEditingPlanId(activePlanModalPlan.id)
+                      }}
+                    >
+                      Редактировать
+                    </button>
+                  )}
                   <button type="button" className="ghost" onClick={closePlanMealModal}>
                     Закрыть
                   </button>
