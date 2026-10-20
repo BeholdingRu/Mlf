@@ -928,6 +928,23 @@
   }
 }
 
+:root[data-interface-style='style-1'] .cabinet .meal-menu-day-plan-filter-group {
+  --meal-plan-filter-branch: color-mix(in srgb, var(--retro-amber) 76%, var(--retro-green));
+}
+
+:root[data-interface-style='style-1'] .cabinet .meal-menu-day-plan-filter-group-cards > .meal-menu-day-plan {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:root[data-interface-style='style-1'] .cabinet .meal-menu-day-plan-filter-group-cards > .meal-menu-day-plan:first-child {
+  border-radius: 3px 3px 0 0;
+}
+
+:root[data-interface-style='style-1'] .cabinet .meal-menu-day-plan-filter-group-cards > .meal-menu-day-plan:last-child {
+  border-radius: 0 0 3px 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-interface-style='style-1'] .cabinet *,
   :root[data-interface-style='style-1'] .cabinet *::before,

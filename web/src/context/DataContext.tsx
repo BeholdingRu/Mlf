@@ -27,6 +27,7 @@ import type {
   ScheduledExercise,
   SavedExercise,
   SavedMeal,
+  SavedMealFilter,
   SavedMealItem,
   SavedMealPlan,
   SavedProduct,
@@ -64,6 +65,9 @@ const DATA_LOAD_TIMEOUT_MS = 20_000
 const DATABASE_PAGE_SIZE = 1_000
 const SAVED_MEAL_NAME_MAX_LENGTH = 120
 const SAVED_MEAL_ITEMS_MAX_COUNT = 100
+const SAVED_MEAL_FILTER_NAME_MAX_LENGTH = 60
+const SAVED_MEAL_FILTER_MAX_COUNT = 6
+const RESERVED_SAVED_MEAL_FILTER_NAMES = new Set(['группы', 'без фильтра'])
 const EMPTY_BIBLE_TREE_PROGRESS: BibleTreeProgress = {
   progressSteps: 0,
   chaptersToday: 0,
@@ -110,6 +114,10 @@ type CalorieNormHistoryRow = {
   calorie_adaptation_baseline_on: string | null
 }
 
+type SavedMealDatabaseRow = Omit<SavedMeal, 'filter_id'> & {
+  filter_id?: string | null
+}
+
 function isCalorieNormHistoryMissing(error: { code?: string; message?: string } | null) {
   return error?.code === '42P01'
     || error?.code === 'PGRST205'
@@ -122,6 +130,29 @@ function isSavedMealsFeatureMissing(error: { code?: string; message?: string } |
     || error?.code === 'PGRST205'
     || error?.message?.includes('relation "public.saved_meals" does not exist') === true
     || error?.message?.includes("Could not find the table 'public.saved_meals'") === true
+}
+
+function isSavedMealFiltersFeatureMissing(error: { code?: string; message?: string } | null) {
+  return error?.code === '42P01'
+    || error?.code === 'PGRST205'
+    || error?.message?.includes('relation "public.saved_meal_filters" does not exist') === true
+    || error?.message?.includes("Could not find the table 'public.saved_meal_filters'") === true
+}
+
+function isSavedMealFilterSchemaMissing(error: { code?: string; message?: string } | null) {
+  const message = error?.message ?? ''
+  return (
+    (error?.code === '42P01' || error?.code === 'PGRST205')
+    && (
+      message.includes('saved_meal_filters')
+      || message.includes("Could not find the table 'public.saved_meal_filters'")
+    )
+  )
+    || (
+      error?.code === 'PGRST204'
+      && message.includes('filter_id')
+    )
+    || message.includes("Could not find the 'filter_id' column of 'saved_meals'")
 }
 
 function isSavedMealPlansFeatureMissing(error: { code?: string; message?: string } | null) {
@@ -164,11 +195,24 @@ function normalizeSavedMealItems(items: unknown): SavedMealItem[] {
   })
 }
 
-function normalizeSavedMeal(meal: SavedMeal): SavedMeal | null {
+function normalizeSavedMeal(meal: SavedMealDatabaseRow): SavedMeal | null {
   const name = typeof meal.name === 'string' ? meal.name.trim() : ''
   const items = normalizeSavedMealItems(meal.items)
   if (!name || items.length === 0) return null
-  return { ...meal, name, items }
+  const filterId = typeof meal.filter_id === 'string' && meal.filter_id.trim()
+    ? meal.filter_id
+    : null
+  return { ...meal, name, items, filter_id: filterId }
+}
+
+function normalizeSavedMealFilter(filter: SavedMealFilter): SavedMealFilter | null {
+  const name = typeof filter.name === 'string' ? filter.name.trim() : ''
+  if (!filter.id || !name) return null
+  const sortOrder = Number(filter.sort_order)
+  if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder >= SAVED_MEAL_FILTER_MAX_COUNT) {
+    return null
+  }
+  return { ...filter, name, sort_order: sortOrder }
 }
 
 function isBibleTreeFeatureMissing(error: { code?: string; message?: string } | null) {
@@ -254,6 +298,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [mindfulnessCategories, setMindfulnessCategories] = useState<MindfulnessCategory[]>([])
   const [mindfulnessNotes, setMindfulnessNotes] = useState<MindfulnessNote[]>([])
   const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([])
+  const [savedMealFilters, setSavedMealFilters] = useState<SavedMealFilter[]>([])
   const [savedMealPlans, setSavedMealPlans] = useState<SavedMealPlan[]>([])
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([])
   const [savedExercises, setSavedExercises] = useState<SavedExercise[]>([])
@@ -357,6 +402,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         loadAllDatabaseRows<SavedMeal>((from, to) => client
           .from('saved_meals').select('*').eq('user_id', userId)
           .order('created_at').order('id').range(from, to)),
+        loadAllDatabaseRows<SavedMealFilter>((from, to) => client
+          .from('saved_meal_filters').select('*').eq('user_id', userId)
+          .order('sort_order').order('id').range(from, to)),
         loadAllDatabaseRows<SavedMealPlan>((from, to) => client
           .from('saved_meal_plans').select('*').eq('user_id', userId)
           .order('planned_on').order('created_at').order('id').range(from, to)),
@@ -387,11 +435,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    const [profileRes, tasksRes, completionsRes, weightRes, foodHistoryRes, productsRes, mealsRes, mealPlansRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes, bibleBookmarksRes] = responses
+    const [profileRes, tasksRes, completionsRes, weightRes, foodHistoryRes, productsRes, mealsRes, mealFiltersRes, mealPlansRes, exercisesRes, scheduledExercisesRes, pathConfirmationsRes, courseLessonsRes, mindfulnessCategoriesRes, mindfulnessNotesRes, bibleBookmarksRes] = responses
 
     const bookmarksTableMissing = bibleBookmarksRes.error?.code === '42P01'
       || bibleBookmarksRes.error?.code === 'PGRST205'
     const savedMealsTableMissing = isSavedMealsFeatureMissing(mealsRes.error)
+    const savedMealFiltersTableMissing = isSavedMealFiltersFeatureMissing(mealFiltersRes.error)
     const savedMealPlansTableMissing = isSavedMealPlansFeatureMissing(mealPlansRes.error)
 
     const firstError =
@@ -402,6 +451,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       foodHistoryRes.error?.message ||
       productsRes.error?.message ||
       (!savedMealsTableMissing && mealsRes.error?.message) ||
+      (!savedMealFiltersTableMissing && mealFiltersRes.error?.message) ||
       (!savedMealPlansTableMissing && mealPlansRes.error?.message) ||
       exercisesRes.error?.message ||
       scheduledExercisesRes.error?.message ||
@@ -472,6 +522,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const normalizedSavedMeals = ((mealsRes.data ?? []) as SavedMeal[])
       .map(normalizeSavedMeal)
       .filter((meal): meal is SavedMeal => meal !== null)
+    const normalizedSavedMealFilters = ((mealFiltersRes.data ?? []) as SavedMealFilter[])
+      .map(normalizeSavedMealFilter)
+      .filter((filter): filter is SavedMealFilter => filter !== null)
     const savedProductsByName = new Map(
       normalizedSavedProducts.map((product) => [product.name.trim().toLocaleLowerCase('ru-RU'), product]),
     )
@@ -497,6 +550,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setBibleBookmarks((bibleBookmarksRes.data ?? []) as BibleBookmark[])
     savedMealsRef.current = normalizedSavedMeals
     setSavedMeals(normalizedSavedMeals)
+    setSavedMealFilters(normalizedSavedMealFilters)
     const loadedSavedMealPlans = (mealPlansRes.data ?? []) as SavedMealPlan[]
     savedMealPlansRef.current = loadedSavedMealPlans
     setSavedMealPlans(loadedSavedMealPlans)
@@ -1060,6 +1114,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       mindfulnessCategories,
       mindfulnessNotes,
       savedMeals,
+      savedMealFilters,
       savedMealPlans,
       savedProducts,
       savedExercises,
@@ -2027,7 +2082,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ))
         const client = requireSupabase()
         if (!usedInMeal) {
-          const { data: currentMeals, error: mealsError } = await loadAllDatabaseRows<SavedMeal>(
+          const { data: currentMeals, error: mealsError } = await loadAllDatabaseRows<SavedMealDatabaseRow>(
             (from, to) => client
               .from('saved_meals')
               .select('id,user_id,name,items,created_at')
@@ -2037,7 +2092,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               .range(from, to),
           )
           if (mealsError && !isSavedMealsFeatureMissing(mealsError)) throw mealsError
-          usedInMeal = ((currentMeals ?? []) as SavedMeal[])
+          usedInMeal = (currentMeals ?? [])
             .map(normalizeSavedMeal)
             .filter((meal): meal is SavedMeal => meal !== null)
             .find((meal) => meal.items.some((item) => item.saved_product_id === id))
@@ -2052,7 +2107,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (delError) throw delError
         setSavedProducts((prev) => prev.filter((product) => product.id !== id))
       },
-      async addSavedMeal(name, items) {
+      async addSavedMeal(name, items, filterId = null) {
         if (!user) throw new Error('Пользователь не авторизован')
 
         const normalizedName = name.trim()
@@ -2072,6 +2127,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const normalizedItems = normalizeSavedMealItems(items)
         if (normalizedItems.length !== items.length) {
           throw new Error('Проверьте выбранный продукт и его вес')
+        }
+        const normalizedFilterId = filterId?.trim() || null
+        if (
+          normalizedFilterId
+          && !savedMealFilters.some((filter) => filter.id === normalizedFilterId)
+        ) {
+          throw new Error('Выбранный фильтр больше не существует')
         }
 
         const client = requireSupabase()
@@ -2094,13 +2156,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
             user_id: user.id,
             name: normalizedName,
             items: normalizedItems,
+            filter_id: normalizedFilterId,
           })
           .select('*')
           .single()
 
         if (insError) {
+          if (isSavedMealFilterSchemaMissing(insError)) {
+            throw new Error('Фильтры меню ещё не добавлены. Повторно выполните supabase/add_saved_meals.sql в Supabase')
+          }
           if (isSavedMealsFeatureMissing(insError)) {
             throw new Error('Таблица меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          if (insError.code === '23503' || insError.code === '23514') {
+            throw new Error('Выбранный фильтр больше не существует')
           }
           if (insError.code === '23505') {
             throw new Error('Приём пищи с таким названием уже сохранён')
@@ -2116,7 +2185,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           a.created_at.localeCompare(b.created_at) || a.name.localeCompare(b.name, 'ru')
         )))
       },
-      async updateSavedMeal(id, name, items) {
+      async updateSavedMeal(id, name, items, filterId) {
         if (!user) throw new Error('Пользователь не авторизован')
 
         const normalizedName = name.trim()
@@ -2136,6 +2205,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const normalizedItems = normalizeSavedMealItems(items)
         if (normalizedItems.length !== items.length) {
           throw new Error('Проверьте выбранный продукт и его вес')
+        }
+        const normalizedFilterId = filterId === undefined
+          ? savedMeals.find((meal) => meal.id === id)?.filter_id ?? null
+          : filterId?.trim() || null
+        if (
+          normalizedFilterId
+          && !savedMealFilters.some((filter) => filter.id === normalizedFilterId)
+        ) {
+          throw new Error('Выбранный фильтр больше не существует')
         }
 
         const client = requireSupabase()
@@ -2157,6 +2235,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .update({
             name: normalizedName,
             items: normalizedItems,
+            filter_id: normalizedFilterId,
           })
           .eq('id', id)
           .eq('user_id', user.id)
@@ -2164,8 +2243,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
 
         if (updError) {
+          if (isSavedMealFilterSchemaMissing(updError)) {
+            throw new Error('Фильтры меню ещё не добавлены. Повторно выполните supabase/add_saved_meals.sql в Supabase')
+          }
           if (isSavedMealsFeatureMissing(updError)) {
             throw new Error('Таблица меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          if (updError.code === '23503' || updError.code === '23514') {
+            throw new Error('Выбранный фильтр больше не существует')
           }
           if (updError.code === '23505') {
             throw new Error('Приём пищи с таким названием уже сохранён')
@@ -2212,7 +2297,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
           if (normalizedItems.length !== update.items.length) {
             throw new Error(`Проверьте продукты и их вес в «${normalizedName}»`)
           }
-          return { id: update.id, name: normalizedName, items: normalizedItems }
+          const normalizedFilterId = update.filter_id?.trim() || null
+          if (
+            normalizedFilterId
+            && !savedMealFilters.some((filter) => filter.id === normalizedFilterId)
+          ) {
+            throw new Error(`Выбранный фильтр для «${normalizedName}» больше не существует`)
+          }
+          return {
+            id: update.id,
+            name: normalizedName,
+            items: normalizedItems,
+            filter_id: normalizedFilterId,
+          }
         })
 
         const normalizedNames = normalizedUpdates.map((update) => update.name.toLocaleLowerCase('ru'))
@@ -2241,11 +2338,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
             user_id: user.id,
             name: update.name,
             items: update.items,
+            filter_id: update.filter_id,
           })), { onConflict: 'id' })
           .select('*')
         if (upsertError) {
+          if (isSavedMealFilterSchemaMissing(upsertError)) {
+            throw new Error('Фильтры меню ещё не добавлены. Повторно выполните supabase/add_saved_meals.sql в Supabase')
+          }
           if (isSavedMealsFeatureMissing(upsertError)) {
             throw new Error('Таблица меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          if (upsertError.code === '23503' || upsertError.code === '23514') {
+            throw new Error('Один из выбранных фильтров больше не существует')
           }
           if (upsertError.code === '23505') {
             throw new Error('Приём пищи с таким названием уже сохранён')
@@ -2272,6 +2376,176 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .eq('user_id', user.id)
         if (delError) throw delError
         setSavedMeals((previous) => previous.filter((meal) => meal.id !== id))
+      },
+      async addSavedMealFilter(name) {
+        if (!user) throw new Error('Пользователь не авторизован')
+        const normalizedName = name.trim()
+        const normalizedNameKey = normalizedName.toLocaleLowerCase('ru-RU')
+        if (!normalizedName) throw new Error('Введите название фильтра')
+        if (normalizedName.length > SAVED_MEAL_FILTER_NAME_MAX_LENGTH) {
+          throw new Error(`Название фильтра не должно превышать ${SAVED_MEAL_FILTER_NAME_MAX_LENGTH} символов`)
+        }
+        if (RESERVED_SAVED_MEAL_FILTER_NAMES.has(normalizedNameKey)) {
+          throw new Error(`Название «${normalizedName}» используется интерфейсом`)
+        }
+
+        const findAvailableOrder = (filters: SavedMealFilter[]) => {
+          const usedOrders = new Set(filters.map((filter) => filter.sort_order))
+          return Array.from(
+            { length: SAVED_MEAL_FILTER_MAX_COUNT },
+            (_, index) => index,
+          ).find((order) => !usedOrders.has(order))
+        }
+        const client = requireSupabase()
+        const loadCurrentFilters = async () => {
+          const { data: currentRows, error: reloadError } = await client
+            .from('saved_meal_filters')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('sort_order')
+            .order('id')
+          if (reloadError) {
+            if (isSavedMealFiltersFeatureMissing(reloadError)) {
+              throw new Error('Таблица фильтров меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+            }
+            throw reloadError
+          }
+          const currentFilters = ((currentRows ?? []) as SavedMealFilter[])
+            .map(normalizeSavedMealFilter)
+            .filter((filter): filter is SavedMealFilter => filter !== null)
+          setSavedMealFilters(currentFilters)
+          return currentFilters
+        }
+        const insertAtOrder = (order: number) => client
+          .from('saved_meal_filters')
+          .insert({ user_id: user.id, name: normalizedName, sort_order: order })
+          .select('*')
+          .single()
+        let currentFilters = savedMealFilters
+        if (
+          findAvailableOrder(currentFilters) === undefined
+          || currentFilters.some((filter) => (
+            filter.name.toLocaleLowerCase('ru-RU') === normalizedNameKey
+          ))
+        ) {
+          currentFilters = await loadCurrentFilters()
+        }
+
+        for (let attempt = 0; attempt < SAVED_MEAL_FILTER_MAX_COUNT; attempt += 1) {
+          if (currentFilters.some((filter) => (
+            filter.name.toLocaleLowerCase('ru-RU') === normalizedNameKey
+          ))) {
+            throw new Error('Фильтр с таким названием уже существует')
+          }
+          const sortOrder = findAvailableOrder(currentFilters)
+          if (sortOrder === undefined) {
+            throw new Error(`Можно создать не более ${SAVED_MEAL_FILTER_MAX_COUNT} фильтров`)
+          }
+          const { data, error: insertError } = await insertAtOrder(sortOrder)
+          if (!insertError) {
+            const savedFilter = normalizeSavedMealFilter(data as SavedMealFilter)
+            if (!savedFilter) throw new Error('Не удалось прочитать созданный фильтр')
+            setSavedMealFilters((previous) => [
+              ...previous.filter((filter) => (
+                filter.id !== savedFilter.id
+                && filter.sort_order !== savedFilter.sort_order
+                && filter.name.toLocaleLowerCase('ru-RU') !== normalizedNameKey
+              )),
+              savedFilter,
+            ].sort((left, right) => (
+              left.sort_order - right.sort_order || left.id.localeCompare(right.id)
+            )))
+            return
+          }
+          if (isSavedMealFiltersFeatureMissing(insertError)) {
+            throw new Error('Таблица фильтров меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          if (insertError.code !== '23505') throw insertError
+          currentFilters = await loadCurrentFilters()
+        }
+
+        throw new Error('Список фильтров изменился. Повторите попытку.')
+      },
+      async updateSavedMealFilter(id, name) {
+        if (!user) throw new Error('Пользователь не авторизован')
+        const normalizedName = name.trim()
+        const normalizedNameKey = normalizedName.toLocaleLowerCase('ru-RU')
+        if (!normalizedName) throw new Error('Введите название фильтра')
+        if (normalizedName.length > SAVED_MEAL_FILTER_NAME_MAX_LENGTH) {
+          throw new Error(`Название фильтра не должно превышать ${SAVED_MEAL_FILTER_NAME_MAX_LENGTH} символов`)
+        }
+        if (RESERVED_SAVED_MEAL_FILTER_NAMES.has(normalizedNameKey)) {
+          throw new Error(`Название «${normalizedName}» используется интерфейсом`)
+        }
+        if (!savedMealFilters.some((filter) => filter.id === id)) {
+          throw new Error('Фильтр больше не существует')
+        }
+
+        const { data, error: updateError } = await requireSupabase()
+          .from('saved_meal_filters')
+          .update({ name: normalizedName })
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .select('*')
+          .single()
+        if (updateError) {
+          if (isSavedMealFiltersFeatureMissing(updateError)) {
+            throw new Error('Таблица фильтров меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          if (updateError.code === '23505') throw new Error('Фильтр с таким названием уже существует')
+          throw updateError
+        }
+        const savedFilter = normalizeSavedMealFilter(data as SavedMealFilter)
+        if (!savedFilter) throw new Error('Не удалось прочитать сохранённый фильтр')
+        setSavedMealFilters((previous) => previous
+          .filter((filter) => (
+            filter.id === id || filter.name.toLocaleLowerCase('ru-RU') !== normalizedNameKey
+          ))
+          .map((filter) => filter.id === id ? savedFilter : filter))
+      },
+      async deleteSavedMealFilter(id) {
+        if (!user) throw new Error('Пользователь не авторизован')
+        if (!savedMealFilters.some((filter) => filter.id === id)) return
+        const { error: deleteError } = await requireSupabase()
+          .from('saved_meal_filters')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id)
+        if (deleteError) {
+          if (isSavedMealFiltersFeatureMissing(deleteError)) {
+            throw new Error('Таблица фильтров меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          throw deleteError
+        }
+        setSavedMealFilters((previous) => previous.filter((filter) => filter.id !== id))
+        setSavedMeals((previous) => previous.map((meal) => (
+          meal.filter_id === id ? { ...meal, filter_id: null } : meal
+        )))
+      },
+      async refreshSavedMealFilters() {
+        if (!user) throw new Error('Пользователь не авторизован')
+        const { data, error: reloadError } = await requireSupabase()
+          .from('saved_meal_filters')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('sort_order')
+          .order('id')
+        if (reloadError) {
+          if (isSavedMealFiltersFeatureMissing(reloadError)) {
+            throw new Error('Таблица фильтров меню ещё не создана. Выполните supabase/add_saved_meals.sql в Supabase')
+          }
+          throw reloadError
+        }
+        const currentFilters = ((data ?? []) as SavedMealFilter[])
+          .map(normalizeSavedMealFilter)
+          .filter((filter): filter is SavedMealFilter => filter !== null)
+        const currentFilterIds = new Set(currentFilters.map((filter) => filter.id))
+        setSavedMealFilters(currentFilters)
+        setSavedMeals((previous) => previous.map((meal) => (
+          meal.filter_id && !currentFilterIds.has(meal.filter_id)
+            ? { ...meal, filter_id: null }
+            : meal
+        )))
       },
       async scheduleSavedMeals(plannedOn, savedMealIds) {
         return enqueueSavedMealPlanMutation(async () => {
@@ -2731,6 +3005,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       mindfulnessCategories,
       mindfulnessNotes,
       savedMeals,
+      savedMealFilters,
       savedMealPlans,
       savedProducts,
       savedExercises,

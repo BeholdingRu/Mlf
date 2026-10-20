@@ -16,6 +16,7 @@ import type {
   ScheduledExercise,
   SavedExercise,
   SavedMeal,
+  SavedMealFilter,
   SavedMealItem,
   SavedMealPlan,
   SavedProduct,
@@ -44,6 +45,7 @@ export type DataContextValue = {
   mindfulnessCategories: MindfulnessCategory[]
   mindfulnessNotes: MindfulnessNote[]
   savedMeals: SavedMeal[]
+  savedMealFilters: SavedMealFilter[]
   savedMealPlans: SavedMealPlan[]
   savedProducts: SavedProduct[]
   savedExercises: SavedExercise[]
@@ -124,14 +126,19 @@ export type DataContextValue = {
   updateSavedProduct: (id: string, name: string, caloriesPer100g: number, proteinsPer100g: number, fatsPer100g: number, carbohydratesPer100g: number, category: ProductCategory, isFavorite: boolean) => Promise<void>
   setSavedProductFavorite: (id: string, isFavorite: boolean) => Promise<void>
   deleteSavedProduct: (id: string) => Promise<void>
-  addSavedMeal: (name: string, items: SavedMealItem[]) => Promise<void>
-  updateSavedMeal: (id: string, name: string, items: SavedMealItem[]) => Promise<void>
+  addSavedMeal: (name: string, items: SavedMealItem[], filterId?: string | null) => Promise<void>
+  updateSavedMeal: (id: string, name: string, items: SavedMealItem[], filterId?: string | null) => Promise<void>
   updateSavedMeals: (updates: Array<{
     id: string
     name: string
     items: SavedMealItem[]
+    filter_id: string | null
   }>) => Promise<void>
   deleteSavedMeal: (id: string) => Promise<void>
+  addSavedMealFilter: (name: string) => Promise<void>
+  updateSavedMealFilter: (id: string, name: string) => Promise<void>
+  deleteSavedMealFilter: (id: string) => Promise<void>
+  refreshSavedMealFilters: () => Promise<void>
   scheduleSavedMeals: (plannedOn: string, savedMealIds: string[]) => Promise<void>
   ungroupSavedMealPlan: (id: string) => Promise<void>
   regroupSavedMealPlans: (planIds: string[]) => Promise<void>

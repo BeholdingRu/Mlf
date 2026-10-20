@@ -7,7 +7,13 @@ import {
   PRODUCT_CATEGORIES,
   type ProductCategory,
 } from '../lib/product-categories'
-import type { SavedMeal, SavedMealItem, SavedProduct } from '../lib/types'
+import type {
+  SavedMeal,
+  SavedMealFilter,
+  SavedMealItem,
+  SavedMealPlan,
+  SavedProduct,
+} from '../lib/types'
 import { isoDateInTimeZone, localISODate, parseISODate } from '../lib/dates'
 import {
   getMealGroupIdentifier,
@@ -23,6 +29,7 @@ const MENU_NAME_COLLATOR = new Intl.Collator('ru-RU', {
   sensitivity: 'base',
   numeric: true,
 })
+const MEAL_FILTER_LABEL_MAX_LENGTH = 8
 
 type MealProductDraft = {
   productName: string
@@ -53,17 +60,29 @@ type SavedMealGroup = {
   meals: SavedMeal[]
 }
 
-type MealMenuFilter = 'groups' | 'breakfast' | 'dinner'
+type MealMenuFilter = 'groups' | `filter:${string}`
 
 type SavedMealGroupDraft = {
   id: string
   name: string
   items: DraftMealItem[]
+  filter_id: string | null
 }
 
 type SavedMealGroupProductDraft = {
   productId: string
   weightInput: string
+}
+
+type PlannedMealFilterInfo = {
+  filters: SavedMealFilter[]
+  groupingFilter: SavedMealFilter | null
+}
+
+type PlannedMealDisplayGroup = {
+  key: string
+  filter: SavedMealFilter | null
+  plans: SavedMealPlan[]
 }
 
 type ShoppingListResult = {
@@ -264,12 +283,33 @@ function formatNumber(value: number, fractionDigits = 1): string {
   }).format(value)
 }
 
+function formatMealFilterLabel(name: string): string {
+  const characters = Array.from(name)
+  return characters.length > MEAL_FILTER_LABEL_MAX_LENGTH
+    ? `${characters.slice(0, MEAL_FILTER_LABEL_MAX_LENGTH).join('')}…`
+    : name
+}
+
 function normalizeProductName(value: string): string {
   return value.trim().toLocaleLowerCase('ru-RU')
 }
 
-const BREAKFAST_NAME_PATTERN = /(^|[^\p{L}])завтрак(?:а|у|ом|е|и|ов|ам|ами|ах)?(?=$|[^\p{L}])/iu
-const DINNER_NAME_PATTERN = /(^|[^\p{L}])ужин(?:а|у|ом|е|ы|ов|ам|ами|ах)?(?=$|[^\p{L}])/iu
+function getAvailableMealFilterId(
+  filterId: string | null,
+  filters: SavedMealFilter[],
+): string | null {
+  return filterId && filters.some((filter) => filter.id === filterId) ? filterId : null
+}
+
+function normalizeMealDraftFilters(
+  drafts: SavedMealGroupDraft[],
+  filters: SavedMealFilter[],
+): SavedMealGroupDraft[] {
+  return drafts.map((draft) => ({
+    ...draft,
+    filter_id: getAvailableMealFilterId(draft.filter_id, filters),
+  }))
+}
 
 function matchesMealMenuFilter(
   group: SavedMealGroup,
@@ -278,9 +318,7 @@ function matchesMealMenuFilter(
   if (filter === null) return true
   if (filter === 'groups') return group.identifier !== null
   if (group.identifier !== null) return false
-
-  const pattern = filter === 'breakfast' ? BREAKFAST_NAME_PATTERN : DINNER_NAME_PATTERN
-  return group.meals.some((meal) => pattern.test(meal.name))
+  return group.meals[0]?.filter_id === filter.slice('filter:'.length)
 }
 
 function getCopiedMealName(name: string, savedMeals: SavedMeal[]): string {
@@ -368,6 +406,292 @@ function MealGroupIcon() {
       <path d="M10.6 13.4a4.5 4.5 0 0 0 6.4.1l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.7 1.7" />
       <path d="M13.4 10.6a4.5 4.5 0 0 0-6.4-.1l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.7-1.7" />
     </svg>
+  )
+}
+
+function MealPlanFilterBranch({ side }: { side: 'left' | 'right' }) {
+  return (
+    <span className={`meal-menu-plan-filter-branch ${side}`} aria-hidden="true">
+      <svg viewBox="0 0 28 160" preserveAspectRatio="none" focusable="false">
+        <path
+          className="meal-menu-plan-filter-branch-stem"
+          d="M21 2C16 22 23 40 18 61C13 82 22 103 17 125C14 139 16 149 14 158"
+        />
+        <path
+          className="meal-menu-plan-filter-branch-twig"
+          d="M19 25C13 23 8 16 4 8M21 25H28M19 46C13 46 8 52 3 62M18 72C12 70 8 64 4 56M18 72H28M19 94C12 95 8 103 3 113M17 124C11 121 7 114 3 106M17 124H28M16 143C11 143 8 148 5 155"
+        />
+        <path
+          className="meal-menu-plan-filter-branch-leaf"
+          d="M4 8C1 6 1 2 5 1C8 3 7 6 4 8ZM3 62C0 60 1 56 5 55C7 58 6 61 3 62ZM3 113C0 110 1 106 5 106C7 109 6 112 3 113ZM3 106C1 103 2 100 6 100C8 103 6 106 3 106ZM5 155C2 153 3 149 7 148C9 151 8 154 5 155Z"
+        />
+      </svg>
+    </span>
+  )
+}
+
+function MealFiltersIcon() {
+  return (
+    <svg
+      className="meal-menu-filters-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M3 6h3m4 0h11" />
+      <circle cx="8" cy="6" r="2" />
+      <path d="M3 12h9m4 0h5" />
+      <circle cx="14" cy="12" r="2" />
+      <path d="M3 18h5m4 0h9" />
+      <circle cx="10" cy="18" r="2" />
+    </svg>
+  )
+}
+
+function MealFilterSelect({
+  filters,
+  value,
+  onChange,
+  disabled = false,
+  className = '',
+  ariaLabel,
+}: {
+  filters: SavedMealFilter[]
+  value: string | null
+  onChange: (filterId: string | null) => void
+  disabled?: boolean
+  className?: string
+  ariaLabel?: string
+}) {
+  return (
+    <label className={className}>
+      <span>Фильтр</span>
+      <select
+        value={value ?? ''}
+        onChange={(event) => onChange(event.target.value || null)}
+        disabled={disabled}
+        aria-label={ariaLabel}
+      >
+        <option value="">Без фильтра</option>
+        {filters.map((filter) => (
+          <option key={filter.id} value={filter.id}>{filter.name}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function MealFilterManagerRow({
+  filter,
+  onRename,
+  onDelete,
+}: {
+  filter: SavedMealFilter
+  onRename: (id: string, name: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+}) {
+  const [name, setName] = useState(filter.name)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = async () => {
+    if (name.trim() === filter.name) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onRename(filter.id, name)
+      setName(name.trim())
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Не удалось переименовать фильтр')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const remove = async () => {
+    const confirmed = window.confirm(
+      `Удалить фильтр «${filter.name}»? У приёмов пищи с этим фильтром назначение будет снято.`,
+    )
+    if (!confirmed) return
+    setBusy(true)
+    setError(null)
+    try {
+      await onDelete(filter.id)
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Не удалось удалить фильтр')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="meal-menu-filter-manager-entry">
+      <div className="meal-menu-filter-manager-row">
+        <input
+          type="text"
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value)
+            setError(null)
+          }}
+          maxLength={60}
+          disabled={busy}
+          aria-label={`Название фильтра «${filter.name}»`}
+        />
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => void save()}
+          disabled={busy || !name.trim() || name.trim() === filter.name}
+        >
+          Сохранить
+        </button>
+        <button
+          type="button"
+          className="danger"
+          onClick={() => void remove()}
+          disabled={busy}
+        >
+          Удалить
+        </button>
+      </div>
+      {error && <p className="meal-menu-error" role="alert">{error}</p>}
+    </div>
+  )
+}
+
+function MealFiltersModal({
+  filters,
+  onAdd,
+  onRename,
+  onDelete,
+  onRefresh,
+  onClose,
+}: {
+  filters: SavedMealFilter[]
+  onAdd: (name: string) => Promise<void>
+  onRename: (id: string, name: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+  onRefresh: () => Promise<void>
+  onClose: () => void
+}) {
+  const [name, setName] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const atLimit = filters.length >= 6
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  const add = async () => {
+    if (!name.trim()) {
+      setError('Введите название фильтра')
+      return
+    }
+    setAdding(true)
+    setError(null)
+    try {
+      await onAdd(name)
+      setName('')
+    } catch (addError) {
+      setError(addError instanceof Error ? addError.message : 'Не удалось добавить фильтр')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const refresh = async () => {
+    setRefreshing(true)
+    setError(null)
+    try {
+      await onRefresh()
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : 'Не удалось обновить фильтры')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay meal-menu-filter-manager-overlay" role="presentation" onClick={onClose}>
+      <section
+        id="meal-menu-filter-manager-modal"
+        className="modal-content meal-menu-filter-manager-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="meal-menu-filter-manager-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="meal-menu-filter-manager-head">
+          <div>
+            <h3 id="meal-menu-filter-manager-title">Фильтры приёмов пищи</h3>
+            <p>{filters.length} из 6</p>
+          </div>
+          <button type="button" className="icon-close" onClick={onClose} aria-label="Закрыть фильтры">
+            ×
+          </button>
+        </header>
+        <div className="meal-menu-filter-manager-addition">
+          <label>
+            <span>Новый фильтр</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value)
+                setError(null)
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || event.repeat || adding || refreshing || atLimit) return
+                event.preventDefault()
+                void add()
+              }}
+              maxLength={60}
+              disabled={adding || refreshing || atLimit}
+              placeholder="Например, После тренировки"
+              autoFocus
+            />
+          </label>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => void add()}
+            disabled={adding || refreshing || atLimit || !name.trim()}
+          >
+            {adding ? 'Добавление…' : 'Добавить'}
+          </button>
+        </div>
+        {atLimit && (
+          <div className="meal-menu-filter-manager-limit-row">
+            <p className="meal-menu-filter-manager-limit">Создано максимальное количество фильтров.</p>
+            <button type="button" className="ghost" onClick={() => void refresh()} disabled={refreshing}>
+              {refreshing ? 'Обновление…' : 'Обновить список'}
+            </button>
+          </div>
+        )}
+        {error && <p className="meal-menu-error" role="alert">{error}</p>}
+        <div className="meal-menu-filter-manager-list">
+          {filters.length === 0 ? (
+            <p className="empty">Пользовательских фильтров пока нет.</p>
+          ) : filters.map((filter) => (
+            <MealFilterManagerRow
+              key={filter.id}
+              filter={filter}
+              onRename={onRename}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+        <div className="meal-menu-filter-manager-actions">
+          <button type="button" className="ghost" onClick={onClose}>Закрыть</button>
+        </div>
+      </section>
+    </div>
   )
 }
 
@@ -729,17 +1053,20 @@ function SavedMealCard({
 
 function PlannerMealEditor({
   meal,
+  filters,
   productMap,
   onSave,
   onClose,
 }: {
   meal: SavedMeal
+  filters: SavedMealFilter[]
   productMap: ReadonlyMap<string, SavedProduct>
-  onSave: (name: string, items: SavedMealItem[]) => Promise<void>
+  onSave: (name: string, items: SavedMealItem[], filterId: string | null) => Promise<void>
   onClose: () => void
 }) {
   const addedProductCounter = useRef(0)
   const [name, setName] = useState(meal.name)
+  const [filterId, setFilterId] = useState<string | null>(meal.filter_id)
   const [items, setItems] = useState<DraftMealItem[]>(() => meal.items.map((item, index) => ({
     ...item,
     draftId: `${meal.id}-${index}`,
@@ -750,6 +1077,7 @@ function PlannerMealEditor({
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const effectiveFilterId = getAvailableMealFilterId(filterId, filters)
   const sortedProducts = useMemo(
     () => [...productMap.values()].sort((left, right) => (
       MENU_NAME_COLLATOR.compare(left.name, right.name)
@@ -816,7 +1144,7 @@ function PlannerMealEditor({
       }) => ({
         ...item,
         weight_grams: parseNumber(weightInput),
-      })))
+      })), effectiveFilterId)
       onClose()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить приём пищи')
@@ -841,6 +1169,17 @@ function PlannerMealEditor({
           disabled={saving}
         />
       </label>
+      <MealFilterSelect
+        filters={filters}
+        value={effectiveFilterId}
+        onChange={(value) => {
+          setFilterId(value)
+          setError(null)
+        }}
+        disabled={saving}
+        className="meal-menu-plan-editor-filter"
+        ariaLabel={`Фильтр приёма пищи «${meal.name}»`}
+      />
       <MealItemsTable
         items={items}
         productMap={productMap}
@@ -926,11 +1265,13 @@ function PlannerMealEditor({
 
 function PlannerMealGroupEditor({
   meals,
+  filters,
   productMap,
   onSave,
   onClose,
 }: {
   meals: SavedMeal[]
+  filters: SavedMealFilter[]
   productMap: ReadonlyMap<string, SavedProduct>
   onSave: (drafts: SavedMealGroupDraft[]) => Promise<void>
   onClose: () => void
@@ -939,6 +1280,7 @@ function PlannerMealGroupEditor({
   const [drafts, setDrafts] = useState<SavedMealGroupDraft[]>(() => meals.map((meal) => ({
     id: meal.id,
     name: meal.name,
+    filter_id: meal.filter_id,
     items: meal.items.map((item, index) => ({
       ...item,
       draftId: `${meal.id}-${index}`,
@@ -1022,7 +1364,7 @@ function PlannerMealGroupEditor({
     setSaving(true)
     setError(null)
     try {
-      await onSave(drafts)
+      await onSave(normalizeMealDraftFilters(drafts, filters))
       onClose()
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить группу')
@@ -1058,6 +1400,19 @@ function PlannerMealGroupEditor({
               />
               <MealNutritionInline items={draft.items} productMap={productMap} />
             </div>
+            <MealFilterSelect
+              filters={filters}
+              value={getAvailableMealFilterId(draft.filter_id, filters)}
+              onChange={(filterId) => {
+                setDrafts((current) => current.map((item) => (
+                  item.id === meal.id ? { ...item, filter_id: filterId } : item
+                )))
+                setError(null)
+              }}
+              disabled={saving}
+              className="meal-menu-group-filter-field"
+              ariaLabel={`Фильтр приёма пищи «${meal.name}»`}
+            />
             <MealItemsTable
               items={draft.items}
               productMap={productMap}
@@ -1161,6 +1516,7 @@ function SavedMealGroupCard({
   groupKey,
   identifier,
   meals,
+  filters,
   productMap,
   expanded,
   deletingMealId,
@@ -1175,6 +1531,7 @@ function SavedMealGroupCard({
   groupKey: string
   identifier: string
   meals: SavedMeal[]
+  filters: SavedMealFilter[]
   productMap: ReadonlyMap<string, SavedProduct>
   expanded: boolean
   deletingMealId: string | null
@@ -1205,6 +1562,7 @@ function SavedMealGroupCard({
     setDrafts(meals.map((meal) => ({
       id: meal.id,
       name: meal.name,
+      filter_id: meal.filter_id,
       items: meal.items.map((item, index) => ({
         ...item,
         draftId: `${meal.id}-${index}`,
@@ -1294,7 +1652,7 @@ function SavedMealGroupCard({
     setSaving(true)
     setEditError(null)
     try {
-      await onSave(drafts)
+      await onSave(normalizeMealDraftFilters(drafts, filters))
       setEditing(false)
       setProductDrafts({})
       onClose()
@@ -1406,6 +1764,21 @@ function SavedMealGroupCard({
                     </div>
                   )}
                 </div>
+                {editing && draft && (
+                  <MealFilterSelect
+                    filters={filters}
+                    value={getAvailableMealFilterId(draft.filter_id, filters)}
+                    onChange={(filterId) => {
+                      setDrafts((current) => current.map((item) => (
+                        item.id === meal.id ? { ...item, filter_id: filterId } : item
+                      )))
+                      setEditError(null)
+                    }}
+                    disabled={saving}
+                    className="meal-menu-group-filter-field"
+                    ariaLabel={`Фильтр приёма пищи «${meal.name}»`}
+                  />
+                )}
                 <MealItemsTable
                   items={editing && draft ? draft.items : meal.items}
                   productMap={productMap}
@@ -1534,6 +1907,7 @@ export function MealPlannerView() {
     profile,
     savedProducts,
     savedMeals,
+    savedMealFilters,
     savedMealPlans,
     logFoodsToday,
     scheduleSavedMeals,
@@ -1551,6 +1925,7 @@ export function MealPlannerView() {
   })
   const [selectedPlanGroupKey, setSelectedPlanGroupKey] = useState('')
   const [planPickerOpen, setPlanPickerOpen] = useState(false)
+  const [planPickerFilter, setPlanPickerFilter] = useState<MealMenuFilter | null>(null)
   const [planBusy, setPlanBusy] = useState(false)
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null)
@@ -1570,7 +1945,6 @@ export function MealPlannerView() {
   const [exportingShoppingList, setExportingShoppingList] = useState(false)
   const [shoppingImportInfoOpen, setShoppingImportInfoOpen] = useState(false)
   const shoppingImportInfoId = useId()
-  const planPickerRef = useRef<HTMLDivElement>(null)
   const shoppingImportInputRef = useRef<HTMLInputElement>(null)
 
   const sortedMeals = useMemo(
@@ -1578,6 +1952,21 @@ export function MealPlannerView() {
     [savedMeals],
   )
   const mealGroups = useMemo(() => groupSavedMeals(sortedMeals), [sortedMeals])
+  const planMealFilterOptions = useMemo(() => [
+    { id: 'groups' as MealMenuFilter, label: 'Группы' },
+    ...savedMealFilters.map((filter) => ({
+      id: `filter:${filter.id}` as MealMenuFilter,
+      label: filter.name,
+    })),
+  ], [savedMealFilters])
+  const effectivePlanPickerFilter = planPickerFilter?.startsWith('filter:')
+    && !savedMealFilters.some((filter) => `filter:${filter.id}` === planPickerFilter)
+    ? null
+    : planPickerFilter
+  const visiblePlanMealGroups = useMemo(
+    () => mealGroups.filter((group) => matchesMealMenuFilter(group, effectivePlanPickerFilter)),
+    [effectivePlanPickerFilter, mealGroups],
+  )
   const selectedPlanGroup = mealGroups.find((group) => group.key === selectedPlanGroupKey) ?? null
   const plannedDates = useMemo(
     () => new Set(savedMealPlans.map((plan) => plan.planned_on)),
@@ -1595,6 +1984,50 @@ export function MealPlannerView() {
     () => new Map(savedMeals.map((meal) => [meal.id, meal])),
     [savedMeals],
   )
+  const savedMealFilterMap = useMemo(
+    () => new Map(savedMealFilters.map((filter) => [filter.id, filter])),
+    [savedMealFilters],
+  )
+  const selectedDatePlanFilterInfo = useMemo(() => new Map(
+    selectedDatePlans.map((plan): [string, PlannedMealFilterInfo] => {
+      const meals = plan.saved_meal_ids.map((mealId) => savedMealMap.get(mealId) ?? null)
+      const filters = [...new Map(meals.flatMap((meal) => {
+        const filter = meal?.filter_id ? savedMealFilterMap.get(meal.filter_id) : null
+        return filter ? [[filter.id, filter] as const] : []
+      })).values()]
+      const firstFilterId = meals[0]?.filter_id ?? null
+      const allMealsShareFilter = meals.length === plan.saved_meal_ids.length
+        && firstFilterId !== null
+        && meals.every((meal) => meal?.filter_id === firstFilterId)
+      const groupingFilter = allMealsShareFilter
+        ? savedMealFilterMap.get(firstFilterId) ?? null
+        : null
+
+      return [plan.id, { filters, groupingFilter }]
+    }),
+  ), [savedMealFilterMap, savedMealMap, selectedDatePlans])
+  const selectedDatePlanDisplayGroups = useMemo(() => {
+    const groups: PlannedMealDisplayGroup[] = []
+    const filterGroupIndexes = new Map<string, number>()
+
+    selectedDatePlans.forEach((plan) => {
+      const filter = selectedDatePlanFilterInfo.get(plan.id)?.groupingFilter ?? null
+      if (!filter) {
+        groups.push({ key: `plan:${plan.id}`, filter: null, plans: [plan] })
+        return
+      }
+
+      const existingIndex = filterGroupIndexes.get(filter.id)
+      if (existingIndex === undefined) {
+        filterGroupIndexes.set(filter.id, groups.length)
+        groups.push({ key: `filter:${filter.id}`, filter, plans: [plan] })
+        return
+      }
+      groups[existingIndex].plans.push(plan)
+    })
+
+    return groups
+  }, [selectedDatePlanFilterInfo, selectedDatePlans])
   const selectedDatePlanNutrition = useMemo(() => new Map(
     selectedDatePlans.map((plan) => {
       const meals = plan.saved_meal_ids.flatMap((mealId) => {
@@ -1642,19 +2075,12 @@ export function MealPlannerView() {
   useEffect(() => {
     if (!planPickerOpen) return undefined
 
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!planPickerRef.current?.contains(event.target as Node)) {
-        setPlanPickerOpen(false)
-      }
-    }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setPlanPickerOpen(false)
     }
 
-    document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [planPickerOpen])
@@ -2264,6 +2690,169 @@ export function MealPlannerView() {
     setExpandedPlanId(null)
   }
 
+  const renderDayPlanCard = (plan: SavedMealPlan) => {
+    const planLabel = getPlanLabel(plan.saved_meal_ids)
+    const planGroup = getPlanGroup(plan.saved_meal_ids)
+    const groupKey = planGroup?.key ?? null
+    const groupedPlan = plan.saved_meal_ids.length > 1 && planGroup?.identifier !== null
+    const ungroupedGroupMeal = plan.saved_meal_ids.length === 1
+      && planGroup?.identifier !== null
+      && Boolean(plan.detached_group_signature)
+    const ungroupedGroupPlans = ungroupedGroupMeal && planGroup
+      ? selectedDatePlans.filter((candidate) => (
+          candidate.saved_meal_ids.length === 1
+          && candidate.detached_group_signature === plan.detached_group_signature
+          && planGroup.meals.some((meal) => meal.id === candidate.saved_meal_ids[0])
+        ))
+      : []
+    const ungroupedMealIds = new Set(
+      ungroupedGroupPlans.map((candidate) => candidate.saved_meal_ids[0]),
+    )
+    const canRegroup = planGroup !== null
+      && planGroup.identifier !== null
+      && ungroupedGroupPlans.length === planGroup.meals.length
+      && ungroupedMealIds.size === planGroup.meals.length
+      && planGroup.meals.every((meal) => ungroupedMealIds.has(meal.id))
+    const regrouping = planGroup !== null && regroupingGroupKey === planGroup.key
+    const editableMeal = plan.saved_meal_ids.length === 1
+      ? savedMealMap.get(plan.saved_meal_ids[0]) ?? null
+      : null
+    const editing = editingPlanId === plan.id && editableMeal !== null
+    const expanded = expandedPlanId === plan.id
+    const nutrition = selectedDatePlanNutrition.get(plan.id)
+    const planFilters = selectedDatePlanFilterInfo.get(plan.id)?.filters ?? []
+
+    return (
+      <div key={plan.id} className={`meal-menu-day-plan${editing ? ' editing' : ''}`}>
+        <div className="meal-menu-day-plan-main">
+          {groupedPlan && (
+            <button
+              type="button"
+              className="meal-menu-plan-group-marker active"
+              onClick={() => void handleUngroupMealPlan(plan.id, planLabel)}
+              disabled={ungroupingPlanId === plan.id}
+              aria-label={`Разгруппировать «${planLabel}» на выбранную дату`}
+              title="Разгруппировать на выбранную дату"
+            >
+              {ungroupingPlanId === plan.id ? <span aria-hidden="true">…</span> : <MealGroupIcon />}
+            </button>
+          )}
+          {ungroupedGroupMeal && planGroup && (
+            canRegroup ? (
+              <button
+                type="button"
+                className="meal-menu-plan-group-marker inactive"
+                onClick={() => void handleRegroupMealPlans(
+                  planGroup.key,
+                  planGroup.identifier ?? planLabel,
+                  [
+                    plan.id,
+                    ...ungroupedGroupPlans
+                      .filter((candidate) => candidate.id !== plan.id)
+                      .map((candidate) => candidate.id),
+                  ],
+                )}
+                disabled={regrouping}
+                aria-label={`Снова сгруппировать «${planGroup.identifier ?? planLabel}» на выбранную дату`}
+                title="Снова сгруппировать на выбранную дату"
+              >
+                {regrouping ? <span aria-hidden="true">…</span> : <MealGroupIcon />}
+              </button>
+            ) : (
+              <span
+                className="meal-menu-plan-group-marker inactive disabled"
+                aria-label="Приём пищи разгруппирован только для этой даты"
+                title="Других приёмов этой группы на выбранной дате нет"
+              >
+                <MealGroupIcon />
+              </span>
+            )
+          )}
+          <button
+            type="button"
+            className="meal-menu-day-plan-link"
+            onClick={() => {
+              if (groupKey) {
+                setExpandedPlanId((current) => current === plan.id ? null : plan.id)
+              }
+            }}
+            disabled={!groupKey || editing || ungroupingPlanId === plan.id || regrouping}
+            title={groupKey
+              ? editableMeal
+                ? 'Показать продукты'
+                : 'Показать состав группы'
+              : undefined}
+            aria-expanded={groupKey ? expanded : undefined}
+          >
+            <span>{planLabel}</span>
+            {groupKey && (
+              <span className="meal-menu-day-plan-chevron" aria-hidden="true">
+                {expanded ? '⌃' : '⌄'}
+              </span>
+            )}
+          </button>
+        </div>
+        <div className="meal-menu-day-plan-actions">
+          {editableMeal && (
+            <button
+              type="button"
+              className={`edit-button meal-menu-day-plan-edit${editing ? ' active' : ''}`}
+              onClick={() => {
+                setExpandedPlanId(null)
+                setEditingPlanId((current) => current === plan.id ? null : plan.id)
+              }}
+              disabled={deletingPlanId === plan.id || ungroupingPlanId === plan.id || regrouping}
+              aria-label={editing
+                ? `Отменить редактирование приёма пищи «${planLabel}»`
+                : `Редактировать приём пищи «${planLabel}»`}
+              aria-pressed={editing}
+              title={editing ? 'Отменить редактирование' : 'Редактировать приём пищи'}
+            >
+              {editing ? (
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <circle cx="12" cy="12" r="8.5" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              ) : '✎'}
+            </button>
+          )}
+          <button
+            type="button"
+            className="delete-button"
+            onClick={() => void handleDeleteMealPlan(plan.id, plan.saved_meal_ids, planLabel)}
+            disabled={deletingPlanId === plan.id || editing || ungroupingPlanId === plan.id || regrouping}
+            aria-label={`Удалить план «${planLabel}»`}
+          >
+            {deletingPlanId === plan.id ? '…' : '×'}
+          </button>
+        </div>
+        {nutrition && (
+          <p className="meal-menu-day-plan-nutrition">
+            <strong>КБЖУ:</strong>
+            <span>{nutrition.hasMissingData ? '—' : `${formatNumber(nutrition.totals.calories, 0)} ккал`}</span>
+            <span>Б {nutrition.hasMissingData ? '—' : `${formatNumber(nutrition.totals.proteins)} г`}</span>
+            <span>Ж {nutrition.hasMissingData ? '—' : `${formatNumber(nutrition.totals.fats)} г`}</span>
+            <span>У {nutrition.hasMissingData ? '—' : `${formatNumber(nutrition.totals.carbohydrates)} г`}</span>
+            {planFilters.length > 0 && (
+              <span className="meal-menu-day-plan-filter-labels">
+                {planFilters.map((filter) => (
+                  <span
+                    key={filter.id}
+                    className="meal-menu-day-plan-filter-label"
+                    aria-label={`Фильтр: ${filter.name}`}
+                    title={`Фильтр: ${filter.name}`}
+                  >
+                    {formatMealFilterLabel(filter.name)}
+                  </span>
+                ))}
+              </span>
+            )}
+          </p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <section className="meal-menu meal-planner-view" aria-label="Планировщик питания">
       <section className="meal-menu-planner" aria-label="Календарь меню">
@@ -2319,59 +2908,53 @@ export function MealPlannerView() {
           <h3>{new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(`${selectedPlanDate}T12:00:00`))}</h3>
           <div className="meal-menu-plan-form">
             <div className="meal-menu-plan-selection">
-              <div ref={planPickerRef} className="meal-menu-plan-picker">
+              <div className="meal-menu-plan-picker">
+                <button
+                  type="button"
+                  className="meal-menu-plan-picker-trigger"
+                  onClick={() => {
+                    setPlanPickerFilter(null)
+                    setPlanPickerOpen(true)
+                  }}
+                  disabled={planBusy || copyingToConsumption}
+                  aria-label="Приём пищи или группа"
+                  aria-haspopup="dialog"
+                  aria-expanded={planPickerOpen}
+                  aria-controls="meal-menu-plan-picker-modal"
+                >
+                  <span className="meal-menu-plan-picker-label">
+                    {selectedPlanGroup && selectedPlanGroup.identifier !== null && <MealGroupIcon />}
+                    <span>
+                      {selectedPlanGroup
+                        ? selectedPlanGroup.identifier !== null
+                          ? `${selectedPlanGroup.identifier} — группа`
+                          : selectedPlanGroup.meals[0].name
+                        : 'Выберите приём пищи'}
+                    </span>
+                  </span>
+                  <span className="meal-menu-plan-picker-chevron" aria-hidden="true">…</span>
+                </button>
+              </div>
               <button
                 type="button"
-                className="meal-menu-plan-picker-trigger"
-                onClick={() => setPlanPickerOpen((open) => !open)}
-                disabled={planBusy || copyingToConsumption}
-                aria-label="Приём пищи или группа"
-                aria-haspopup="listbox"
-                aria-expanded={planPickerOpen}
+                className="primary"
+                onClick={() => void handleScheduleMealGroup()}
+                disabled={planBusy || copyingToConsumption || !selectedPlanGroupKey}
               >
-                <span className="meal-menu-plan-picker-label">
-                  {selectedPlanGroup && selectedPlanGroup.identifier !== null && <MealGroupIcon />}
-                  <span>
-                    {selectedPlanGroup
-                      ? selectedPlanGroup.identifier !== null
-                        ? `${selectedPlanGroup.identifier} — группа`
-                        : selectedPlanGroup.meals[0].name
-                      : 'Выберите приём пищи'}
-                  </span>
-                </span>
-                <span className="meal-menu-plan-picker-chevron" aria-hidden="true">
-                  {planPickerOpen ? '⌃' : '⌄'}
+                {planBusy ? 'Сохранение…' : 'Сохранить на дату'}
+              </button>
+            </div>
+            <div className="meal-menu-plan-actions">
+              <button
+                type="button"
+                className="meal-menu-copy-consumption"
+                onClick={() => void handleCopyToConsumption()}
+                disabled={planBusy || copyingToConsumption || selectedDatePlans.length === 0}
+              >
+                <span className="meal-menu-copy-consumption-label">
+                  {copyingToConsumption ? 'Копирование…' : 'Копировать в потребление'}
                 </span>
               </button>
-              {planPickerOpen && (
-                <div className="meal-menu-plan-picker-options" role="listbox" aria-label="Сохранённые приёмы пищи">
-                  {mealGroups.map((group) => (
-                    <button
-                      key={group.key}
-                      type="button"
-                      className="meal-menu-plan-picker-option"
-                      role="option"
-                      aria-selected={selectedPlanGroupKey === group.key}
-                      onClick={() => {
-                        setSelectedPlanGroupKey(group.key)
-                        setPlanPickerOpen(false)
-                        setPlanError(null)
-                        setPlanNotice(null)
-                      }}
-                    >
-                      <span className="meal-menu-plan-picker-label">
-                        {group.identifier !== null && <MealGroupIcon />}
-                        <span>
-                          {group.identifier !== null
-                            ? `${group.identifier} — группа`
-                            : group.meals[0].name}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              </div>
               <button
                 type="button"
                 className="meal-menu-shopping-toggle"
@@ -2390,17 +2973,6 @@ export function MealPlannerView() {
               >
                 Рассчитать закупки
               </button>
-            </div>
-            <div className="meal-menu-plan-actions">
-              <button
-                type="button"
-                className="meal-menu-copy-consumption"
-                onClick={() => void handleCopyToConsumption()}
-                disabled={planBusy || copyingToConsumption || selectedDatePlans.length === 0}
-              >
-                {copyingToConsumption ? 'Копирование…' : 'Копировать в потребление'}
-              </button>
-              <button type="button" className="primary" onClick={() => void handleScheduleMealGroup()} disabled={planBusy || copyingToConsumption || !selectedPlanGroupKey}>{planBusy ? 'Сохранение…' : 'Сохранить на дату'}</button>
             </div>
             {shoppingRangeOpen && (
               <section className="meal-menu-shopping-range" aria-label="Период расчёта закупок">
@@ -2446,149 +3018,26 @@ export function MealPlannerView() {
           {planError && <p className="meal-menu-error" role="alert">{planError}</p>}
           {planNotice && <p className="meal-menu-plan-notice" role="status">{planNotice}</p>}
           <div className="meal-menu-day-plans">
-            {selectedDatePlans.length === 0 ? <p className="empty">На эту дату меню не запланировано</p> : selectedDatePlans.map((plan) => {
-              const planLabel = getPlanLabel(plan.saved_meal_ids)
-              const planGroup = getPlanGroup(plan.saved_meal_ids)
-              const groupKey = planGroup?.key ?? null
-              const groupedPlan = plan.saved_meal_ids.length > 1 && planGroup?.identifier !== null
-              const ungroupedGroupMeal = plan.saved_meal_ids.length === 1
-                && planGroup?.identifier !== null
-                && Boolean(plan.detached_group_signature)
-              const ungroupedGroupPlans = ungroupedGroupMeal && planGroup
-                ? selectedDatePlans.filter((candidate) => (
-                    candidate.saved_meal_ids.length === 1
-                    && candidate.detached_group_signature === plan.detached_group_signature
-                    && planGroup.meals.some((meal) => meal.id === candidate.saved_meal_ids[0])
-                  ))
-                : []
-              const ungroupedMealIds = new Set(
-                ungroupedGroupPlans.map((candidate) => candidate.saved_meal_ids[0]),
-              )
-              const canRegroup = planGroup !== null
-                && planGroup.identifier !== null
-                && ungroupedGroupPlans.length === planGroup.meals.length
-                && ungroupedMealIds.size === planGroup.meals.length
-                && planGroup.meals.every((meal) => ungroupedMealIds.has(meal.id))
-              const regrouping = planGroup !== null && regroupingGroupKey === planGroup.key
-              const editableMeal = plan.saved_meal_ids.length === 1
-                ? savedMealMap.get(plan.saved_meal_ids[0]) ?? null
-                : null
-              const editing = editingPlanId === plan.id && editableMeal !== null
-              const expanded = expandedPlanId === plan.id
-              const nutrition = selectedDatePlanNutrition.get(plan.id)
+            {selectedDatePlans.length === 0 ? (
+              <p className="empty">На эту дату меню не запланировано</p>
+            ) : selectedDatePlanDisplayGroups.map((displayGroup) => {
+              const firstPlan = displayGroup.plans[0]
+              if (!displayGroup.filter || displayGroup.plans.length < 2) {
+                return firstPlan ? renderDayPlanCard(firstPlan) : null
+              }
+
               return (
-                <div key={plan.id} className={`meal-menu-day-plan${editing ? ' editing' : ''}`}>
-                  <div className="meal-menu-day-plan-main">
-                    {groupedPlan && (
-                      <button
-                        type="button"
-                        className="meal-menu-plan-group-marker active"
-                        onClick={() => void handleUngroupMealPlan(plan.id, planLabel)}
-                        disabled={ungroupingPlanId === plan.id}
-                        aria-label={`Разгруппировать «${planLabel}» на выбранную дату`}
-                        title="Разгруппировать на выбранную дату"
-                      >
-                        {ungroupingPlanId === plan.id ? <span aria-hidden="true">…</span> : <MealGroupIcon />}
-                      </button>
-                    )}
-                    {ungroupedGroupMeal && planGroup && (
-                      canRegroup ? (
-                        <button
-                          type="button"
-                          className="meal-menu-plan-group-marker inactive"
-                          onClick={() => void handleRegroupMealPlans(
-                            planGroup.key,
-                            planGroup.identifier ?? planLabel,
-                            [
-                              plan.id,
-                              ...ungroupedGroupPlans
-                                .filter((candidate) => candidate.id !== plan.id)
-                                .map((candidate) => candidate.id),
-                            ],
-                          )}
-                          disabled={regrouping}
-                          aria-label={`Снова сгруппировать «${planGroup.identifier ?? planLabel}» на выбранную дату`}
-                          title="Снова сгруппировать на выбранную дату"
-                        >
-                          {regrouping ? <span aria-hidden="true">…</span> : <MealGroupIcon />}
-                        </button>
-                      ) : (
-                        <span
-                          className="meal-menu-plan-group-marker inactive disabled"
-                          aria-label="Приём пищи разгруппирован только для этой даты"
-                          title="Других приёмов этой группы на выбранной дате нет"
-                        >
-                          <MealGroupIcon />
-                        </span>
-                      )
-                    )}
-                    <button
-                      type="button"
-                      className="meal-menu-day-plan-link"
-                      onClick={() => {
-                        if (groupKey) {
-                          setExpandedPlanId((current) => current === plan.id ? null : plan.id)
-                        }
-                      }}
-                      disabled={!groupKey || editing || ungroupingPlanId === plan.id || regrouping}
-                      title={groupKey
-                        ? editableMeal
-                          ? 'Показать продукты'
-                          : 'Показать состав группы'
-                        : undefined}
-                      aria-expanded={groupKey ? expanded : undefined}
-                    >
-                      <span>{planLabel}</span>
-                      {groupKey && (
-                        <span className="meal-menu-day-plan-chevron" aria-hidden="true">
-                          {expanded ? '⌃' : '⌄'}
-                        </span>
-                      )}
-                    </button>
+                <div
+                  key={displayGroup.key}
+                  className="meal-menu-day-plan-filter-group"
+                  role="group"
+                  aria-label={`Приёмы пищи с фильтром «${displayGroup.filter.name}»`}
+                >
+                  <MealPlanFilterBranch side="left" />
+                  <div className="meal-menu-day-plan-filter-group-cards">
+                    {displayGroup.plans.map(renderDayPlanCard)}
                   </div>
-                  <div className="meal-menu-day-plan-actions">
-                    {editableMeal && (
-                      <button
-                        type="button"
-                        className={`edit-button meal-menu-day-plan-edit${editing ? ' active' : ''}`}
-                        onClick={() => {
-                          setExpandedPlanId(null)
-                          setEditingPlanId((current) => current === plan.id ? null : plan.id)
-                        }}
-                        disabled={deletingPlanId === plan.id || ungroupingPlanId === plan.id || regrouping}
-                        aria-label={editing
-                          ? `Отменить редактирование приёма пищи «${planLabel}»`
-                          : `Редактировать приём пищи «${planLabel}»`}
-                        aria-pressed={editing}
-                        title={editing ? 'Отменить редактирование' : 'Редактировать приём пищи'}
-                      >
-                        {editing ? (
-                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                            <circle cx="12" cy="12" r="8.5" />
-                            <path d="M6 6l12 12" />
-                          </svg>
-                        ) : '✎'}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="delete-button"
-                      onClick={() => void handleDeleteMealPlan(plan.id, plan.saved_meal_ids, planLabel)}
-                      disabled={deletingPlanId === plan.id || editing || ungroupingPlanId === plan.id || regrouping}
-                      aria-label={`Удалить план «${planLabel}»`}
-                    >
-                      {deletingPlanId === plan.id ? '…' : '×'}
-                    </button>
-                  </div>
-                  {nutrition && (
-                    <p className="meal-menu-day-plan-nutrition">
-                      <strong>КБЖУ:</strong>
-                      <span>{nutrition.hasMissingData ? '—' : `${formatNumber(nutrition.totals.calories, 0)} ккал`}</span>
-                      <span>Б {nutrition.hasMissingData ? '—' : `${formatNumber(nutrition.totals.proteins)} г`}</span>
-                      <span>Ж {nutrition.hasMissingData ? '—' : `${formatNumber(nutrition.totals.fats)} г`}</span>
-                      <span>У {nutrition.hasMissingData ? '—' : `${formatNumber(nutrition.totals.carbohydrates)} г`}</span>
-                    </p>
-                  )}
+                  <MealPlanFilterBranch side="right" />
                 </div>
               )
             })}
@@ -2604,6 +3053,93 @@ export function MealPlannerView() {
           </div>
         </div>
       </section>
+      {planPickerOpen && (
+        <div
+          className="modal-overlay meal-menu-plan-picker-modal-overlay"
+          role="presentation"
+          onClick={() => setPlanPickerOpen(false)}
+        >
+          <section
+            id="meal-menu-plan-picker-modal"
+            className="modal-content meal-menu-plan-picker-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="meal-menu-plan-picker-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="meal-menu-plan-picker-modal-head">
+              <h3 id="meal-menu-plan-picker-title">Выберите приём пищи</h3>
+              <button
+                type="button"
+                className="icon-close"
+                onClick={() => setPlanPickerOpen(false)}
+                aria-label="Закрыть выбор приёма пищи"
+              >
+                ×
+              </button>
+            </header>
+            <div
+              className="meal-menu-filters meal-menu-plan-picker-filters"
+              aria-label="Фильтры приёмов пищи"
+            >
+              {planMealFilterOptions.map(({ id: filter, label }) => (
+                <button
+                  key={filter}
+                  type="button"
+                  className={`ghost meal-menu-filter-button${effectivePlanPickerFilter === filter ? ' active' : ''}`}
+                  aria-pressed={effectivePlanPickerFilter === filter}
+                  onClick={() => {
+                    setPlanPickerFilter((current) => current === filter ? null : filter)
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div
+              className="meal-menu-plan-picker-options"
+              role="listbox"
+              aria-label="Сохранённые приёмы пищи"
+            >
+              {visiblePlanMealGroups.length > 0 ? visiblePlanMealGroups.map((group) => (
+                <button
+                  key={group.key}
+                  type="button"
+                  className="meal-menu-plan-picker-option"
+                  role="option"
+                  aria-selected={selectedPlanGroupKey === group.key}
+                  onClick={() => {
+                    setSelectedPlanGroupKey(group.key)
+                    setPlanPickerOpen(false)
+                    setPlanError(null)
+                    setPlanNotice(null)
+                  }}
+                >
+                  <span className="meal-menu-plan-picker-label">
+                    {group.identifier !== null && <MealGroupIcon />}
+                    <span>
+                      {group.identifier !== null
+                        ? `${group.identifier} — группа`
+                        : group.meals[0].name}
+                    </span>
+                  </span>
+                </button>
+              )) : (
+                <p className="meal-menu-plan-picker-empty">
+                  {mealGroups.length === 0
+                    ? 'Сохранённых приёмов пищи пока нет.'
+                    : 'Нет приёмов пищи, подходящих под выбранный фильтр.'}
+                </p>
+              )}
+            </div>
+            <div className="meal-menu-plan-picker-modal-actions">
+              <button type="button" className="ghost" onClick={() => setPlanPickerOpen(false)}>
+                Закрыть
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
       {activePlanModalMeals.length > 0 && activePlanModalPlan && (
         <div
           className="modal-overlay meal-menu-plan-modal-overlay"
@@ -2646,11 +3182,13 @@ export function MealPlannerView() {
               <PlannerMealGroupEditor
                 key={activePlanModalMeals.map((meal) => meal.id).join(':')}
                 meals={activePlanModalMeals}
+                filters={savedMealFilters}
                 productMap={savedProductMap}
                 onSave={async (drafts) => {
                   await updateSavedMeals(drafts.map((draft) => ({
                     id: draft.id,
                     name: draft.name.trim(),
+                    filter_id: draft.filter_id,
                     items: draft.items.map(({ draftId: _draftId, weightInput, ...item }) => ({
                       ...item,
                       weight_grams: parseNumber(weightInput),
@@ -2663,8 +3201,11 @@ export function MealPlannerView() {
               <PlannerMealEditor
                 key={activePlanModalMeal.id}
                 meal={activePlanModalMeal}
+                filters={savedMealFilters}
                 productMap={savedProductMap}
-                onSave={(name, items) => updateSavedMeal(activePlanModalMeal.id, name, items)}
+                onSave={(name, items, filterId) => (
+                  updateSavedMeal(activePlanModalMeal.id, name, items, filterId)
+                )}
                 onClose={closePlanMealModal}
               />
             ) : activePlanModalMeals.length > 1 ? (
@@ -2877,20 +3418,27 @@ export function MealMenuView() {
   const {
     savedProducts,
     savedMeals,
+    savedMealFilters,
     addSavedProduct,
     addSavedMeal,
     updateSavedMeal,
     updateSavedMeals,
     deleteSavedMeal,
+    addSavedMealFilter,
+    updateSavedMealFilter,
+    deleteSavedMealFilter,
+    refreshSavedMealFilters,
   } = useData()
   const formHeadingId = useId()
   const productSuggestionsId = useId()
   const menuInfoId = useId()
   const draftCounter = useRef(0)
   const [editorOpen, setEditorOpen] = useState(false)
+  const [filterManagerOpen, setFilterManagerOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState<MealMenuFilter | null>(null)
   const [editingMealId, setEditingMealId] = useState<string | null>(null)
   const [mealName, setMealName] = useState('')
+  const [mealFilterId, setMealFilterId] = useState<string | null>(null)
   const [selectedProductId, setSelectedProductId] = useState('')
   const [productDraft, setProductDraft] = useState<MealProductDraft>(EMPTY_PRODUCT_DRAFT)
   const [draftItems, setDraftItems] = useState<DraftMealItem[]>([])
@@ -2924,9 +3472,21 @@ export function MealMenuView() {
     [savedMeals],
   )
   const mealGroups = useMemo(() => groupSavedMeals(sortedMeals), [sortedMeals])
+  const mealFilterOptions = useMemo(() => [
+    { id: 'groups' as MealMenuFilter, label: 'Группы' },
+    ...savedMealFilters.map((filter) => ({
+      id: `filter:${filter.id}` as MealMenuFilter,
+      label: filter.name,
+    })),
+  ], [savedMealFilters])
+  const effectiveActiveFilter = activeFilter?.startsWith('filter:')
+    && !savedMealFilters.some((filter) => `filter:${filter.id}` === activeFilter)
+    ? null
+    : activeFilter
+  const effectiveMealFilterId = getAvailableMealFilterId(mealFilterId, savedMealFilters)
   const visibleMealGroups = useMemo(
-    () => mealGroups.filter((group) => matchesMealMenuFilter(group, activeFilter)),
-    [activeFilter, mealGroups],
+    () => mealGroups.filter((group) => matchesMealMenuFilter(group, effectiveActiveFilter)),
+    [effectiveActiveFilter, mealGroups],
   )
 
   const busy = addingProduct || submitting
@@ -2942,6 +3502,7 @@ export function MealMenuView() {
   const resetEditor = () => {
     setEditingMealId(null)
     setMealName('')
+    setMealFilterId(null)
     setDraftItems([])
     setEditorError(null)
     resetProductDraft()
@@ -2974,6 +3535,7 @@ export function MealMenuView() {
   const handleEditMeal = (meal: SavedMeal) => {
     setEditingMealId(meal.id)
     setMealName(meal.name)
+    setMealFilterId(meal.filter_id)
     setDraftItems(meal.items.map((item) => {
       draftCounter.current += 1
       return {
@@ -3142,9 +3704,9 @@ export function MealMenuView() {
         weight_grams: parseNumber(weightInput),
       }))
       if (editingMealId) {
-        await updateSavedMeal(editingMealId, mealName.trim(), items)
+        await updateSavedMeal(editingMealId, mealName.trim(), items, effectiveMealFilterId)
       } else {
-        await addSavedMeal(mealName.trim(), items)
+        await addSavedMeal(mealName.trim(), items, effectiveMealFilterId)
       }
       setExpandedMealGroupKey(null)
       resetEditor()
@@ -3176,7 +3738,11 @@ export function MealMenuView() {
     setCopyingMealId(meal.id)
     setListError(null)
     try {
-      await addSavedMeal(getCopiedMealName(meal.name, savedMeals), meal.items.map((item) => ({ ...item })))
+      await addSavedMeal(
+        getCopiedMealName(meal.name, savedMeals),
+        meal.items.map((item) => ({ ...item })),
+        meal.filter_id,
+      )
       setExpandedMealGroupKey(groupKey)
     } catch (error) {
       setListError(error instanceof Error ? error.message : 'Не удалось создать копию приёма пищи')
@@ -3196,20 +3762,34 @@ export function MealMenuView() {
           <div className="meal-menu-editor-heading">
             <h3 id={formHeadingId}>{editingMealId ? 'Редактировать приём пищи' : 'Новый приём пищи'}</h3>
             {editingMealId && (
-              <button
-                type="button"
-                className="edit-button meal-menu-editor-cancel-edit active"
-                onClick={handleCancelEditor}
-                disabled={busy}
-                aria-label="Отменить редактирование приёма пищи"
-                aria-pressed="true"
-                title="Отменить редактирование"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <circle cx="12" cy="12" r="8.5" />
-                  <path d="M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="meal-menu-editor-heading-actions">
+                <button
+                  type="button"
+                  className="edit-button meal-menu-editor-save-edit"
+                  onClick={() => void handleSaveMeal()}
+                  disabled={busy}
+                  aria-label="Сохранить изменения приёма пищи"
+                  title="Сохранить изменения"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M5 12.5l4.2 4.2L19 7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="edit-button meal-menu-editor-cancel-edit active"
+                  onClick={handleCancelEditor}
+                  disabled={busy}
+                  aria-label="Отменить редактирование приёма пищи"
+                  aria-pressed="true"
+                  title="Отменить редактирование"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <circle cx="12" cy="12" r="8.5" />
+                    <path d="M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             )}
           </div>
 
@@ -3229,6 +3809,18 @@ export function MealMenuView() {
               disabled={busy}
             />
           </div>
+
+          <MealFilterSelect
+            filters={savedMealFilters}
+            value={effectiveMealFilterId}
+            onChange={(filterId) => {
+              setMealFilterId(filterId)
+              setEditorError(null)
+            }}
+            disabled={busy}
+            className="form-group meal-menu-meal-filter-field"
+            ariaLabel="Фильтр приёма пищи"
+          />
 
           <fieldset className="meal-menu-product-editor" disabled={busy}>
             <legend>Добавить продукт</legend>
@@ -3476,17 +4068,25 @@ export function MealMenuView() {
             >
               Добавить приём пищи
             </button>
+            <button
+              type="button"
+              className="ghost meal-menu-manage-filters"
+              onClick={() => setFilterManagerOpen(true)}
+              aria-label="Управление фильтрами приёмов пищи"
+              aria-haspopup="dialog"
+              aria-expanded={filterManagerOpen}
+              aria-controls="meal-menu-filter-manager-modal"
+              title="Фильтры"
+            >
+              <MealFiltersIcon />
+            </button>
             <div className="meal-menu-filters" aria-label="Фильтры приёмов пищи">
-              {([
-                ['groups', 'Группы'],
-                ['breakfast', 'Завтрак'],
-                ['dinner', 'Ужин'],
-              ] as const).map(([filter, label]) => (
+              {mealFilterOptions.map(({ id: filter, label }) => (
                 <button
                   key={filter}
                   type="button"
-                  className={`ghost meal-menu-filter-button${activeFilter === filter ? ' active' : ''}`}
-                  aria-pressed={activeFilter === filter}
+                  className={`ghost meal-menu-filter-button${effectiveActiveFilter === filter ? ' active' : ''}`}
+                  aria-pressed={effectiveActiveFilter === filter}
                   onClick={() => {
                     setActiveFilter((current) => current === filter ? null : filter)
                     setExpandedMealGroupKey(null)
@@ -3538,6 +4138,7 @@ export function MealMenuView() {
                 groupKey={group.key}
                 identifier={group.identifier}
                 meals={group.meals}
+                filters={savedMealFilters}
                 productMap={savedProductMap}
                 expanded={expanded}
                 deletingMealId={deletingMealId}
@@ -3555,7 +4156,12 @@ export function MealMenuView() {
                       ...item,
                       weight_grams: parseNumber(weightInput),
                     }))
-                    return { id: draft.id, name: draft.name.trim(), items }
+                    return {
+                      id: draft.id,
+                      name: draft.name.trim(),
+                      items,
+                      filter_id: draft.filter_id,
+                    }
                   }))
                 }}
                 onCopy={(meal) => void handleCopyMeal(meal, group.key)}
@@ -3587,6 +4193,16 @@ export function MealMenuView() {
           )
         })}
       </div>
+      {filterManagerOpen && (
+        <MealFiltersModal
+          filters={savedMealFilters}
+          onAdd={addSavedMealFilter}
+          onRename={updateSavedMealFilter}
+          onDelete={deleteSavedMealFilter}
+          onRefresh={refreshSavedMealFilters}
+          onClose={() => setFilterManagerOpen(false)}
+        />
+      )}
     </section>
   )
 }
