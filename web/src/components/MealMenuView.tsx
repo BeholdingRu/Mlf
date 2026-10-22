@@ -2925,7 +2925,6 @@ export function MealPlannerView() {
                   type="button"
                   className="meal-menu-plan-picker-trigger"
                   onClick={() => {
-                    setPlanPickerFilter(null)
                     setPlanPickerOpen(true)
                   }}
                   disabled={planBusy || copyingToConsumption}
