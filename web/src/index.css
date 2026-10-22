@@ -5054,6 +5054,9 @@ nav {
 }
 
 .meal-menu-plan-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   padding: 9px 10px;
   border: 0;
@@ -5063,6 +5066,28 @@ nav {
   font: inherit;
   cursor: pointer;
   text-align: left;
+}
+
+.meal-menu-plan-picker-option > .meal-menu-plan-picker-label {
+  flex: 1;
+}
+
+.meal-menu-plan-picker-option-check {
+  display: inline-grid;
+  flex: 0 0 1.65em;
+  width: 1.65em;
+  height: 1.65em;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--leaf) 58%, transparent);
+  border-radius: 50%;
+  color: var(--leaf);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.meal-menu-plan-picker-option[aria-selected='true'] .meal-menu-plan-picker-option-check {
+  background: color-mix(in srgb, var(--leaf) 18%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--leaf) 14%, transparent);
 }
 
 .meal-menu-plan-picker-option:hover,

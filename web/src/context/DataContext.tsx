@@ -2547,29 +2547,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
             : meal
         )))
       },
-      async scheduleSavedMeals(plannedOn, savedMealIds) {
+      async scheduleSavedMeals(plannedOn, savedMealIdGroups) {
         return enqueueSavedMealPlanMutation(async () => {
           if (!user) throw new Error('Пользователь не авторизован')
-          const uniqueMealIds = [...new Set(savedMealIds)]
-          if (!/^\d{4}-\d{2}-\d{2}$/u.test(plannedOn) || uniqueMealIds.length === 0) {
+          const normalizedGroups = savedMealIdGroups.map((mealIds) => [...new Set(mealIds)])
+          if (
+            !/^\d{4}-\d{2}-\d{2}$/u.test(plannedOn)
+            || normalizedGroups.length === 0
+            || normalizedGroups.some((mealIds) => mealIds.length === 0)
+          ) {
             throw new Error('Выберите дату и приём пищи')
           }
+          const uniqueGroups = [...new Map(normalizedGroups.map((mealIds) => (
+            [[...mealIds].sort().join(':'), mealIds] as const
+          ))).values()]
+          const selectedMealIds = [...new Set(uniqueGroups.flat())]
           const existingIds = new Set(savedMealsRef.current.map((meal) => meal.id))
-          if (uniqueMealIds.some((id) => !existingIds.has(id))) {
+          if (selectedMealIds.some((id) => !existingIds.has(id))) {
             throw new Error('Один из приёмов пищи больше не найден')
           }
           const { data, error: insertError } = await requireSupabase()
             .from('saved_meal_plans')
-            .insert({ user_id: user.id, planned_on: plannedOn, saved_meal_ids: uniqueMealIds })
+            .insert(uniqueGroups.map((savedMealIds) => ({
+              user_id: user.id,
+              planned_on: plannedOn,
+              saved_meal_ids: savedMealIds,
+            })))
             .select('*')
-            .single()
           if (insertError) {
             if (isSavedMealPlansFeatureMissing(insertError)) {
               throw new Error('Выполните обновлённый файл supabase/add_saved_meals.sql в Supabase')
             }
             throw insertError
           }
-          replaceSavedMealPlans((previous) => [...previous, data as SavedMealPlan])
+          replaceSavedMealPlans((previous) => [
+            ...previous,
+            ...((data ?? []) as SavedMealPlan[]),
+          ])
         })
       },
       async ungroupSavedMealPlan(id) {

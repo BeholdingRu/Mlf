@@ -1923,7 +1923,7 @@ export function MealPlannerView() {
     const today = parseISODate(profileToday)
     return new Date(today.getFullYear(), today.getMonth(), 1)
   })
-  const [selectedPlanGroupKey, setSelectedPlanGroupKey] = useState('')
+  const [selectedPlanGroupKeys, setSelectedPlanGroupKeys] = useState<string[]>([])
   const [planPickerOpen, setPlanPickerOpen] = useState(false)
   const [planPickerFilter, setPlanPickerFilter] = useState<MealMenuFilter | null>(null)
   const [planBusy, setPlanBusy] = useState(false)
@@ -1967,7 +1967,15 @@ export function MealPlannerView() {
     () => mealGroups.filter((group) => matchesMealMenuFilter(group, effectivePlanPickerFilter)),
     [effectivePlanPickerFilter, mealGroups],
   )
-  const selectedPlanGroup = mealGroups.find((group) => group.key === selectedPlanGroupKey) ?? null
+  const selectedPlanGroupKeySet = useMemo(
+    () => new Set(selectedPlanGroupKeys),
+    [selectedPlanGroupKeys],
+  )
+  const selectedPlanGroups = useMemo(
+    () => mealGroups.filter((group) => selectedPlanGroupKeySet.has(group.key)),
+    [mealGroups, selectedPlanGroupKeySet],
+  )
+  const selectedPlanGroup = selectedPlanGroups.length === 1 ? selectedPlanGroups[0] : null
   const plannedDates = useMemo(
     () => new Set(savedMealPlans.map((plan) => plan.planned_on)),
     [savedMealPlans],
@@ -2407,17 +2415,19 @@ export function MealPlannerView() {
   }
 
   const handleScheduleMealGroup = async () => {
-    const group = mealGroups.find((item) => item.key === selectedPlanGroupKey)
-    if (!group) {
-      setPlanError('Выберите приём пищи или группу')
+    if (selectedPlanGroups.length === 0) {
+      setPlanError('Выберите хотя бы один приём пищи или группу')
       return
     }
     setPlanBusy(true)
     setPlanError(null)
     setPlanNotice(null)
     try {
-      await scheduleSavedMeals(selectedPlanDate, group.meals.map((meal) => meal.id))
-      setSelectedPlanGroupKey('')
+      await scheduleSavedMeals(
+        selectedPlanDate,
+        selectedPlanGroups.map((group) => group.meals.map((meal) => meal.id)),
+      )
+      setSelectedPlanGroupKeys([])
     } catch (error) {
       setPlanError(error instanceof Error ? error.message : 'Не удалось сохранить план питания')
     } finally {
@@ -2936,7 +2946,9 @@ export function MealPlannerView() {
                   <span className="meal-menu-plan-picker-label">
                     {selectedPlanGroup && selectedPlanGroup.identifier !== null && <MealGroupIcon />}
                     <span>
-                      {selectedPlanGroup
+                      {selectedPlanGroups.length > 1
+                        ? `Выбрано: ${selectedPlanGroups.length}`
+                        : selectedPlanGroup
                         ? selectedPlanGroup.identifier !== null
                           ? `${selectedPlanGroup.identifier} — группа`
                           : selectedPlanGroup.meals[0].name
@@ -2950,7 +2962,7 @@ export function MealPlannerView() {
                 type="button"
                 className="primary"
                 onClick={() => void handleScheduleMealGroup()}
-                disabled={planBusy || copyingToConsumption || !selectedPlanGroupKey}
+                disabled={planBusy || copyingToConsumption || selectedPlanGroups.length === 0}
               >
                 {planBusy ? 'Сохранение…' : 'Сохранить на дату'}
               </button>
@@ -3110,32 +3122,42 @@ export function MealPlannerView() {
             <div
               className="meal-menu-plan-picker-options"
               role="listbox"
+              aria-multiselectable="true"
               aria-label="Сохранённые приёмы пищи"
             >
-              {visiblePlanMealGroups.length > 0 ? visiblePlanMealGroups.map((group) => (
-                <button
-                  key={group.key}
-                  type="button"
-                  className="meal-menu-plan-picker-option"
-                  role="option"
-                  aria-selected={selectedPlanGroupKey === group.key}
-                  onClick={() => {
-                    setSelectedPlanGroupKey(group.key)
-                    setPlanPickerOpen(false)
-                    setPlanError(null)
-                    setPlanNotice(null)
-                  }}
-                >
-                  <span className="meal-menu-plan-picker-label">
-                    {group.identifier !== null && <MealGroupIcon />}
-                    <span>
-                      {group.identifier !== null
-                        ? `${group.identifier} — группа`
-                        : group.meals[0].name}
+              {visiblePlanMealGroups.length > 0 ? visiblePlanMealGroups.map((group) => {
+                const selected = selectedPlanGroupKeySet.has(group.key)
+                return (
+                  <button
+                    key={group.key}
+                    type="button"
+                    className="meal-menu-plan-picker-option"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => {
+                      setSelectedPlanGroupKeys((current) => (
+                        current.includes(group.key)
+                          ? current.filter((key) => key !== group.key)
+                          : [...current, group.key]
+                      ))
+                      setPlanError(null)
+                      setPlanNotice(null)
+                    }}
+                  >
+                    <span className="meal-menu-plan-picker-label">
+                      {group.identifier !== null && <MealGroupIcon />}
+                      <span>
+                        {group.identifier !== null
+                          ? `${group.identifier} — группа`
+                          : group.meals[0].name}
+                      </span>
                     </span>
-                  </span>
-                </button>
-              )) : (
+                    <span className="meal-menu-plan-picker-option-check" aria-hidden="true">
+                      {selected ? '✓' : ''}
+                    </span>
+                  </button>
+                )
+              }) : (
                 <p className="meal-menu-plan-picker-empty">
                   {mealGroups.length === 0
                     ? 'Сохранённых приёмов пищи пока нет.'
