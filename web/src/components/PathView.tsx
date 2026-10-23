@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type MouseEvent } from 'react'
 import { useData } from '../hooks/useData'
-import { getShabbatWeekStart } from '../lib/shabbat'
+import { millisecondsUntilNextDayInTimeZone } from '../lib/dates'
+import { getSabbathSchoolCycleStart } from '../lib/sabbath-school-task'
 import type { MindfulnessNote, PathDay } from '../lib/types'
 import type { BibleNavigationTarget } from '../lib/bible-books'
 import { BibleView } from './BibleView'
@@ -146,9 +147,28 @@ export function PathView({ bibleNavigationRequest }: { bibleNavigationRequest?: 
   }, [noteFormFullscreen])
 
   useEffect(() => {
-    const timer = window.setInterval(() => setCurrentTime(new Date()), 60_000)
-    return () => window.clearInterval(timer)
-  }, [])
+    let timer: number | undefined
+
+    const scheduleMidnightRefresh = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        setCurrentTime(new Date())
+        scheduleMidnightRefresh()
+      }, millisecondsUntilNextDayInTimeZone(profile?.time_zone))
+    }
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      setCurrentTime(new Date())
+      scheduleMidnightRefresh()
+    }
+
+    scheduleMidnightRefresh()
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [profile?.time_zone])
 
   useEffect(() => {
     if (!noteFormFullscreen) return
@@ -170,7 +190,9 @@ export function PathView({ bibleNavigationRequest }: { bibleNavigationRequest?: 
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [sabbathSchoolLinkDialogOpen])
 
-  const cycleStartedOn = getShabbatWeekStart(profile, currentTime)
+  const cycleStartedOn = profile
+    ? getSabbathSchoolCycleStart(profile.time_zone, currentTime)
+    : null
   const confirmedDays = new Set(
     cycleStartedOn
       ? pathDayConfirmations

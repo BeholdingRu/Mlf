@@ -144,6 +144,7 @@ export function CabinetPage() {
 
   return (
     <div className="cabinet">
+      <div className="shabbat-sky-layer" aria-hidden="true" />
       <Sidebar
         tab={tab}
         onTab={openTab}

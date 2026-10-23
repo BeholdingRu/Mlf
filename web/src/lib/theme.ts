@@ -11,8 +11,8 @@ export const themes = [
 export type ThemeId = (typeof themes)[number]['id']
 export const DEFAULT_THEME: ThemeId = 'dark-gruvbox'
 export const shabbatThemes = [
-  { id: 'shabbat-soft', name: 'Светлая', colors: ['#fffdf7', '#d5aa49', '#f5eacd'] },
-  { id: 'shabbat-gold', name: 'Золотая', colors: ['#f8f0d8', '#b57d1e', '#e9d09a'] },
+  { id: 'shabbat-soft', name: 'Звёздная', colors: ['#081522', '#e2c56f', '#315c72'] },
+  { id: 'shabbat-gold', name: 'Небосвод', colors: ['#071026', '#435f88', '#a7c8df'] },
   { id: 'shabbat-dawn', name: 'Рассвет', colors: ['#223c58', '#dca83e', '#f6dc9d'] },
   { id: 'shabbat-parchment', name: 'Пергамент', colors: ['#fbf4e4', '#b58b42', '#77804a'] },
   { id: 'shabbat-parchment-olive', name: 'Оливковый пергамент', colors: ['#f3ead3', '#8c7943', '#697644'] },

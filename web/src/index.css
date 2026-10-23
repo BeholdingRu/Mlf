@@ -302,75 +302,135 @@ body {
 }
 
 :root[data-theme='shabbat-soft'] {
-  --ink: #5d461b;
-  --muted: #8d7138;
-  --paper: #f5eacd;
-  --panel: rgba(255, 253, 248, 0.94);
-  --line: #d5aa49;
-  --moss: #a77217;
-  --moss-deep: #765315;
-  --leaf: #c79935;
-  --done: #e5f0df;
-  --done-ink: #355d3b;
-  --warn: #8a3b2a;
-  --warn-bg: #f8e4dd;
-  --info-bg: #f4e6bd;
-  --training-marker: #c69232;
-  --shadow: 0 12px 40px rgba(114, 82, 22, 0.14);
-  --body-glow: #f6d98c;
-  --body-top: #fffdf7;
-  --sidebar: rgba(255, 253, 248, 0.94);
-  --surface: #fffdf8;
-  --surface-muted: #fbf5e8;
-  --surface-disabled: #f0e7d7;
-  --track: #eadcb9;
-  --progress-track: #eadcb9;
-  --done-line: #b7d7b2;
-  --on-accent: #fffdf7;
-  --overlay: rgba(64, 46, 16, 0.35);
+  --ink: #fff2c5;
+  --muted: #b9cbd0;
+  --paper: #081522;
+  --panel: rgba(10, 27, 41, 0.94);
+  --line: #d8bb62;
+  --moss: #e2c56f;
+  --moss-deep: #ffe8a1;
+  --leaf: #cfa64b;
+  --done: #173b38;
+  --done-ink: #c9eadb;
+  --warn: #ffb4a0;
+  --warn-bg: #4a2527;
+  --info-bg: #18384c;
+  --training-marker: #e0bd62;
+  --shadow: 0 16px 46px rgba(0, 0, 0, 0.52);
+  --body-glow: #315c72;
+  --body-top: #06101b;
+  --sidebar: rgba(7, 22, 34, 0.97);
+  --surface: #102b3e;
+  --surface-muted: #17384b;
+  --surface-disabled: #294353;
+  --track: #294b5d;
+  --progress-track: #203f51;
+  --done-line: #4b806f;
+  --on-accent: #101722;
+  --overlay: rgba(2, 8, 14, 0.82);
+  color-scheme: dark;
 }
 
 :root[data-theme='shabbat-soft'] body {
-  background-image: linear-gradient(rgba(255, 253, 247, 0.72), rgba(245, 234, 205, 0.78)), url('/previews/easter-light-soft.svg');
+  background-image: linear-gradient(rgba(4, 14, 23, 0.42), rgba(5, 18, 29, 0.64)), url('/previews/easter-light-soft.svg');
   background-position: center, center top;
   background-size: cover, cover;
   background-attachment: fixed;
 }
 
 :root[data-theme='shabbat-gold'] {
-  --ink: #604719;
-  --muted: #80652c;
-  --paper: #f8f0d8;
-  --panel: rgba(255, 253, 247, 0.93);
-  --line: #b57d1e;
-  --moss: #a7741d;
-  --moss-deep: #6d4c14;
-  --leaf: #d2a23d;
-  --done: #e9f0df;
-  --done-ink: #355d3b;
-  --warn: #8a3b2a;
-  --warn-bg: #f8e4dd;
-  --info-bg: #f2e1ad;
-  --training-marker: #b57d1e;
-  --shadow: 0 12px 40px rgba(105, 73, 17, 0.16);
-  --body-glow: #e9c66e;
-  --body-top: #f8f0d8;
-  --sidebar: rgba(255, 250, 236, 0.94);
-  --surface: #fffaf0;
-  --surface-muted: #f7edcf;
-  --surface-disabled: #ede0ba;
-  --track: #ead8a4;
-  --progress-track: #ead8a4;
-  --done-line: #b7d7b2;
-  --on-accent: #fffaf0;
-  --overlay: rgba(75, 52, 12, 0.38);
+  --sky-panel-layer: rgba(23, 52, 95, 0.6);
+  --sky-sidebar-layer: rgba(7, 16, 38, 0.6);
+  --sky-surface-layer: rgba(23, 52, 95, 0.6);
+  --sky-surface-muted-layer: rgba(67, 95, 136, 0.6);
+  --sky-info-layer: rgba(23, 52, 95, 0.6);
+  --sky-done-layer: rgba(38, 77, 98, 0.6);
+  --sky-warn-layer: rgba(77, 35, 58, 0.6);
+  --sky-accent-layer: rgba(167, 200, 223, 0.6);
+  --sky-strong-accent-layer: rgba(220, 238, 255, 0.6);
+  --sky-warning-accent-layer: rgba(255, 172, 188, 0.6);
+  --sky-ink-layer: rgba(255, 255, 255, 0.9);
+  --sky-muted-ink-layer: rgba(215, 234, 248, 0.9);
+  --sky-line-layer: rgba(167, 200, 223, 0.9);
+  --sky-accent-ink-layer: rgba(194, 222, 242, 0.9);
+  --sky-strong-ink-layer: rgba(241, 248, 255, 0.9);
+  --sky-leaf-ink-layer: rgba(151, 199, 229, 0.9);
+  --sky-done-ink-layer: rgba(225, 246, 255, 0.9);
+  --sky-warning-ink-layer: rgba(255, 188, 202, 0.9);
+  --sky-on-accent-ink-layer: rgba(4, 9, 26, 0.9);
+  --sky-danger-detail-layer: rgba(255, 98, 112, 0.9);
+  --sky-gold-detail-layer: rgba(239, 190, 65, 0.9);
+  --sky-blue-detail-layer: rgba(93, 170, 255, 0.9);
+  --sky-neutral-detail-layer: rgba(190, 204, 217, 0.9);
+  --sky-dark-detail-layer: rgba(35, 50, 68, 0.9);
+  --sky-text-contrast-shadow: 0 1px 2px rgba(0, 4, 18, 0.82), 0 0 7px rgba(0, 4, 18, 0.34);
+  --ink: var(--sky-ink-layer);
+  --muted: var(--sky-muted-ink-layer);
+  --paper: #071026;
+  --panel: var(--sky-panel-layer);
+  --line: var(--sky-line-layer);
+  --moss: var(--sky-accent-ink-layer);
+  --moss-deep: var(--sky-strong-ink-layer);
+  --leaf: var(--sky-leaf-ink-layer);
+  --done: var(--sky-done-layer);
+  --done-ink: var(--sky-done-ink-layer);
+  --warn: var(--sky-warning-ink-layer);
+  --warn-bg: var(--sky-warn-layer);
+  --info-bg: var(--sky-info-layer);
+  --training-marker: var(--sky-accent-ink-layer);
+  --shadow: 0 18px 54px rgba(0, 3, 14, 0.68);
+  --body-glow: #17345f;
+  --body-top: #04091a;
+  --sidebar: var(--sky-sidebar-layer);
+  --surface: var(--sky-surface-layer);
+  --surface-muted: var(--sky-surface-muted-layer);
+  --surface-disabled: rgba(67, 95, 136, 0.58);
+  --track: rgba(67, 95, 136, 0.84);
+  --progress-track: rgba(23, 52, 95, 0.9);
+  --done-line: var(--sky-line-layer);
+  --on-accent: var(--sky-on-accent-ink-layer);
+  --overlay: rgba(4, 9, 26, 0.9);
+  --festive-sky-layer:
+    linear-gradient(rgba(7, 16, 38, 0.08), rgba(7, 16, 38, 0.28)),
+    url('/previews/shabbat-starry-sky-v2.jpg') center center / cover no-repeat;
+  color-scheme: dark;
 }
 
 :root[data-theme='shabbat-gold'] body {
-  background-image: linear-gradient(rgba(248, 240, 216, 0.7), rgba(233, 208, 154, 0.76)), url('/previews/easter-light-gold.svg');
+  background-color: #071026;
+  background-image:
+    linear-gradient(rgba(7, 16, 38, 0.5), rgba(23, 52, 95, 0.5)),
+    url('/previews/easter-light-gold.svg');
   background-position: center, center top;
   background-size: cover, cover;
   background-attachment: fixed;
+}
+
+:root[data-theme='shabbat-gold'] .cabinet {
+  position: relative;
+  isolation: isolate;
+}
+
+.shabbat-sky-layer {
+  display: none;
+}
+
+:root[data-theme='shabbat-gold'] .cabinet > .shabbat-sky-layer {
+  display: block;
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: var(--festive-sky-layer);
+  filter: saturate(0.86) contrast(1.04);
+  opacity: 0.9;
+  pointer-events: none;
+  user-select: none;
+}
+
+@media print {
+  :root[data-theme='shabbat-gold'] .shabbat-sky-layer {
+    display: none;
+  }
 }
 
 :root[data-theme='shabbat-parchment'] {

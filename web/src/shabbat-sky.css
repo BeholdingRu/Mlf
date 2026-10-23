@@ -1,0 +1,241 @@
+/*
+ * The sky theme keeps its star field on the second visual layer and makes
+ * interface surfaces 40% transparent on the first one. Foreground colors use
+ * 10% transparency and a separate contrast treatment, so they stay readable.
+ */
+@media screen {
+  :root[data-theme='shabbat-gold'] :is(.auth-shell, .cabinet) {
+    text-shadow: var(--sky-text-contrast-shadow);
+  }
+
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] :is(
+    .topbar h1,
+    .calendar-head h2,
+    .chart-title,
+    .modal-head h2,
+    .meal-menu-shopping-modal-head h2,
+    .modal-content > h3
+  ) {
+    text-shadow: var(--sky-text-contrast-shadow);
+  }
+
+  /* A few semantic labels and borders use fixed colors outside the common
+   * palette. Keep their meaning while bringing their foreground alpha to 90%. */
+  :root[data-theme='shabbat-gold'] :is(.nav-label-alert, .mindfulness-category-delete:hover) {
+    color: var(--sky-danger-detail-layer);
+  }
+
+  :root[data-theme='shabbat-gold'] :is(.sunset-countdown strong, .task-row.withdrawal-clean .habit-meta) {
+    color: var(--sky-gold-detail-layer);
+  }
+
+  :root[data-theme='shabbat-gold'] .task-row.habit-formed :is(.task-body, .habit-meta) {
+    color: var(--sky-neutral-detail-layer);
+  }
+
+  :root[data-theme='shabbat-gold'] .inverted-logic-indicator {
+    border-color: var(--sky-blue-detail-layer);
+    color: var(--sky-blue-detail-layer);
+  }
+
+  :root[data-theme='shabbat-gold'] :is(.stats-test-weight-panel, .withdrawal-test-date),
+  :root[data-theme='shabbat-gold'] .task-row.withdrawal-acute .check,
+  :root[data-theme='shabbat-gold'] .task-row.inverted-failed .check {
+    border-color: var(--sky-danger-detail-layer);
+  }
+
+  :root[data-theme='shabbat-gold'] .task-row.withdrawal-subacute .check {
+    border-color: var(--sky-gold-detail-layer);
+  }
+
+  :root[data-theme='shabbat-gold'] :is(.path-day.confirmed, .shalom-lesson.completed) {
+    border-color: var(--sky-neutral-detail-layer);
+    color: var(--sky-dark-detail-layer);
+    text-shadow: none;
+  }
+
+  :root[data-theme='shabbat-gold'] :is(
+    .task-row.inverted-failed .check,
+    .torah-portion-card-number,
+    .admin-mode-toggle.active
+  ) {
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: none;
+  }
+
+  :root[data-theme='shabbat-gold'] .admin-mode-toggle.active {
+    border-color: var(--sky-danger-detail-layer);
+  }
+
+  :root[data-theme='shabbat-gold'] :where(.auth-shell *, .cabinet *) {
+    --panel: var(--sky-panel-layer);
+    --sidebar: var(--sky-sidebar-layer);
+    --surface: var(--sky-surface-layer);
+    --surface-muted: var(--sky-surface-muted-layer);
+    --info-bg: var(--sky-info-layer);
+    --done: var(--sky-done-layer);
+    --warn-bg: var(--sky-warn-layer);
+    --future-solid: var(--sky-panel-layer);
+    --future-glass: var(--sky-panel-layer);
+    --future-glass-soft: var(--sky-surface-layer);
+    --future-wash: color-mix(in srgb, var(--sky-strong-accent-layer) 10%, var(--sky-surface-layer));
+    --future-edge: var(--sky-line-layer);
+    --future-edge-accent: color-mix(in srgb, var(--sky-strong-ink-layer) 34%, var(--sky-line-layer));
+  }
+
+  /* Style 1 deliberately used the opaque page color for inset controls. In
+   * the sky palette they belong to the translucent interface layer too. */
+  :root[data-theme='shabbat-gold'][data-interface-style='style-1'] .cabinet :is(
+    .weight-btn,
+    input[type='email'],
+    input[type='password'],
+    input[type='number'],
+    input[type='text'],
+    input[type='date'],
+    input[type='time'],
+    input:not([type]),
+    select,
+    textarea,
+    .check,
+    .exercise-statistics-table-wrap,
+    .meal-menu-table-wrap,
+    .meal-menu-shopping-table-wrap,
+    .diary-period-details-table-wrap
+  ) {
+    background-color: var(--surface);
+  }
+
+  /* Style 2 previously mixed several filled controls with transparent. Once
+   * the shared surface itself is translucent, that would double the effect. */
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] :where(
+    .primary,
+    .ghost,
+    .danger,
+    .add-button,
+    .edit-button,
+    .copy-button,
+    .delete-button,
+    .calendar-nav,
+    .chart-filter-button,
+    .chart-fullscreen-button,
+    .meal-menu-shopping-toggle,
+    .meal-menu-plan-picker-trigger,
+    .diary-statistics-filter-button,
+    .diary-statistics-settings-button,
+    .bible-continue-button,
+    .save-button,
+    .cancel-button,
+    .admin-mode-toggle,
+    .font-scale-option,
+    .theme-option,
+    .info-button
+  ) {
+    background: var(--surface);
+  }
+
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] :where(
+    .danger,
+    .delete-button,
+    .icon-close
+  ) {
+    background: var(--warn-bg);
+  }
+
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] .task-row.done,
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] :is(
+    .calendar-day.has-food,
+    .calendar-day.has-meal-plan
+  ):not(.selected):not(.nutrition-period-range) {
+    background: var(--done);
+  }
+
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] .calendar-day:not(
+    .nutrition-period-range
+  ):not(.selected):not(.has-food):not(.has-meal-plan) {
+    background: var(--surface);
+  }
+
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] table thead th {
+    background: var(--surface-muted);
+  }
+
+  /* Hover keeps the same 60% background opacity. The hue may still change to
+   * preserve the project's established pointer feedback. */
+  :root[data-theme='shabbat-gold'] :is(
+    .primary,
+    .ghost,
+    .weight-chart-weekday-option,
+    .bible-continue-button,
+    .bible-chapter,
+    .meal-menu-shopping-toggle,
+    .meal-menu-copy-consumption,
+    .diary-statistics-settings-button,
+    .diary-statistics-info-button,
+    .add-button,
+    .food-weight-save-button,
+    .save-button,
+    .cancel-button
+  ):hover:not(:disabled),
+  :root[data-theme='shabbat-gold'] .modal-actions button:hover:not(:disabled),
+  :root[data-theme='shabbat-gold'] .meal-menu-shopping-modal-actions .ghost:hover:not(:disabled),
+  :root[data-theme='shabbat-gold'] .edit-button.meal-menu-editor-save-edit:hover:not(:disabled) {
+    background: var(--sky-accent-layer);
+    text-shadow: none;
+  }
+
+  :root[data-theme='shabbat-gold'][data-interface-style='style-1'] .cabinet :is(
+    .primary,
+    .ghost,
+    .add-button,
+    .edit-button,
+    .copy-button,
+    .calendar-nav,
+    .chart-filter-button,
+    .chart-fullscreen-button,
+    .meal-menu-shopping-toggle,
+    .meal-menu-plan-picker-trigger,
+    .diary-statistics-filter-button,
+    .diary-statistics-settings-button,
+    .bible-continue-button
+  ):hover:not(:disabled) {
+    background: var(--sky-accent-layer);
+    text-shadow: none;
+  }
+
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] :is(
+    .primary,
+    .ghost,
+    .add-button,
+    .edit-button,
+    .copy-button,
+    .calendar-nav,
+    .chart-filter-button,
+    .chart-fullscreen-button,
+    .meal-menu-shopping-toggle,
+    .meal-menu-plan-picker-trigger,
+    .diary-statistics-filter-button,
+    .diary-statistics-settings-button,
+    .bible-continue-button,
+    .save-button,
+    .cancel-button,
+    .admin-mode-toggle,
+    .font-scale-option,
+    .theme-option,
+    .info-button
+  ):hover:not(:disabled) {
+    background: var(--future-wash);
+    text-shadow: none;
+  }
+
+  :root[data-theme='shabbat-gold'] .danger:hover:not(:disabled),
+  :root[data-theme='shabbat-gold'][data-interface-style='style-1'] .cabinet .delete-button:hover:not(:disabled),
+  :root[data-theme='shabbat-gold'][data-interface-style='style-1'] .cabinet .icon-close:hover,
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] :is(
+    .danger,
+    .delete-button
+  ):hover:not(:disabled),
+  :root[data-theme='shabbat-gold'][data-interface-style='style-2'] .icon-close:hover {
+    background: var(--sky-warning-accent-layer);
+    text-shadow: none;
+  }
+}

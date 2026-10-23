@@ -1,15 +1,28 @@
 import type { PathDay } from './types'
+import { isoDateInTimeZone } from './dates'
 
 const SABBATH_SCHOOL_TITLE_PATTERN = /(?:^|[^\p{L}\p{N}_])субботн(?:яя|ей|ею|юю|ие|их|им|ими)\s+школ(?:а|ы|е|у|ой|ою|ам|ами|ах)(?:$|[^\p{L}\p{N}_])/iu
 
 const PATH_DAY_OFFSETS: Record<PathDay, number> = {
-  saturday: 1,
-  sunday: 2,
-  monday: 3,
-  tuesday: 4,
-  wednesday: 5,
-  thursday: 6,
-  friday: 7,
+  saturday: 6,
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+}
+
+export function getSabbathSchoolCycleStart(
+  timeZone: string | null | undefined,
+  now = new Date(),
+) {
+  const localDate = isoDateInTimeZone(timeZone, now)
+  const cycleStart = new Date(`${localDate}T00:00:00.000Z`)
+  if (Number.isNaN(cycleStart.getTime())) return null
+
+  cycleStart.setUTCDate(cycleStart.getUTCDate() - cycleStart.getUTCDay())
+  return cycleStart.toISOString().slice(0, 10)
 }
 
 export function isSabbathSchoolTask(task: {
