@@ -339,31 +339,33 @@ body {
 }
 
 :root[data-theme='shabbat-gold'] {
-  --sky-panel-layer: rgba(23, 52, 95, 0.6);
-  --sky-sidebar-layer: rgba(7, 16, 38, 0.6);
-  --sky-surface-layer: rgba(23, 52, 95, 0.6);
-  --sky-surface-muted-layer: rgba(67, 95, 136, 0.6);
-  --sky-info-layer: rgba(23, 52, 95, 0.6);
-  --sky-done-layer: rgba(38, 77, 98, 0.6);
-  --sky-warn-layer: rgba(77, 35, 58, 0.6);
-  --sky-accent-layer: rgba(167, 200, 223, 0.6);
-  --sky-strong-accent-layer: rgba(220, 238, 255, 0.6);
-  --sky-warning-accent-layer: rgba(255, 172, 188, 0.6);
-  --sky-ink-layer: rgba(255, 255, 255, 0.9);
-  --sky-muted-ink-layer: rgba(215, 234, 248, 0.9);
-  --sky-line-layer: rgba(167, 200, 223, 0.9);
-  --sky-accent-ink-layer: rgba(194, 222, 242, 0.9);
-  --sky-strong-ink-layer: rgba(241, 248, 255, 0.9);
-  --sky-leaf-ink-layer: rgba(151, 199, 229, 0.9);
-  --sky-done-ink-layer: rgba(225, 246, 255, 0.9);
-  --sky-warning-ink-layer: rgba(255, 188, 202, 0.9);
-  --sky-on-accent-ink-layer: rgba(4, 9, 26, 0.9);
-  --sky-danger-detail-layer: rgba(255, 98, 112, 0.9);
-  --sky-gold-detail-layer: rgba(239, 190, 65, 0.9);
-  --sky-blue-detail-layer: rgba(93, 170, 255, 0.9);
-  --sky-neutral-detail-layer: rgba(190, 204, 217, 0.9);
-  --sky-dark-detail-layer: rgba(35, 50, 68, 0.9);
-  --sky-text-contrast-shadow: 0 1px 2px rgba(0, 4, 18, 0.82), 0 0 7px rgba(0, 4, 18, 0.34);
+  /* Layer 0: text, digits and borders are 20% transparent. Layer 1: interface
+   * surfaces are 50% transparent. Layer 2 below them keeps the star field. */
+  --sky-panel-layer: rgba(27, 54, 76, 0.5);
+  --sky-sidebar-layer: rgba(24, 52, 73, 0.5);
+  --sky-surface-layer: rgba(43, 80, 106, 0.5);
+  --sky-surface-muted-layer: rgba(54, 94, 117, 0.5);
+  --sky-info-layer: rgba(56, 93, 118, 0.5);
+  --sky-done-layer: rgba(54, 93, 84, 0.5);
+  --sky-warn-layer: rgba(103, 65, 53, 0.5);
+  --sky-accent-layer: rgba(225, 178, 77, 0.5);
+  --sky-strong-accent-layer: rgba(255, 240, 177, 0.5);
+  --sky-warning-accent-layer: rgba(255, 209, 161, 0.5);
+  --sky-ink-layer: rgba(255, 243, 198, 0.8);
+  --sky-muted-ink-layer: rgba(228, 199, 119, 0.8);
+  --sky-line-layer: rgba(205, 163, 74, 0.8);
+  --sky-accent-ink-layer: rgba(225, 178, 77, 0.8);
+  --sky-strong-ink-layer: rgba(255, 240, 177, 0.8);
+  --sky-leaf-ink-layer: rgba(200, 146, 50, 0.8);
+  --sky-done-ink-layer: rgba(255, 242, 190, 0.8);
+  --sky-warning-ink-layer: rgba(255, 209, 161, 0.8);
+  --sky-on-accent-ink-layer: rgba(35, 62, 88, 0.8);
+  --sky-danger-detail-layer: rgba(214, 69, 69, 0.8);
+  --sky-gold-detail-layer: rgba(212, 167, 44, 0.8);
+  --sky-blue-detail-layer: rgba(47, 128, 237, 0.8);
+  --sky-neutral-detail-layer: rgba(174, 181, 189, 0.8);
+  --sky-dark-detail-layer: rgba(51, 64, 75, 0.8);
+  --sky-text-contrast-shadow: 0 1px 2px rgba(6, 20, 31, 0.82), 0 0 7px rgba(6, 20, 31, 0.34);
   --ink: var(--sky-ink-layer);
   --muted: var(--sky-muted-ink-layer);
   --paper: #071026;
@@ -378,18 +380,18 @@ body {
   --warn-bg: var(--sky-warn-layer);
   --info-bg: var(--sky-info-layer);
   --training-marker: var(--sky-accent-ink-layer);
-  --shadow: 0 18px 54px rgba(0, 3, 14, 0.68);
+  --shadow: 0 12px 40px rgba(6, 20, 31, 0.48);
   --body-glow: #17345f;
   --body-top: #04091a;
   --sidebar: var(--sky-sidebar-layer);
   --surface: var(--sky-surface-layer);
   --surface-muted: var(--sky-surface-muted-layer);
-  --surface-disabled: rgba(67, 95, 136, 0.58);
-  --track: rgba(67, 95, 136, 0.84);
-  --progress-track: rgba(23, 52, 95, 0.9);
-  --done-line: var(--sky-line-layer);
+  --surface-disabled: rgba(58, 95, 114, 0.5);
+  --track: rgba(69, 107, 125, 0.5);
+  --progress-track: rgba(69, 107, 125, 0.5);
+  --done-line: rgba(96, 147, 125, 0.8);
   --on-accent: var(--sky-on-accent-ink-layer);
-  --overlay: rgba(4, 9, 26, 0.9);
+  --overlay: rgba(9, 24, 37, 0.7);
   --festive-sky-layer:
     linear-gradient(rgba(7, 16, 38, 0.08), rgba(7, 16, 38, 0.28)),
     url('/previews/shabbat-starry-sky-v2.jpg') center center / cover no-repeat;

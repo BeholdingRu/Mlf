@@ -1,7 +1,7 @@
 /*
  * The sky theme keeps its star field on the second visual layer and makes
- * interface surfaces 40% transparent on the first one. Foreground colors use
- * 10% transparency and a separate contrast treatment, so they stay readable.
+ * interface surfaces 50% transparent on the first one. Text, digits and
+ * borders form layer zero at 20% transparency with extra contrast treatment.
  */
 @media screen {
   :root[data-theme='shabbat-gold'] :is(.auth-shell, .cabinet) {
@@ -20,7 +20,7 @@
   }
 
   /* A few semantic labels and borders use fixed colors outside the common
-   * palette. Keep their meaning while bringing their foreground alpha to 90%. */
+   * palette. Keep their meaning while bringing layer-zero alpha to 80%. */
   :root[data-theme='shabbat-gold'] :is(.nav-label-alert, .mindfulness-category-delete:hover) {
     color: var(--sky-danger-detail-layer);
   }
@@ -59,7 +59,7 @@
     .torah-portion-card-number,
     .admin-mode-toggle.active
   ) {
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.8);
     text-shadow: none;
   }
 
@@ -159,7 +159,7 @@
     background: var(--surface-muted);
   }
 
-  /* Hover keeps the same 60% background opacity. The hue may still change to
+  /* Hover keeps the same 50% background opacity. The hue may still change to
    * preserve the project's established pointer feedback. */
   :root[data-theme='shabbat-gold'] :is(
     .primary,
