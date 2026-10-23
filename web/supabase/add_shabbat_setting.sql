@@ -3,4 +3,7 @@
 
 alter table public.profiles
   add column if not exists shabbat_enabled boolean not null default false,
-  add column if not exists shabbat_theme text not null default 'shabbat-dawn';
+  add column if not exists shabbat_theme text not null default 'shabbat-soft';
+
+alter table public.profiles
+  alter column shabbat_theme set default 'shabbat-soft';

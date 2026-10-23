@@ -23,7 +23,7 @@ create table if not exists public.profiles (
   city_latitude numeric(7, 4) not null default 55.7558,
   city_longitude numeric(7, 4) not null default 37.6173,
   shabbat_enabled boolean not null default false,
-  shabbat_theme text not null default 'shabbat-dawn',
+  shabbat_theme text not null default 'shabbat-soft',
   annual_cycle_enabled boolean not null default false,
   last_bible_book_order smallint check (last_bible_book_order between 1 and 66),
   last_bible_chapter smallint check (last_bible_chapter >= 1),
@@ -219,7 +219,7 @@ alter table public.profiles
   add column if not exists city_latitude numeric(7, 4) default 55.7558,
   add column if not exists city_longitude numeric(7, 4) default 37.6173,
   add column if not exists shabbat_enabled boolean not null default false,
-  add column if not exists shabbat_theme text not null default 'shabbat-dawn',
+  add column if not exists shabbat_theme text not null default 'shabbat-soft',
   add column if not exists annual_cycle_enabled boolean not null default false,
   add column if not exists last_bible_book_order smallint check (last_bible_book_order between 1 and 66),
   add column if not exists last_bible_chapter smallint check (last_bible_chapter >= 1),
@@ -232,7 +232,8 @@ alter table public.profiles
   alter column time_zone set default 'Europe/Moscow',
   alter column city_name set default 'Москва',
   alter column city_latitude set default 55.7558,
-  alter column city_longitude set default 37.6173;
+  alter column city_longitude set default 37.6173,
+  alter column shabbat_theme set default 'shabbat-soft';
 
 create or replace function public.apply_profile_time_zone_location()
 returns trigger

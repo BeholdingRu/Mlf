@@ -15,21 +15,25 @@
   --future-secondary: var(--moss);
   --future-signal: var(--leaf);
   --future-danger: var(--warn);
+  --future-accent-fill: var(--moss-deep-fill);
+  --future-secondary-fill: var(--moss-fill);
+  --future-signal-fill: var(--leaf-fill);
+  --future-danger-fill: var(--warn-fill);
   --future-solid: color-mix(in srgb, var(--panel) 94%, var(--surface));
   --future-glass: color-mix(in srgb, var(--panel) 82%, transparent);
   --future-glass-soft: color-mix(in srgb, var(--surface) 72%, transparent);
   --future-edge: color-mix(in srgb, var(--ink) 11%, transparent);
   --future-edge-accent: color-mix(in srgb, var(--future-accent) 34%, var(--line));
-  --future-wash: color-mix(in srgb, var(--future-accent) 10%, var(--surface));
-  --future-halo: color-mix(in srgb, var(--future-accent) 17%, transparent);
-  --future-orbit: color-mix(in srgb, var(--future-secondary) 18%, transparent);
+  --future-wash: color-mix(in srgb, var(--future-accent-fill) 10%, var(--surface));
+  --future-halo: color-mix(in srgb, var(--future-accent-fill) 17%, transparent);
+  --future-orbit: color-mix(in srgb, var(--future-secondary-fill) 18%, transparent);
 }
 
 :root[data-interface-style='style-2'] body {
   background:
     radial-gradient(ellipse 58% 46% at 10% 0%, var(--future-halo), transparent 72%),
     radial-gradient(ellipse 50% 42% at 94% 16%, var(--future-orbit), transparent 74%),
-    radial-gradient(ellipse 42% 35% at 72% 100%, color-mix(in srgb, var(--future-signal) 8%, transparent), transparent 78%),
+    radial-gradient(ellipse 42% 35% at 72% 100%, color-mix(in srgb, var(--future-signal-fill) 8%, transparent), transparent 78%),
     linear-gradient(152deg, var(--body-top), var(--paper) 42%, var(--paper));
 }
 
@@ -100,7 +104,7 @@
   height: 11px;
   border: 5px solid color-mix(in srgb, var(--future-accent) 20%, transparent);
   border-radius: 50%;
-  background: var(--future-accent);
+  background: var(--future-accent-fill);
   box-shadow: 0 0 30px var(--future-halo);
 }
 
@@ -151,7 +155,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--future-accent);
+  background: var(--future-accent-fill);
   box-shadow:
     -18vw 9vh 0 color-mix(in srgb, var(--future-secondary) 62%, transparent),
     -7vw 37vh 0 color-mix(in srgb, var(--future-signal) 55%, transparent),
@@ -186,7 +190,7 @@
 }
 
 :root[data-interface-style='style-2'] .cabinet ::selection {
-  background: color-mix(in srgb, var(--future-accent) 30%, var(--surface));
+  background: color-mix(in srgb, var(--future-accent-fill) 30%, var(--surface));
   color: var(--ink);
 }
 
@@ -225,7 +229,7 @@
   height: 8px;
   border: 4px solid color-mix(in srgb, var(--future-accent) 16%, transparent);
   border-radius: 50%;
-  background: var(--future-accent);
+  background: var(--future-accent-fill);
 }
 
 :root[data-interface-style='style-2'] .weight-btn:hover {
@@ -298,7 +302,7 @@
 }
 
 :root[data-interface-style='style-2'] .nav-item.active::after {
-  background: var(--future-accent);
+  background: var(--future-accent-fill);
   box-shadow: 0 0 10px var(--future-accent);
 }
 
@@ -394,7 +398,7 @@
 :root[data-interface-style='style-2'] :is(.main, .modal, .modal-content, .exercise-statistics-table-wrap)::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--future-accent) 44%, var(--line));
+  background: color-mix(in srgb, var(--future-accent-fill) 44%, var(--line));
   background-clip: padding-box;
 }
 
@@ -447,7 +451,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--future-signal);
+  background: var(--future-signal-fill);
   box-shadow: 0 0 18px color-mix(in srgb, var(--future-signal) 52%, transparent);
   pointer-events: none;
 }
@@ -536,7 +540,7 @@
 :root[data-interface-style='style-2'] .meal-menu-filter-button.active,
 :root[data-interface-style='style-2'] .meal-menu-filter-button.active:hover:not(:disabled) {
   border-color: var(--future-accent);
-  background: var(--future-accent);
+  background: var(--future-accent-fill);
   color: var(--on-accent);
   box-shadow: 0 10px 26px var(--future-halo);
 }
@@ -544,19 +548,19 @@
 :root[data-interface-style='style-2'] .meal-menu-day-plan-edit.active,
 :root[data-interface-style='style-2'] .meal-menu-day-plan-edit.active:hover:not(:disabled) {
   border-color: var(--future-accent);
-  background: var(--future-accent);
+  background: var(--future-accent-fill);
   color: var(--on-accent);
 }
 
 :root[data-interface-style='style-2'] :is(.danger, .delete-button) {
   border-color: color-mix(in srgb, var(--future-danger) 62%, var(--line));
-  background: color-mix(in srgb, var(--future-danger) 7%, transparent);
+  background: color-mix(in srgb, var(--future-danger-fill) 7%, transparent);
   color: var(--future-danger);
 }
 
 :root[data-interface-style='style-2'] :is(.danger, .delete-button):hover:not(:disabled) {
   border-color: var(--future-danger);
-  background: color-mix(in srgb, var(--future-danger) 15%, var(--surface));
+  background: color-mix(in srgb, var(--future-danger-fill) 15%, var(--surface));
   color: var(--future-danger);
 }
 
@@ -815,7 +819,7 @@
 
 :root[data-interface-style='style-2'] .task-row.done::after {
   border-color: color-mix(in srgb, var(--future-signal) 16%, transparent);
-  background: var(--future-signal);
+  background: var(--future-signal-fill);
   box-shadow: 0 0 18px color-mix(in srgb, var(--future-signal) 45%, transparent);
   opacity: 1;
 }
@@ -833,7 +837,7 @@
 
 :root[data-interface-style='style-2'] .task-row.inverted-failed {
   border-color: color-mix(in srgb, var(--future-danger) 48%, var(--line));
-  background: color-mix(in srgb, var(--future-danger) 9%, var(--surface));
+  background: color-mix(in srgb, var(--future-danger-fill) 9%, var(--surface));
 }
 
 :root[data-interface-style='style-2'] .check {
@@ -891,7 +895,7 @@
 :root[data-interface-style='style-2'] :is(.habit-fill, .weight-progress-fill) {
   position: relative;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--future-secondary), var(--future-accent));
+  background: linear-gradient(90deg, var(--future-secondary-fill), var(--future-accent-fill));
   box-shadow: 0 0 18px var(--future-halo);
 }
 
@@ -904,7 +908,7 @@
   height: 8px;
   border: 3px solid var(--surface);
   border-radius: 50%;
-  background: var(--future-accent);
+  background: var(--future-accent-fill);
   box-shadow: 0 0 13px var(--future-accent);
   transform: translate(45%, -50%);
 }
@@ -989,7 +993,7 @@
 
 :root[data-interface-style='style-2'] .calendar-day.nutrition-period-range {
   border-color: color-mix(in srgb, var(--future-accent) 42%, var(--line));
-  background: color-mix(in srgb, var(--future-accent) 13%, var(--surface));
+  background: color-mix(in srgb, var(--future-accent-fill) 13%, var(--surface));
   color: var(--ink);
 }
 
@@ -1106,7 +1110,7 @@
   height: 44px;
   border: 1px solid color-mix(in srgb, var(--future-danger) 44%, var(--line));
   border-radius: 50%;
-  background: color-mix(in srgb, var(--future-danger) 7%, transparent);
+  background: color-mix(in srgb, var(--future-danger-fill) 7%, transparent);
   box-shadow: none;
   color: var(--future-danger);
   font-family: var(--sans);
@@ -1115,7 +1119,7 @@
 
 :root[data-interface-style='style-2'] .icon-close:hover {
   border-color: var(--future-danger);
-  background: color-mix(in srgb, var(--future-danger) 15%, var(--surface));
+  background: color-mix(in srgb, var(--future-danger-fill) 15%, var(--surface));
   color: var(--future-danger);
 }
 
@@ -1142,7 +1146,7 @@
 :root[data-interface-style='style-2'] :is(.banner.error, .meal-menu-error) {
   border: 1px solid color-mix(in srgb, var(--future-danger) 54%, var(--line));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--future-danger) 9%, var(--surface));
+  background: color-mix(in srgb, var(--future-danger-fill) 9%, var(--surface));
   color: var(--future-danger);
 }
 

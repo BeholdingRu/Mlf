@@ -38,9 +38,13 @@
   --moss: #3f6b45;
   --moss-deep: #2c4d32;
   --leaf: #6ea36a;
+  --moss-fill: var(--moss);
+  --moss-deep-fill: var(--moss-deep);
+  --leaf-fill: var(--leaf);
   --done: #d7edd4;
   --done-ink: #1f4d2a;
   --warn: #8a3b2a;
+  --warn-fill: var(--warn);
   --warn-bg: #f8e4dd;
   --info-bg: #e7efe3;
   --training-marker: #c69232;
@@ -243,36 +247,6 @@
   --overlay: rgba(3, 6, 12, 0.84);
 }
 
-:root[data-theme='shabbat-dawn'] {
-  --ink: #fff3c6;
-  --muted: #e4c777;
-  --paper: #223c58;
-  --panel: rgba(27, 54, 76, 0.92);
-  --line: #cda34a;
-  --moss: #e1b24d;
-  --moss-deep: #fff0b1;
-  --leaf: #c89232;
-  --done: #365d54;
-  --done-ink: #fff2be;
-  --warn: #ffd1a1;
-  --warn-bg: #674135;
-  --info-bg: #385d76;
-  --training-marker: #d4a640;
-  --shadow: 0 12px 40px rgba(6, 20, 31, 0.48);
-  --body-glow: #dca83e;
-  --body-top: #223c58;
-  --sidebar: rgba(24, 52, 73, 0.96);
-  --surface: #2b506a;
-  --surface-muted: #365e75;
-  --surface-disabled: #3a5f72;
-  --track: #456b7d;
-  --progress-track: #456b7d;
-  --done-line: #60937d;
-  --on-accent: #233e58;
-  --overlay: rgba(9, 24, 37, 0.7);
-  color-scheme: dark;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -292,41 +266,36 @@ body {
     linear-gradient(180deg, var(--body-top) 0%, var(--paper) 40%);
 }
 
-:root[data-theme='shabbat-dawn'] body {
-  background-image:
-    linear-gradient(rgba(34, 60, 88, 0.62), rgba(34, 60, 88, 0.62)),
-    url('/previews/easter-light-dawn.svg');
-  background-position: center, center top;
-  background-size: cover, cover;
-  background-attachment: fixed;
-}
-
 :root[data-theme='shabbat-soft'] {
-  --ink: #fff2c5;
-  --muted: #b9cbd0;
+  --ink: rgba(255, 242, 197, 0.8);
+  --muted: rgba(185, 203, 208, 0.8);
   --paper: #081522;
-  --panel: rgba(10, 27, 41, 0.94);
-  --line: #d8bb62;
-  --moss: #e2c56f;
-  --moss-deep: #ffe8a1;
-  --leaf: #cfa64b;
-  --done: #173b38;
-  --done-ink: #c9eadb;
-  --warn: #ffb4a0;
-  --warn-bg: #4a2527;
-  --info-bg: #18384c;
-  --training-marker: #e0bd62;
+  --panel: rgba(10, 27, 41, 0.5);
+  --line: rgba(216, 187, 98, 0.8);
+  --moss: rgba(226, 197, 111, 0.8);
+  --moss-deep: rgba(255, 232, 161, 0.8);
+  --leaf: rgba(207, 166, 75, 0.8);
+  --done: rgba(23, 59, 56, 0.5);
+  --done-ink: rgba(201, 234, 219, 0.8);
+  --warn: rgba(255, 180, 160, 0.8);
+  --warn-bg: rgba(74, 37, 39, 0.5);
+  --info-bg: rgba(24, 56, 76, 0.5);
+  --training-marker: rgba(224, 189, 98, 0.8);
   --shadow: 0 16px 46px rgba(0, 0, 0, 0.52);
   --body-glow: #315c72;
   --body-top: #06101b;
-  --sidebar: rgba(7, 22, 34, 0.97);
-  --surface: #102b3e;
-  --surface-muted: #17384b;
-  --surface-disabled: #294353;
-  --track: #294b5d;
-  --progress-track: #203f51;
-  --done-line: #4b806f;
-  --on-accent: #101722;
+  --sidebar: rgba(7, 22, 34, 0.5);
+  --surface: rgba(16, 43, 62, 0.5);
+  --surface-muted: rgba(23, 56, 75, 0.5);
+  --surface-disabled: rgba(41, 67, 83, 0.5);
+  --track: rgba(41, 75, 93, 0.5);
+  --progress-track: rgba(32, 63, 81, 0.5);
+  --done-line: rgba(75, 128, 111, 0.8);
+  --on-accent: rgba(16, 23, 34, 0.8);
+  --festive-accent-layer: rgba(226, 197, 111, 0.5);
+  --festive-strong-accent-layer: rgba(255, 232, 161, 0.5);
+  --festive-warning-accent-layer: rgba(255, 180, 160, 0.5);
+  --festive-text-contrast-shadow: 0 1px 2px rgba(0, 4, 12, 0.82), 0 0 7px rgba(0, 4, 12, 0.34);
   --overlay: rgba(2, 8, 14, 0.82);
   color-scheme: dark;
 }
@@ -338,77 +307,28 @@ body {
   background-attachment: fixed;
 }
 
-:root[data-theme='shabbat-gold'] {
-  /* Layer 0: text, digits and borders are 20% transparent. Layer 1: interface
-   * surfaces are 50% transparent. Layer 2 below them keeps the star field. */
-  --sky-panel-layer: rgba(27, 54, 76, 0.5);
-  --sky-sidebar-layer: rgba(24, 52, 73, 0.5);
-  --sky-surface-layer: rgba(43, 80, 106, 0.5);
-  --sky-surface-muted-layer: rgba(54, 94, 117, 0.5);
-  --sky-info-layer: rgba(56, 93, 118, 0.5);
-  --sky-done-layer: rgba(54, 93, 84, 0.5);
-  --sky-warn-layer: rgba(103, 65, 53, 0.5);
-  --sky-accent-layer: rgba(225, 178, 77, 0.5);
-  --sky-strong-accent-layer: rgba(255, 240, 177, 0.5);
-  --sky-warning-accent-layer: rgba(255, 209, 161, 0.5);
-  --sky-ink-layer: rgba(255, 243, 198, 0.8);
-  --sky-muted-ink-layer: rgba(228, 199, 119, 0.8);
-  --sky-line-layer: rgba(205, 163, 74, 0.8);
-  --sky-accent-ink-layer: rgba(225, 178, 77, 0.8);
-  --sky-strong-ink-layer: rgba(255, 240, 177, 0.8);
-  --sky-leaf-ink-layer: rgba(200, 146, 50, 0.8);
-  --sky-done-ink-layer: rgba(255, 242, 190, 0.8);
-  --sky-warning-ink-layer: rgba(255, 209, 161, 0.8);
-  --sky-on-accent-ink-layer: rgba(35, 62, 88, 0.8);
-  --sky-danger-detail-layer: rgba(214, 69, 69, 0.8);
-  --sky-gold-detail-layer: rgba(212, 167, 44, 0.8);
-  --sky-blue-detail-layer: rgba(47, 128, 237, 0.8);
-  --sky-neutral-detail-layer: rgba(174, 181, 189, 0.8);
-  --sky-dark-detail-layer: rgba(51, 64, 75, 0.8);
-  --sky-text-contrast-shadow: 0 1px 2px rgba(6, 20, 31, 0.82), 0 0 7px rgba(6, 20, 31, 0.34);
-  --ink: var(--sky-ink-layer);
-  --muted: var(--sky-muted-ink-layer);
-  --paper: #071026;
-  --panel: var(--sky-panel-layer);
-  --line: var(--sky-line-layer);
-  --moss: var(--sky-accent-ink-layer);
-  --moss-deep: var(--sky-strong-ink-layer);
-  --leaf: var(--sky-leaf-ink-layer);
-  --done: var(--sky-done-layer);
-  --done-ink: var(--sky-done-ink-layer);
-  --warn: var(--sky-warning-ink-layer);
-  --warn-bg: var(--sky-warn-layer);
-  --info-bg: var(--sky-info-layer);
-  --training-marker: var(--sky-accent-ink-layer);
-  --shadow: 0 12px 40px rgba(6, 20, 31, 0.48);
-  --body-glow: #17345f;
-  --body-top: #04091a;
-  --sidebar: var(--sky-sidebar-layer);
-  --surface: var(--sky-surface-layer);
-  --surface-muted: var(--sky-surface-muted-layer);
-  --surface-disabled: rgba(58, 95, 114, 0.5);
-  --track: rgba(69, 107, 125, 0.5);
-  --progress-track: rgba(69, 107, 125, 0.5);
-  --done-line: rgba(96, 147, 125, 0.8);
-  --on-accent: var(--sky-on-accent-ink-layer);
-  --overlay: rgba(9, 24, 37, 0.7);
+:root[data-theme^='shabbat-'] {
+  /* Shared layer model for every festive palette: layer 2 is the common star
+   * field, while layers 1 and 0 are set by each palette. */
+  --festive-danger-detail-layer: rgba(214, 69, 69, 0.8);
+  --festive-blue-detail-layer: rgba(47, 128, 237, 0.8);
+  --festive-neutral-detail-layer: rgba(174, 181, 189, 0.8);
+  --festive-dark-detail-layer: rgba(51, 64, 75, 0.8);
+  --festive-on-emphasis-detail-layer: rgba(255, 255, 255, 0.8);
   --festive-sky-layer:
     linear-gradient(rgba(7, 16, 38, 0.08), rgba(7, 16, 38, 0.28)),
     url('/previews/shabbat-starry-sky-v2.jpg') center center / cover no-repeat;
-  color-scheme: dark;
 }
 
-:root[data-theme='shabbat-gold'] body {
-  background-color: #071026;
-  background-image:
-    linear-gradient(rgba(7, 16, 38, 0.5), rgba(23, 52, 95, 0.5)),
-    url('/previews/easter-light-gold.svg');
-  background-position: center, center top;
-  background-size: cover, cover;
-  background-attachment: fixed;
+:root[data-theme^='shabbat-parchment'] {
+  --festive-danger-detail-layer: rgb(214, 69, 69);
+  --festive-blue-detail-layer: rgb(47, 128, 237);
+  --festive-neutral-detail-layer: rgb(174, 181, 189);
+  --festive-dark-detail-layer: rgb(51, 64, 75);
+  --festive-on-emphasis-detail-layer: rgb(255, 255, 255);
 }
 
-:root[data-theme='shabbat-gold'] .cabinet {
+:root[data-theme^='shabbat-'] .cabinet {
   position: relative;
   isolation: isolate;
 }
@@ -417,7 +337,7 @@ body {
   display: none;
 }
 
-:root[data-theme='shabbat-gold'] .cabinet > .shabbat-sky-layer {
+:root[data-theme^='shabbat-'] .cabinet > .shabbat-sky-layer {
   display: block;
   position: absolute;
   z-index: -1;
@@ -430,37 +350,47 @@ body {
 }
 
 @media print {
-  :root[data-theme='shabbat-gold'] .shabbat-sky-layer {
+  :root[data-theme^='shabbat-'] .shabbat-sky-layer {
     display: none;
   }
 }
 
 :root[data-theme='shabbat-parchment'] {
-  --ink: #5d4828;
-  --muted: #80633a;
+  /* Layer 0 has no transparency. Accent fills remain on translucent layer 1
+   * through their dedicated fill tokens. */
+  --ink: rgb(93, 72, 40);
+  --muted: rgb(128, 99, 58);
   --paper: #e9d8b4;
-  --panel: rgba(255, 249, 236, 0.92);
-  --line: #b58b42;
-  --moss: #77804a;
-  --moss-deep: #596035;
-  --leaf: #9d7936;
-  --done: #e5ebd7;
-  --done-ink: #3f5639;
-  --warn: #873e2c;
-  --warn-bg: #f4dfd3;
-  --info-bg: #f0dfbd;
-  --training-marker: #9d7936;
+  --panel: rgba(204, 199, 189, 0.7);
+  --line: rgb(181, 139, 66);
+  --moss: rgb(119, 128, 74);
+  --moss-deep: rgb(89, 96, 53);
+  --leaf: rgb(157, 121, 54);
+  --moss-fill: var(--festive-accent-layer);
+  --moss-deep-fill: var(--festive-strong-accent-layer);
+  --leaf-fill: rgba(126, 97, 43, 0.7);
+  --done: rgba(183, 188, 172, 0.7);
+  --done-ink: rgb(63, 86, 57);
+  --warn: rgb(135, 62, 44);
+  --warn-fill: var(--festive-warning-accent-layer);
+  --warn-bg: rgba(195, 178, 169, 0.7);
+  --info-bg: rgba(192, 178, 151, 0.7);
+  --training-marker: rgb(157, 121, 54);
   --shadow: 0 12px 40px rgba(91, 67, 29, 0.16);
   --body-glow: #f8e5b5;
   --body-top: #fbf4e4;
-  --sidebar: rgba(255, 249, 236, 0.93);
-  --surface: #fff9ec;
-  --surface-muted: #f7eedb;
-  --surface-disabled: #eadcc1;
-  --track: #dfccaa;
-  --progress-track: #dfccaa;
-  --done-line: #adc08e;
-  --on-accent: #fff9ec;
+  --sidebar: rgba(204, 199, 189, 0.7);
+  --surface: rgba(204, 199, 189, 0.7);
+  --surface-muted: rgba(198, 190, 175, 0.7);
+  --surface-disabled: rgba(187, 176, 154, 0.7);
+  --track: rgba(178, 163, 136, 0.7);
+  --progress-track: rgba(178, 163, 136, 0.7);
+  --done-line: rgb(173, 192, 142);
+  --on-accent: rgb(255, 249, 236);
+  --festive-accent-layer: rgba(95, 102, 59, 0.7);
+  --festive-strong-accent-layer: rgba(71, 77, 42, 0.7);
+  --festive-warning-accent-layer: rgba(108, 50, 35, 0.7);
+  --festive-text-contrast-shadow: 0 1px 2px rgba(255, 249, 236, 0.82), 0 0 7px rgba(255, 249, 236, 0.34);
   --overlay: rgba(75, 53, 23, 0.38);
 }
 
@@ -472,31 +402,39 @@ body {
 }
 
 :root[data-theme='shabbat-parchment-olive'] {
-  --ink: #4e4d2d;
-  --muted: #6f6a42;
+  --ink: rgb(78, 77, 45);
+  --muted: rgb(111, 106, 66);
   --paper: #d8c79b;
-  --panel: rgba(252, 246, 232, 0.92);
-  --line: #8c7943;
-  --moss: #697644;
-  --moss-deep: #4f5a33;
-  --leaf: #7b7743;
-  --done: #e0e8d4;
-  --done-ink: #38533b;
-  --warn: #803c2c;
-  --warn-bg: #f2ded1;
-  --info-bg: #e8ddb8;
-  --training-marker: #7b7743;
+  --panel: rgba(202, 197, 186, 0.7);
+  --line: rgb(140, 121, 67);
+  --moss: rgb(105, 118, 68);
+  --moss-deep: rgb(79, 90, 51);
+  --leaf: rgb(123, 119, 67);
+  --moss-fill: var(--festive-accent-layer);
+  --moss-deep-fill: var(--festive-strong-accent-layer);
+  --leaf-fill: rgba(98, 95, 54, 0.7);
+  --done: rgba(179, 186, 170, 0.7);
+  --done-ink: rgb(56, 83, 59);
+  --warn: rgb(128, 60, 44);
+  --warn-fill: var(--festive-warning-accent-layer);
+  --warn-bg: rgba(194, 178, 167, 0.7);
+  --info-bg: rgba(186, 177, 147, 0.7);
+  --training-marker: rgb(123, 119, 67);
   --shadow: 0 12px 40px rgba(70, 64, 30, 0.17);
   --body-glow: #ede1be;
   --body-top: #f3ead3;
-  --sidebar: rgba(252, 246, 232, 0.93);
-  --surface: #fcf6e8;
-  --surface-muted: #f1e8d1;
-  --surface-disabled: #e4d7b7;
-  --track: #d6c8a6;
-  --progress-track: #d6c8a6;
-  --done-line: #a7b88b;
-  --on-accent: #fcf6e8;
+  --sidebar: rgba(202, 197, 186, 0.7);
+  --surface: rgba(202, 197, 186, 0.7);
+  --surface-muted: rgba(193, 186, 167, 0.7);
+  --surface-disabled: rgba(182, 172, 146, 0.7);
+  --track: rgba(171, 160, 133, 0.7);
+  --progress-track: rgba(171, 160, 133, 0.7);
+  --done-line: rgb(167, 184, 139);
+  --on-accent: rgb(252, 246, 232);
+  --festive-accent-layer: rgba(84, 94, 54, 0.7);
+  --festive-strong-accent-layer: rgba(63, 72, 41, 0.7);
+  --festive-warning-accent-layer: rgba(102, 48, 35, 0.7);
+  --festive-text-contrast-shadow: 0 1px 2px rgba(252, 246, 232, 0.82), 0 0 7px rgba(252, 246, 232, 0.34);
   --overlay: rgba(55, 58, 28, 0.4);
 }
 
@@ -508,31 +446,39 @@ body {
 }
 
 :root[data-theme='shabbat-parchment-evening'] {
-  --ink: #594027;
-  --muted: #795d3b;
+  --ink: rgb(89, 64, 39);
+  --muted: rgb(121, 93, 59);
   --paper: #cdb489;
-  --panel: rgba(249, 236, 206, 0.92);
-  --line: #9d7138;
-  --moss: #817847;
-  --moss-deep: #625b35;
-  --leaf: #9b7138;
-  --done: #e0e5cf;
-  --done-ink: #40533a;
-  --warn: #813b2d;
-  --warn-bg: #f1dcd0;
-  --info-bg: #ead9af;
-  --training-marker: #9b7138;
+  --panel: rgba(199, 189, 165, 0.7);
+  --line: rgb(157, 113, 56);
+  --moss: rgb(129, 120, 71);
+  --moss-deep: rgb(98, 91, 53);
+  --leaf: rgb(155, 113, 56);
+  --moss-fill: var(--festive-accent-layer);
+  --moss-deep-fill: var(--festive-strong-accent-layer);
+  --leaf-fill: rgba(124, 90, 45, 0.7);
+  --done: rgba(179, 183, 166, 0.7);
+  --done-ink: rgb(64, 83, 58);
+  --warn: rgb(129, 59, 45);
+  --warn-fill: var(--festive-warning-accent-layer);
+  --warn-bg: rgba(193, 176, 166, 0.7);
+  --info-bg: rgba(187, 174, 140, 0.7);
+  --training-marker: rgb(155, 113, 56);
   --shadow: 0 12px 40px rgba(80, 54, 29, 0.18);
   --body-glow: #f0d59d;
   --body-top: #efe0bf;
-  --sidebar: rgba(249, 236, 206, 0.93);
-  --surface: #f9ecce;
-  --surface-muted: #f0dfbd;
-  --surface-disabled: #e2cfaa;
-  --track: #d5bf96;
-  --progress-track: #d5bf96;
-  --done-line: #aab58a;
-  --on-accent: #f9ecce;
+  --sidebar: rgba(199, 189, 165, 0.7);
+  --surface: rgba(199, 189, 165, 0.7);
+  --surface-muted: rgba(192, 178, 151, 0.7);
+  --surface-disabled: rgba(181, 166, 136, 0.7);
+  --track: rgba(170, 153, 120, 0.7);
+  --progress-track: rgba(170, 153, 120, 0.7);
+  --done-line: rgb(170, 181, 138);
+  --on-accent: rgb(249, 236, 206);
+  --festive-accent-layer: rgba(103, 96, 57, 0.7);
+  --festive-strong-accent-layer: rgba(78, 73, 42, 0.7);
+  --festive-warning-accent-layer: rgba(103, 47, 36, 0.7);
+  --festive-text-contrast-shadow: 0 1px 2px rgba(249, 236, 206, 0.82), 0 0 7px rgba(249, 236, 206, 0.34);
   --overlay: rgba(71, 45, 24, 0.42);
 }
 
@@ -691,7 +637,7 @@ input:not([type]) {
 
 .primary:hover:not(:disabled),
 .ghost:hover:not(:disabled) {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -748,7 +694,7 @@ input:not([type]) {
 }
 
 .danger:hover:not(:disabled) {
-  background: var(--warn);
+  background: var(--warn-fill);
   color: var(--on-accent);
 }
 
@@ -1471,7 +1417,7 @@ nav {
 .weight-chart-weekday-option:hover,
 .weight-chart-weekday-option.active {
   border-color: var(--moss);
-  background: var(--moss);
+  background: var(--moss-fill);
   color: white;
 }
 
@@ -1689,7 +1635,7 @@ nav {
 }
 
 .task-row.done .check {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -1702,8 +1648,8 @@ nav {
 .task-row.automatic .check:disabled {
   background: repeating-linear-gradient(
     -45deg,
-    color-mix(in srgb, var(--moss) 18%, var(--surface)),
-    color-mix(in srgb, var(--moss) 18%, var(--surface)) 4px,
+    color-mix(in srgb, var(--moss-fill) 18%, var(--surface)),
+    color-mix(in srgb, var(--moss-fill) 18%, var(--surface)) 4px,
     var(--surface) 4px,
     var(--surface) 8px
   );
@@ -1740,7 +1686,7 @@ nav {
 }
 
 .bible-continue-button:hover {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -1872,7 +1818,7 @@ nav {
 
 .habit-fill {
   height: 100%;
-  background: var(--leaf);
+  background: var(--leaf-fill);
 }
 
 .count-badge {
@@ -2043,7 +1989,7 @@ nav {
 
 .chart-filter-button.active {
   border-color: var(--moss);
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -2314,7 +2260,7 @@ nav {
 
 .bible-bookmark-filters > button.active {
   border-color: var(--moss);
-  background: var(--moss-deep);
+  background: var(--moss-deep-fill);
   color: var(--surface);
 }
 
@@ -2718,8 +2664,7 @@ nav {
 }
 
 :root[data-theme='dark'] .bible-library-growth-vine,
-:root[data-theme='dark-purple'] .bible-library-growth-vine,
-:root[data-theme='shabbat-dawn'] .bible-library-growth-vine {
+:root[data-theme='dark-purple'] .bible-library-growth-vine {
   opacity: 0.8;
 }
 
@@ -3024,7 +2969,7 @@ nav {
 .bible-chapter:hover,
 .bible-chapter.active {
   border-color: var(--moss);
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -3046,7 +2991,7 @@ nav {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--leaf);
+  background: var(--leaf-fill);
 }
 
 .bible-chapter.last-opened.active::after {
@@ -3488,7 +3433,7 @@ nav {
 .path-sh-note-title:hover,
 .path-sh-note-title.active {
   border-color: var(--moss);
-  background: color-mix(in srgb, var(--moss) 12%, var(--surface));
+  background: color-mix(in srgb, var(--moss-fill) 12%, var(--surface));
 }
 
 .path-sh-empty-notes {
@@ -3784,12 +3729,12 @@ nav {
 .mindfulness-category-button:hover,
 .mindfulness-category-button.active {
   border-color: var(--moss);
-  background: color-mix(in srgb, var(--moss) 12%, var(--surface));
+  background: color-mix(in srgb, var(--moss-fill) 12%, var(--surface));
 }
 
 .mindfulness-category-control:has(.mindfulness-category-button.active) {
   border-color: var(--moss);
-  background: color-mix(in srgb, var(--moss) 12%, var(--surface));
+  background: color-mix(in srgb, var(--moss-fill) 12%, var(--surface));
 }
 
 .mindfulness-note-form {
@@ -3823,7 +3768,7 @@ nav {
 
 .mindfulness-fullscreen-button:hover {
   border-color: var(--moss);
-  background: color-mix(in srgb, var(--moss) 10%, var(--surface));
+  background: color-mix(in srgb, var(--moss-fill) 10%, var(--surface));
 }
 
 .mindfulness-note-form.fullscreen {
@@ -4140,7 +4085,7 @@ nav {
 }
 
 .exercise-completed {
-  background: var(--leaf);
+  background: var(--leaf-fill);
 }
 
 .worked-weight {
@@ -4447,7 +4392,7 @@ nav {
 }
 
 .exercise-statistics-table thead th {
-  background: color-mix(in srgb, var(--surface) 82%, var(--moss) 18%);
+  background: color-mix(in srgb, var(--surface) 82%, var(--moss-fill) 18%);
   color: var(--ink);
   font-size: 13px;
 }
@@ -4756,7 +4701,7 @@ nav {
 
 .meal-menu-filter-button.active {
   border-color: var(--moss);
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--moss) 30%, transparent);
 }
@@ -4875,7 +4820,7 @@ nav {
 .meal-menu-calendar .calendar-day.shopping-range-start,
 .meal-menu-calendar .calendar-day.shopping-range-end {
   border-color: var(--moss);
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
   font-weight: 700;
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--leaf) 52%, transparent);
@@ -4912,7 +4857,7 @@ nav {
 
 .meal-menu-shopping-toggle:hover,
 .meal-menu-shopping-toggle[aria-expanded='true'] {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -5148,7 +5093,7 @@ nav {
 }
 
 .meal-menu-plan-picker-option[aria-selected='true'] .meal-menu-plan-picker-option-check {
-  background: color-mix(in srgb, var(--leaf) 18%, transparent);
+  background: color-mix(in srgb, var(--leaf-fill) 18%, transparent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--leaf) 14%, transparent);
 }
 
@@ -5230,7 +5175,7 @@ nav {
 }
 
 .meal-menu-copy-consumption:hover:not(:disabled) {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -5443,7 +5388,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 
 .edit-button.meal-menu-day-plan-edit.active {
   border-color: var(--moss);
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
   opacity: 1;
 }
@@ -5809,7 +5754,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .meal-menu-shopping-modal-actions .ghost:hover:not(:disabled) {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -5847,7 +5792,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
   padding: 3px;
   border: 1px solid color-mix(in srgb, var(--moss) 72%, var(--line));
   border-radius: 7px;
-  background: var(--moss-deep);
+  background: var(--moss-deep-fill);
   box-shadow: 0 2px 5px color-mix(in srgb, var(--moss-deep) 28%, transparent);
   color: var(--on-accent);
   fill: none;
@@ -5916,13 +5861,13 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .edit-button.meal-menu-editor-cancel-edit {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
 .edit-button.meal-menu-editor-save-edit:hover:not(:disabled) {
   opacity: 1;
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -6093,7 +6038,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .meal-menu-table thead th {
-  background: color-mix(in srgb, var(--surface) 82%, var(--moss) 18%);
+  background: color-mix(in srgb, var(--surface) 82%, var(--moss-fill) 18%);
   font-size: 13px;
 }
 
@@ -7015,7 +6960,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 .diary-nutrition-statistics-head p strong {
   padding: 2px 5px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--moss) 15%, transparent);
+  background: color-mix(in srgb, var(--moss-fill) 15%, transparent);
   color: var(--moss-deep);
   font-weight: 800;
 }
@@ -7105,7 +7050,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .diary-period-details-table .diary-period-details-average-row > * {
-  background: color-mix(in srgb, var(--surface) 76%, var(--moss) 24%);
+  background: color-mix(in srgb, var(--surface) 76%, var(--moss-fill) 24%);
   font-weight: 800;
 }
 
@@ -7183,13 +7128,13 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .diary-statistics-settings-button:hover:not(:disabled) {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
 .diary-statistics-settings-button.active {
   border-color: color-mix(in srgb, var(--on-accent) 72%, transparent);
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -7243,7 +7188,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 
 .diary-statistics-info-button:hover,
 .diary-statistics-info-button[aria-expanded='true'] {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -7470,7 +7415,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 
 .diary-macro-products-popover-head button.active {
   border-color: var(--moss);
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--done-ink);
 }
 
@@ -7954,7 +7899,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
   border-radius: inherit;
   background:
     linear-gradient(90deg, transparent 0 31%, #050505 31% 36%, transparent 36% 64%, #050505 64% 69%, transparent 69% 100%),
-    linear-gradient(0deg, transparent 0 31%, color-mix(in srgb, var(--leaf) 50%, #d7cf28) 31% 36%, transparent 36% 64%, color-mix(in srgb, var(--leaf) 50%, #d7cf28) 64% 69%, transparent 69% 100%);
+    linear-gradient(0deg, transparent 0 31%, color-mix(in srgb, var(--leaf-fill) 50%, #d7cf28) 31% 36%, transparent 36% 64%, color-mix(in srgb, var(--leaf-fill) 50%, #d7cf28) 64% 69%, transparent 69% 100%);
   box-shadow: inset 0 0 0 3px #050505, inset 0 0 0 4px color-mix(in srgb, var(--leaf) 50%, #d7cf28);
   pointer-events: none;
 }
@@ -7976,7 +7921,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 .calendar-day.has-missed-task.selected .calendar-sunset,
 .calendar-day.has-moderate-calorie-overrun.selected > span:first-child,
 .calendar-day.has-moderate-calorie-overrun.selected .calendar-sunset {
-  background: var(--moss);
+  background: var(--moss-fill);
 }
 
 .diary-calendar .calendar-day.has-training {
@@ -8030,7 +7975,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .calendar-day.selected {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -8059,7 +8004,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 .calendar-day.nutrition-period-start,
 .calendar-day.nutrition-period-end {
   border-color: var(--moss-deep);
-  background: var(--moss);
+  background: var(--moss-fill);
   box-shadow: inset 0 0 0 2px var(--moss-deep);
   color: var(--on-accent);
   font-weight: 800;
@@ -8326,7 +8271,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .saved-products-trigger[aria-expanded='true'] {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -8465,7 +8410,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .add-button:hover:not(:disabled) {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -8656,7 +8601,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .food-weight-save-button:hover:not(:disabled) {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -8976,7 +8921,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 
 .weight-progress-fill {
   height: 100%;
-  background: var(--moss);
+  background: var(--moss-fill);
   transition: width 0.3s ease;
 }
 
@@ -10801,7 +10746,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 }
 
 .modal-actions button:hover:not(:disabled) {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 
@@ -10819,7 +10764,7 @@ button.meal-menu-plan-group-marker.inactive:disabled {
 
 .save-button:hover:not(:disabled),
 .cancel-button:hover:not(:disabled) {
-  background: var(--moss);
+  background: var(--moss-fill);
   color: var(--on-accent);
 }
 

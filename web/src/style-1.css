@@ -12,14 +12,17 @@
   --retro-amber: var(--moss);
   --retro-green: var(--leaf);
   --retro-red: var(--warn);
-  --retro-grid: color-mix(in srgb, var(--leaf) 7%, transparent);
+  --retro-amber-fill: var(--moss-fill);
+  --retro-green-fill: var(--leaf-fill);
+  --retro-red-fill: var(--warn-fill);
+  --retro-grid: color-mix(in srgb, var(--leaf-fill) 7%, transparent);
 }
 
 :root[data-interface-style='style-1'] .cabinet {
   isolation: isolate;
   grid-template-columns: 318px minmax(0, 1fr);
   background:
-    radial-gradient(circle at 78% 4%, color-mix(in srgb, var(--retro-amber) 12%, transparent), transparent 28%),
+    radial-gradient(circle at 78% 4%, color-mix(in srgb, var(--retro-amber-fill) 12%, transparent), transparent 28%),
     linear-gradient(var(--retro-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--retro-grid) 1px, transparent 1px),
     var(--paper);
@@ -48,7 +51,7 @@
 }
 
 :root[data-interface-style='style-1'] .cabinet ::selection {
-  background: var(--retro-amber);
+  background: var(--retro-amber-fill);
   color: var(--on-accent);
 }
 
@@ -75,7 +78,7 @@
   height: 8px;
   border: 1px solid var(--retro-amber);
   border-left-width: 5px;
-  background: repeating-linear-gradient(90deg, var(--retro-amber) 0 18px, transparent 18px 25px);
+  background: repeating-linear-gradient(90deg, var(--retro-amber-fill) 0 18px, transparent 18px 25px);
   box-shadow: 3px 3px 0 var(--retro-black), inset 0 0 14px color-mix(in srgb, var(--retro-amber) 5%, transparent);
   font-size: 11px;
   font-weight: 800;
@@ -102,7 +105,7 @@
   height: 7px;
   border: 1px solid var(--done-ink);
   border-radius: 50%;
-  background: var(--retro-green);
+  background: var(--retro-green-fill);
   box-shadow: 0 0 9px var(--retro-green);
 }
 
@@ -168,7 +171,7 @@
 :root[data-interface-style='style-1'] .cabinet .nav-item.active {
   border-color: var(--retro-amber);
   background:
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--retro-amber) 7%, transparent) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--retro-amber-fill) 7%, transparent) 0 1px, transparent 1px 7px),
     var(--info-bg);
   color: var(--retro-amber);
   box-shadow: 3px 3px 0 var(--retro-black), inset 4px 0 0 var(--retro-amber);
@@ -176,7 +179,7 @@
 
 :root[data-interface-style='style-1'] .cabinet .nav-item.active::before {
   border-color: var(--done-ink);
-  background: var(--retro-green);
+  background: var(--retro-green-fill);
   box-shadow: 0 0 10px var(--retro-green);
 }
 
@@ -209,7 +212,7 @@
 :root[data-interface-style='style-1'] .cabinet :is(.modal, .modal-content, .exercise-statistics-table-wrap)::-webkit-scrollbar-thumb {
   border: 2px solid var(--sidebar);
   border-radius: 0;
-  background: var(--retro-amber);
+  background: var(--retro-amber-fill);
 }
 
 :root[data-interface-style='style-1'] .cabinet h1,
@@ -230,7 +233,7 @@
   border-left: 7px solid var(--retro-amber);
   border-radius: 2px;
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--retro-amber) 7.5%, transparent), transparent 35%),
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-amber-fill) 7.5%, transparent), transparent 35%),
     var(--panel);
   box-shadow: 5px 5px 0 var(--retro-black), inset 0 0 0 1px rgba(255, 255, 255, 0.035);
 }
@@ -244,7 +247,7 @@
   height: 8px;
   padding: 0;
   border: 1px solid var(--retro-green);
-  background: repeating-linear-gradient(90deg, var(--retro-green) 0 9px, transparent 9px 14px);
+  background: repeating-linear-gradient(90deg, var(--retro-green-fill) 0 9px, transparent 9px 14px);
   box-shadow: inset 0 0 9px color-mix(in srgb, var(--retro-green) 10%, transparent);
   font-size: 9px;
   font-weight: 800;
@@ -313,19 +316,19 @@
   .diary-statistics-settings-button,
   .bible-continue-button
 ):hover:not(:disabled) {
-  background: var(--retro-amber);
+  background: var(--retro-amber-fill);
   color: var(--on-accent);
   box-shadow: 1px 1px 0 var(--retro-black), inset 0 0 0 1px rgba(255, 255, 255, 0.28);
   transform: translate(2px, 2px);
 }
 
 :root[data-interface-style='style-1'] .cabinet .meal-menu-filter-button.active {
-  background: var(--retro-amber);
+  background: var(--retro-amber-fill);
   color: var(--on-accent);
 }
 
 :root[data-interface-style='style-1'] .cabinet .meal-menu-day-plan-edit.active {
-  background: var(--retro-amber);
+  background: var(--retro-amber-fill);
   color: var(--on-accent);
 }
 
@@ -335,7 +338,7 @@
 }
 
 :root[data-interface-style='style-1'] .cabinet :is(.danger, .delete-button):hover:not(:disabled) {
-  background: var(--retro-red);
+  background: var(--retro-red-fill);
   color: var(--on-accent);
 }
 
@@ -475,7 +478,7 @@
   min-height: 82px;
   padding: 15px 17px;
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--retro-amber) 4.5%, transparent), transparent 28%),
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-amber-fill) 4.5%, transparent), transparent 28%),
     var(--surface);
 }
 
@@ -495,12 +498,12 @@
   border-color: var(--done-line);
   border-left-color: var(--retro-green);
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--retro-green) 10%, transparent), transparent 34%),
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-green-fill) 10%, transparent), transparent 34%),
     var(--done);
 }
 
 :root[data-interface-style='style-1'] .cabinet .task-row.done::after {
-  background: var(--retro-green);
+  background: var(--retro-green-fill);
   box-shadow: 0 0 8px var(--retro-green);
 }
 
@@ -511,7 +514,7 @@
 
 :root[data-interface-style='style-1'] .cabinet .task-row.inverted-failed {
   border-left-color: var(--retro-red);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--retro-red) 10%, transparent), transparent 34%), var(--surface);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--retro-red-fill) 10%, transparent), transparent 34%), var(--surface);
 }
 
 :root[data-interface-style='style-1'] .cabinet .check {
@@ -523,7 +526,7 @@
 }
 
 :root[data-interface-style='style-1'] .cabinet .task-row.done .check {
-  background: var(--retro-green);
+  background: var(--retro-green-fill);
   color: var(--on-accent);
   box-shadow: 0 0 10px color-mix(in srgb, var(--retro-green) 24%, transparent), 2px 2px 0 var(--retro-black);
 }
@@ -534,7 +537,7 @@
   padding: 16px;
   border-top: 4px solid var(--retro-amber);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--retro-amber) 5.5%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--retro-amber-fill) 5.5%, transparent), transparent 42%),
     var(--panel);
 }
 
@@ -556,7 +559,7 @@
 
 :root[data-interface-style='style-1'] .cabinet :is(.habit-fill, .weight-progress-fill) {
   background:
-    repeating-linear-gradient(90deg, var(--retro-green) 0 10px, var(--done-line) 10px 12px);
+    repeating-linear-gradient(90deg, var(--retro-green-fill) 0 10px, var(--done-line) 10px 12px);
   box-shadow: 0 0 10px color-mix(in srgb, var(--retro-green) 22%, transparent);
 }
 
@@ -565,8 +568,8 @@
   padding: 18px;
   border: 2px solid var(--retro-case-light);
   background:
-    linear-gradient(color-mix(in srgb, var(--retro-green) 2.5%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--retro-green) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--retro-green-fill) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-green-fill) 2.5%, transparent) 1px, transparent 1px),
     var(--sidebar);
   background-size: 16px 16px;
 }
@@ -618,7 +621,7 @@
 
 :root[data-interface-style='style-1'] .cabinet .calendar-day.selected {
   border-color: var(--retro-amber);
-  background: var(--retro-amber);
+  background: var(--retro-amber-fill);
   box-shadow: inset 0 0 0 2px var(--training-marker), 3px 3px 0 var(--retro-black);
   color: var(--on-accent);
 }
@@ -658,7 +661,7 @@
 :root[data-interface-style='style-1'] .cabinet table thead th {
   border-bottom: 2px solid var(--retro-amber);
   background:
-    repeating-linear-gradient(135deg, color-mix(in srgb, var(--retro-amber) 6%, transparent) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--retro-amber-fill) 6%, transparent) 0 2px, transparent 2px 7px),
     var(--info-bg);
   color: var(--retro-amber);
   font-size: 11px;
@@ -667,11 +670,11 @@
 }
 
 :root[data-interface-style='style-1'] .cabinet table tbody tr:nth-child(even) > * {
-  background-color: color-mix(in srgb, var(--retro-green) 2.8%, transparent);
+  background-color: color-mix(in srgb, var(--retro-green-fill) 2.8%, transparent);
 }
 
 :root[data-interface-style='style-1'] .cabinet table tbody tr:hover > * {
-  background-color: color-mix(in srgb, var(--retro-amber) 7.5%, transparent);
+  background-color: color-mix(in srgb, var(--retro-amber-fill) 7.5%, transparent);
 }
 
 /* Charts become graph-paper instruments. */
@@ -679,8 +682,8 @@
   border: 1px solid var(--retro-case-light);
   border-radius: 1px;
   background:
-    linear-gradient(color-mix(in srgb, var(--retro-green) 5.5%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--retro-green) 5.5%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--retro-green-fill) 5.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--retro-green-fill) 5.5%, transparent) 1px, transparent 1px),
     var(--paper);
   background-size: 20px 20px;
   box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.44);
@@ -705,7 +708,7 @@
 /* Dialogs: hardware window frame, shared by both modal implementations. */
 :root[data-interface-style='style-1'] .cabinet :is(.modal-backdrop, .modal-overlay, .chart-fullscreen-backdrop) {
   background:
-    repeating-linear-gradient(180deg, color-mix(in srgb, var(--retro-green) 1.8%, transparent) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(180deg, color-mix(in srgb, var(--retro-green-fill) 1.8%, transparent) 0 1px, transparent 1px 4px),
     var(--overlay);
   backdrop-filter: blur(2px);
 }
@@ -714,7 +717,7 @@
   border: 3px double var(--retro-amber);
   border-radius: 2px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--retro-amber) 5.5%, transparent), transparent 18%),
+    linear-gradient(135deg, color-mix(in srgb, var(--retro-amber-fill) 5.5%, transparent), transparent 18%),
     linear-gradient(var(--retro-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--retro-grid) 1px, transparent 1px),
     var(--panel);
@@ -748,7 +751,7 @@
 }
 
 :root[data-interface-style='style-1'] .cabinet .icon-close:hover {
-  background: var(--retro-red);
+  background: var(--retro-red-fill);
   color: var(--on-accent);
 }
 
@@ -784,7 +787,7 @@
 
 :root[data-interface-style='style-1'] .interface-style-option.active {
   border-color: var(--retro-amber);
-  background: color-mix(in srgb, var(--info-bg) 88%, var(--retro-amber) 12%);
+  background: color-mix(in srgb, var(--info-bg) 88%, var(--retro-amber-fill) 12%);
   box-shadow: 3px 3px 0 var(--retro-black), inset 4px 0 0 var(--retro-amber);
 }
 
@@ -874,7 +877,7 @@
     height: 7px;
     padding: 0;
     border-radius: 50%;
-    background: var(--retro-green);
+    background: var(--retro-green-fill);
     box-shadow: 0 0 8px var(--retro-green);
   }
 

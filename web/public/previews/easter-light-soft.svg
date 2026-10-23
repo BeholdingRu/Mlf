@@ -33,7 +33,7 @@
   <g stroke="url(#gold)" stroke-width="11" stroke-linecap="round"><path d="M800 355V499"/><path d="M744 408H856"/></g>
   <circle cx="800" cy="428" r="106" stroke="#E8CA72" stroke-opacity=".32" stroke-width="2"/>
   <text x="800" y="570" fill="#FFF0BB" font-family="Georgia, serif" font-size="55" text-anchor="middle">Свет Воскресения</text>
-  <text x="800" y="624" fill="#B9D0D8" font-family="Arial, sans-serif" font-size="24" letter-spacing="4" text-anchor="middle">ЗВЁЗДНАЯ НОЧЬ • СВЕТ • ПОКОЙ</text>
+  <text x="800" y="624" fill="#B9D0D8" font-family="Arial, sans-serif" font-size="24" letter-spacing="4" text-anchor="middle">НЕБОСВОД • СВЕТ • ПОКОЙ</text>
   <path d="M570 658H1030" stroke="#E2C56F" stroke-width="2"/>
   <g fill="#E2C56F"><circle cx="720" cy="658" r="5"/><circle cx="800" cy="658" r="5"/><circle cx="880" cy="658" r="5"/></g>
 </svg>
