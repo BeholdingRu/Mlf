@@ -57,7 +57,11 @@ export function applyTheme(theme: AppliedThemeId) {
     ?? shabbatThemes.find((option) => option.id === theme)
   document.querySelector('meta[name="theme-color"]')
     ?.setAttribute('content', themeDefinition?.colors[0] ?? '#1d2021')
-  window.localStorage.setItem(storageKey, theme)
+  // The active Shabbat theme is temporary. Keeping it in the ordinary theme
+  // key made getSavedTheme() reject it on reload and briefly apply Retro.
+  if (isThemeId(theme)) {
+    window.localStorage.setItem(storageKey, theme)
+  }
 }
 
 export function applySavedTheme() {

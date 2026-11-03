@@ -59,6 +59,7 @@ import {
 } from '../lib/database-read-cache'
 import { getPathDayCompletionDate, isSabbathSchoolTask } from '../lib/sabbath-school-task'
 import { getTimeZoneOption } from '../lib/sunset'
+import { cacheAppearanceSettings } from '../lib/appearance-cache'
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
@@ -614,6 +615,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const timer = window.setTimeout(() => void refresh(), 0)
     return () => window.clearTimeout(timer)
   }, [refresh, userId])
+
+  useEffect(() => {
+    if (profile && userId && profile.id === userId) {
+      cacheAppearanceSettings(profile)
+    }
+  }, [profile, userId])
 
   useEffect(() => {
     let midnightTimer: number | undefined

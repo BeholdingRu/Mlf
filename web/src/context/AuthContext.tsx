@@ -9,9 +9,12 @@ import {
   requireSupabase,
   supabaseConfigured,
 } from '../lib/supabase'
+import {
+  applyAppearanceForSessionUser,
+  SESSION_USER_STORAGE_KEY,
+} from '../lib/appearance-cache'
 import { AuthContext, type AuthContextValue } from './auth-context'
 const RECOVERY_REQUIRED_STORAGE_KEY = 'mlf:recovery-password-required'
-const SESSION_USER_STORAGE_KEY = 'mlf:session-user-id'
 
 function scopeApplicationSessionStorage(userId: string | null) {
   const previousUserId = window.sessionStorage.getItem(SESSION_USER_STORAGE_KEY)
@@ -29,6 +32,8 @@ function scopeApplicationSessionStorage(userId: string | null) {
 
   if (userId) window.sessionStorage.setItem(SESSION_USER_STORAGE_KEY, userId)
   else window.sessionStorage.removeItem(SESSION_USER_STORAGE_KEY)
+
+  applyAppearanceForSessionUser(userId, previousUserId === userId)
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

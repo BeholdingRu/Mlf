@@ -33,9 +33,8 @@ function minutes(time: string | null) {
   return hours * 60 + minutes
 }
 
-export function isShabbatActive(profile: Profile | null, now = new Date()) {
-  if (!profile) return false
-  const timeZoneOption = getTimeZoneOption(profile.time_zone)
+export function isShabbatActiveInTimeZone(timeZoneId: string | null | undefined, now = new Date()) {
+  const timeZoneOption = getTimeZoneOption(timeZoneId)
   const { city, id: timeZone } = timeZoneOption
 
   const localNow = getDateTimeParts(now, timeZone)
@@ -46,6 +45,10 @@ export function isShabbatActive(profile: Profile | null, now = new Date()) {
   if (sunset === null) return false
 
   return (weekday === 5 && currentMinutes >= sunset) || (weekday === 6 && currentMinutes < sunset)
+}
+
+export function isShabbatActive(profile: Profile | null, now = new Date()) {
+  return profile ? isShabbatActiveInTimeZone(profile.time_zone, now) : false
 }
 
 export function getFridaySunsetCountdownSeconds(profile: Profile | null, now = new Date()) {
