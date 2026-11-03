@@ -2948,6 +2948,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (insError) throw insError
         setScheduledExercises((prev) => [...prev, data as ScheduledExercise])
       },
+      async copyScheduledWorkout(sourceDate, targetDate, parameters = {}) {
+        if (!user) throw new Error('Необходимо войти в аккаунт')
+        if (sourceDate === targetDate) throw new Error('Выберите другой день для копирования')
+        const source = scheduledExercises
+          .filter((exercise) => exercise.planned_on === sourceDate)
+          .sort((a, b) => a.sort_order - b.sort_order)
+        if (!source.length) throw new Error('В выбранном дне больше нет упражнений')
+        const nextSortOrder = scheduledExercises
+          .filter((exercise) => exercise.planned_on === targetDate)
+          .reduce((maximum, exercise) => Math.max(maximum, exercise.sort_order), -1) + 1
+        const rows = source.map((exercise, index) => ({
+          user_id: user.id,
+          planned_on: targetDate,
+          exercise_name: exercise.exercise_name,
+          category: exercise.category,
+          exercise_type: exercise.exercise_type,
+          rest_timer_enabled: exercise.rest_timer_enabled,
+          double_volume: exercise.double_volume,
+          sort_order: nextSortOrder + index,
+          weight_kg: exercise.weight_kg,
+          repetitions: exercise.repetitions,
+          sets: exercise.sets,
+          rest_duration: exercise.rest_duration,
+          ...parameters[exercise.id],
+          parameters_locked: false,
+          completed: false,
+        }))
+        const { data, error } = await requireSupabase()
+          .from('scheduled_exercises')
+          .insert(rows)
+          .select('*')
+        if (error) throw error
+        setScheduledExercises((previous) => [...previous, ...(data as ScheduledExercise[])])
+      },
       async deleteScheduledExercise(id) {
         const { error: delError } = await requireSupabase()
           .from('scheduled_exercises')

@@ -148,6 +148,7 @@ export type DataContextValue = {
   updateSavedExercise: (id: string, name: string, exerciseType: ExerciseType, restTimerEnabled: boolean, doubleVolume: boolean) => Promise<void>
   deleteSavedExercise: (id: string) => Promise<void>
   scheduleExercise: (plannedOn: string, exercise: SavedExercise) => Promise<void>
+  copyScheduledWorkout: (sourceDate: string, targetDate: string, parameters?: Partial<Record<string, Pick<ScheduledExercise, 'weight_kg' | 'repetitions' | 'sets' | 'rest_duration' | 'rest_timer_enabled' | 'double_volume'>>>) => Promise<void>
   deleteScheduledExercise: (id: string) => Promise<void>
   moveScheduledExercise: (id: string, direction: 'up' | 'down') => Promise<void>
   updateScheduledExercise: (id: string, patch: { weight_kg?: number | null; repetitions?: number | null; sets?: number | null; rest_duration?: string | null; parameters_locked?: boolean; completed?: boolean }) => Promise<void>

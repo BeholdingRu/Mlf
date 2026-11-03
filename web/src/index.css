@@ -10906,3 +10906,57 @@ button.meal-menu-plan-group-marker.inactive:disabled {
     display: none !important;
   }
 }
+.copy-workout-button {
+  justify-self: start;
+}
+
+.modal-content.copy-workout-modal {
+  width: min(960px, calc(100vw - 32px));
+  max-width: 960px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.copy-workout-table-scroll {
+  overflow-x: auto;
+  margin-block: 1rem;
+}
+
+.copy-workout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.copy-workout-input {
+  width: 84px;
+  min-width: 64px;
+}
+
+.copy-workout-table th,
+.copy-workout-table td {
+  padding: 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid currentColor;
+  vertical-align: top;
+}
+
+.copy-workout-table tr.selected {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.copy-workout-date {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.copy-workout-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

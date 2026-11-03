@@ -92,6 +92,7 @@ export function TrainingView() {
     updateSavedExercise,
     deleteSavedExercise,
     scheduleExercise,
+    copyScheduledWorkout,
     deleteScheduledExercise,
     moveScheduledExercise,
     updateScheduledExercise,
@@ -120,6 +121,109 @@ export function TrainingView() {
   const [plannedCategory, setPlannedCategory] = useState<ExerciseCategory | null>(null)
   const [scheduleStatisticsOpen, setScheduleStatisticsOpen] = useState(false)
   const [scheduleCommonBlockOpen, setScheduleCommonBlockOpen] = useState(false)
+  const [copyTargetDate, setCopyTargetDate] = useState<string | null>(null)
+  const [copySourceDate, setCopySourceDate] = useState('')
+  const [copyPage, setCopyPage] = useState(0)
+  const [copySaving, setCopySaving] = useState(false)
+  const [copyError, setCopyError] = useState('')
+  const [copyDrafts, setCopyDrafts] = useState<Record<string, ExerciseParametersDraft & { restTimerEnabled: boolean; doubleVolume: boolean }>>({})
+  const selectCopyWorkout = (date: string) => {
+    setCopySourceDate(date)
+    setCopyError('')
+    setCopyDrafts(Object.fromEntries(scheduledExercises.filter((exercise) => exercise.planned_on === date).map((exercise) => [exercise.id, {
+      weight: exercise.weight_kg?.toString() ?? '',
+      repetitions: exercise.repetitions?.toString() ?? '',
+      sets: exercise.sets?.toString() ?? '',
+      restDuration: exercise.rest_duration ?? '',
+      restTimerEnabled: exercise.rest_timer_enabled,
+      doubleVolume: exercise.double_volume,
+    }])))
+  }
+  const copyDialogRef = useRef<HTMLDivElement>(null)
+  const renderCopyField = (exercise: ScheduledExercise, field: keyof ExerciseParametersDraft, label: string, fallback: string | number | null) => {
+    const draft = copySourceDate === exercise.planned_on ? copyDrafts[exercise.id] : undefined
+    if (!draft) return fallback ?? '—'
+    return <input className="copy-workout-input" type="text" inputMode={field === 'restDuration' ? 'text' : field === 'weight' ? 'decimal' : 'numeric'} aria-label={`${label}: ${exercise.exercise_name}`} placeholder={field === 'restDuration' ? 'мм:сс' : '—'} value={draft[field]} disabled={copySaving || (field === 'restDuration' && !draft.restTimerEnabled)} onChange={(event) => setCopyDrafts((previous) => ({ ...previous, [exercise.id]: { ...previous[exercise.id], [field]: event.target.value } }))} />
+  }
+  const copyButtonRef = useRef<HTMLButtonElement>(null)
+  const workoutHistory = useMemo(() => {
+    const groups = new Map<string, ScheduledExercise[]>()
+    for (const exercise of scheduledExercises) {
+      if (exercise.planned_on === copyTargetDate) continue
+      const group = groups.get(exercise.planned_on) ?? []
+      group.push(exercise)
+      groups.set(exercise.planned_on, group)
+    }
+    return [...groups.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, items]) => ({ date, exercises: items.sort((a, b) => a.sort_order - b.sort_order) }))
+  }, [scheduledExercises, copyTargetDate])
+  const lastCopyPage = Math.max(0, Math.ceil(workoutHistory.length / 2) - 1)
+  const activeCopyPage = Math.min(copyPage, lastCopyPage)
+  const visibleWorkouts = workoutHistory.slice(activeCopyPage * 2, activeCopyPage * 2 + 2)
+
+  useEffect(() => {
+    if (!copyTargetDate) return
+    const dialog = copyDialogRef.current
+    const trigger = copyButtonRef.current
+    dialog?.focus()
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !copySaving) setCopyTargetDate(null)
+      if (event.key !== 'Tab' || !dialog) return
+      const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)'))
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (!first) { event.preventDefault(); return }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('keydown', handleKey)
+      trigger?.focus()
+    }
+  }, [copyTargetDate, copySaving])
+
+  async function handleCopyWorkout() {
+    if (!copyTargetDate || !copySourceDate || copySaving) return
+    setCopySaving(true)
+    setCopyError('')
+    try {
+      const parameters = Object.fromEntries(Object.entries(copyDrafts).map(([id, draft]) => {
+        const numberValue = (raw: string, decimal: boolean) => {
+          const value = raw.trim().replace(',', '.')
+          if (!value) return null
+          const number = Number(value)
+          if (!(decimal ? /^\d+(?:\.\d)?$/ : /^\d+$/).test(value) || !Number.isFinite(number) || (decimal ? number < 0 || number > 999999.9 : number <= 0 || number > 2147483647)) {
+            throw new Error(decimal ? 'Введите вес от 0 до 999999,9 с точностью до десятых' : 'Повторения и подходы должны быть целыми числами больше нуля')
+          }
+          return number
+        }
+        const rest = draft.restDuration.trim()
+        if (draft.restTimerEnabled && rest && !/^\d+:[0-5][0-9]$/.test(rest)) throw new Error('Введите отдых в формате мм:сс, например 01:30')
+        return [id, {
+          weight_kg: numberValue(draft.weight, true),
+          repetitions: numberValue(draft.repetitions, false),
+          sets: numberValue(draft.sets, false),
+          rest_duration: draft.restTimerEnabled ? rest || null : null,
+          rest_timer_enabled: draft.restTimerEnabled,
+          double_volume: draft.doubleVolume,
+        }]
+      }))
+      await copyScheduledWorkout(copySourceDate, copyTargetDate, parameters)
+      setScheduleCommonBlockOpen(true)
+      setCopyTargetDate(null)
+    } catch (error) {
+      setCopyError(error instanceof Error ? error.message : 'Не удалось скопировать тренировку')
+    } finally {
+      setCopySaving(false)
+    }
+  }
 
   const exercises = selectedCategory
     ? savedExercises.filter((exercise) => exercise.category === selectedCategory)
@@ -426,6 +530,20 @@ export function TrainingView() {
             >
               Общий блок
             </button>
+            <button
+              ref={copyButtonRef}
+              type="button"
+              className="primary compact copy-workout-button"
+              onClick={() => {
+                setCopySourceDate('')
+                setCopyDrafts({})
+                setCopyPage(0)
+                setCopyError('')
+                setCopyTargetDate(plannedDate)
+              }}
+            >
+              Копировать из…
+            </button>
             {scheduleCommonBlockOpen && (
               <div id="schedule-common-block" className="schedule-common-block">
                 <div className="exercise-groups planner-groups">
@@ -640,6 +758,70 @@ export function TrainingView() {
             )}
           </div>
         </section>
+      )}
+      {copyTargetDate && (
+        <div className="modal-overlay" onClick={() => { if (!copySaving) setCopyTargetDate(null) }}>
+          <div
+            ref={copyDialogRef}
+            className="modal-content copy-workout-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="copy-workout-title"
+            tabIndex={-1}
+            aria-busy={copySaving}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="copy-workout-title">Копировать тренировку из…</h3>
+            <p>В план на {parseISODate(copyTargetDate).toLocaleDateString('ru-RU')} будут добавлены упражнения выбранного дня.</p>
+            {visibleWorkouts.length === 0 ? (
+              <p className="empty">Пока нет тренировок для копирования.</p>
+            ) : (
+              <div className="copy-workout-table-scroll">
+                <table className="copy-workout-table">
+                  <thead>
+                    <tr><th scope="col">День</th><th scope="col">Упражнение</th><th scope="col">Группа</th><th scope="col">Вес, кг</th><th scope="col">Повторения</th><th scope="col">Подходы</th><th scope="col">Отдых</th></tr>
+                  </thead>
+                  <tbody>
+                    {visibleWorkouts.filter((workout) => !copySourceDate || workout.date === copySourceDate).map((workout) => workout.exercises.map((exercise, index) => (
+                      <tr key={exercise.id} className={copySourceDate === workout.date ? 'selected' : ''}>
+                        {index === 0 && (
+                          <td rowSpan={workout.exercises.length}>
+                            <label className="copy-workout-date">
+                              <input type="radio" name="copy-workout-date" value={workout.date} checked={copySourceDate === workout.date} disabled={copySaving} onChange={() => selectCopyWorkout(workout.date)} />
+                              {parseISODate(workout.date).toLocaleDateString('ru-RU')}
+                            </label>
+                          </td>
+                        )}
+                        <td>{exercise.exercise_name}{exercise.double_volume && <DoubleVolumeIcon />}
+                        </td>
+                        <td>{exercise.category}</td>
+                        <td>{renderCopyField(exercise, 'weight', 'Вес', exercise.weight_kg)}</td>
+                        <td>{renderCopyField(exercise, 'repetitions', 'Повторения', exercise.repetitions)}</td>
+                        <td>{renderCopyField(exercise, 'sets', 'Подходы', exercise.sets)}</td>
+                        <td>{renderCopyField(exercise, 'restDuration', 'Отдых', exercise.rest_timer_enabled ? exercise.rest_duration || '—' : 'Выключен')}</td>
+                      </tr>
+                    )))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {copySourceDate && (
+              <button type="button" className="cancel-button" disabled={copySaving} onClick={() => { setCopySourceDate(''); setCopyDrafts({}); setCopyError('') }}>Выбрать другой день</button>
+            )}
+            {workoutHistory.length > 0 && !copySourceDate && (
+              <nav className="copy-workout-pagination" aria-label="История тренировок">
+                <button type="button" className="cancel-button" disabled={copySaving || activeCopyPage === lastCopyPage} onClick={() => { setCopyPage(activeCopyPage + 1); setCopySourceDate('') }}>← Более ранние</button>
+                <span aria-live="polite">{activeCopyPage + 1} / {lastCopyPage + 1}</span>
+                <button type="button" className="cancel-button" disabled={copySaving || activeCopyPage === 0} onClick={() => { setCopyPage(activeCopyPage - 1); setCopySourceDate('') }}>Более новые →</button>
+              </nav>
+            )}
+            {copyError && <p className="banner error" role="alert">{copyError}</p>}
+            <div className="modal-actions">
+              <button type="button" className="save-button" disabled={copySaving || !workoutHistory.some((workout) => workout.date === copySourceDate)} onClick={handleCopyWorkout}>{copySaving ? 'Сохранение…' : 'Сохранить'}</button>
+              <button type="button" className="cancel-button" disabled={copySaving} onClick={() => setCopyTargetDate(null)}>Отмена</button>
+            </div>
+          </div>
+        </div>
       )}
       {editingExercise && (
         <div className="modal-overlay" onClick={handleEditCancel}>
