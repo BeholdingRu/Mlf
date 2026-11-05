@@ -10256,16 +10256,45 @@ button.meal-menu-plan-group-marker.inactive:disabled {
   }
 
   .bible-view.chapter-reading .bible-reader {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    width: 100%;
     align-content: start;
-    height: 100%;
+    height: 100dvh;
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     touch-action: pan-y;
-    padding: 14px 16px var(--mobile-bottom-scroll-padding);
+    padding: 0 max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     border: 0;
     border-radius: 0;
+    box-shadow: none;
+  }
+
+  .bible-view.chapter-reading .bible-reader-heading {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: max(12px, env(safe-area-inset-top)) 0 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .bible-view.chapter-reading .bible-reader-title,
+  .bible-view.chapter-reading .bible-chapters,
+  .bible-view.chapter-reading .torah-portions-map {
+    display: none;
+  }
+
+  .bible-view.chapter-reading .bible-return-button {
+    filter: none;
+  }
+
+  .bible-view.chapter-reading .bible-chapter-text {
+    padding-top: 0;
+    border-top: 0;
     box-shadow: none;
   }
 

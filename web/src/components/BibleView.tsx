@@ -53,7 +53,11 @@ function scrollBibleTarget(target: HTMLElement, block: 'start' | 'center') {
 
   const containerRect = scrollContainer.getBoundingClientRect()
   const targetRect = target.getBoundingClientRect()
-  const targetTop = scrollContainer.scrollTop + targetRect.top - containerRect.top
+  const readerHeading = reader?.querySelector<HTMLElement>('.bible-reader-heading')
+  const stickyHeadingHeight = readerHeading && window.getComputedStyle(readerHeading).position === 'sticky'
+    ? readerHeading.getBoundingClientRect().height + 16
+    : 0
+  const targetTop = scrollContainer.scrollTop + targetRect.top - containerRect.top - stickyHeadingHeight
   const nextTop = block === 'center'
     ? targetTop - (scrollContainer.clientHeight - targetRect.height) / 2
     : targetTop
@@ -385,7 +389,8 @@ export function BibleView({ navigationRequest }: { navigationRequest?: BibleNavi
   }
 
   function returnToLibrary() {
-    setBook(null)
+    // На телефоне закрываем полноэкранное чтение и возвращаем главы этой книги.
+    if (!chapter || !window.matchMedia('(max-width: 768px)').matches) setBook(null)
     setChapter(null)
     setChapterListOpen(false)
     setPlaylistInfoOpen(false)
