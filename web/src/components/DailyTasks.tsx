@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { useData } from '../hooks/useData'
-import { daysInclusive, isoDateInTimeZone, parseISODate, percent } from '../lib/dates'
+import { daysInclusive, isoDateInTimeZone, millisecondsUntilNextDayInTimeZone, parseISODate, percent } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 import {
   getCountdownTaskProgress,
@@ -136,10 +136,30 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const [invertedConfirmationTaskId, setInvertedConfirmationTaskId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const today = isoDateInTimeZone(profile?.time_zone)
-  const bibleToday = isoDateInTimeZone(profile?.time_zone)
+  const [currentTime, setCurrentTime] = useState(() => new Date())
+  const today = isoDateInTimeZone(profile?.time_zone, currentTime)
+  const bibleToday = today
   const [testDate, setTestDate] = useState(() => window.sessionStorage.getItem(WITHDRAWAL_TEST_DATE_STORAGE_KEY) ?? today)
   const testToday = adminMode && testDate ? testDate : today
+  useEffect(() => {
+    let timer: number | undefined
+    const updateDay = () => {
+      window.clearTimeout(timer)
+      setCurrentTime(new Date())
+      timer = window.setTimeout(updateDay, millisecondsUntilNextDayInTimeZone(profile?.time_zone))
+    }
+    const updateWhenVisible = () => {
+      if (document.visibilityState === 'visible') updateDay()
+    }
+    timer = window.setTimeout(updateDay, 0)
+    document.addEventListener('visibilitychange', updateWhenVisible)
+    window.addEventListener('focus', updateDay)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', updateWhenVisible)
+      window.removeEventListener('focus', updateDay)
+    }
+  }, [profile?.time_zone])
   const newTaskIsAutomatic = isNutritionTask({ title: newTitle }) || isBibleReadingTask({ title: newTitle })
   const withdrawalTasks = tasks.filter((task) => task.withdrawal_syndrome)
   const negativeHabitsPin = profile?.negative_habits_pin ?? (withdrawalTasks.length > 0 ? '0000' : null)

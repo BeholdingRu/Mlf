@@ -57,7 +57,7 @@ import {
   invalidateDatabaseReads,
   readDatabaseOnce,
 } from '../lib/database-read-cache'
-import { getPathDayCompletionDate, isSabbathSchoolTask } from '../lib/sabbath-school-task'
+import { isSabbathSchoolTask } from '../lib/sabbath-school-task'
 import { getTimeZoneOption } from '../lib/sunset'
 import { cacheAppearanceSettings } from '../lib/appearance-cache'
 
@@ -1705,6 +1705,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       },
       async confirmPathDay(day, cycleStartedOn) {
         if (!user) return
+        // Урок можно читать заранее или наверстывать: задача засчитывается
+        // в день подтверждения, а не в день, указанный на кнопке урока.
+        const completedOn = isoDateInTimeZone(profile?.time_zone)
         const { data, error: upsertError } = await requireSupabase()
           .from('path_day_confirmations')
           .upsert(
@@ -1719,43 +1722,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single()
         if (upsertError) throw upsertError
         const confirmation = data as PathDayConfirmation
-        setPathDayConfirmations((previous) => [
-          ...previous.filter((confirmation) => confirmation.id !== (data as PathDayConfirmation).id),
-          confirmation,
-        ])
-
-        const completedOn = getPathDayCompletionDate(cycleStartedOn, day)
         const sabbathSchoolTasks = tasks.filter(isSabbathSchoolTask)
-        if (!completedOn || sabbathSchoolTasks.length === 0) return
-
-        // This is a second way to complete an otherwise manual task. The task
-        // itself stays manual, and the unique task/date key safely merges both
-        // paths when the checkbox was pressed before confirming the S.S. day.
-        const completionResults = await Promise.all(
-          sabbathSchoolTasks.map((task) => requireSupabase()
+        if (sabbathSchoolTasks.length > 0) {
+          // Один запрос для всех связанных задач; при ошибке кнопка урока
+          // остаётся доступной для повторной попытки.
+          const { data: savedRows, error: completionError } = await requireSupabase()
             .from('task_completions')
             .upsert(
-              {
+              sabbathSchoolTasks.map((task) => ({
                 task_id: task.id,
                 user_id: user.id,
                 completed_on: completedOn,
-              },
+                progress_neutral: false,
+              })),
               { onConflict: 'task_id,completed_on' },
             )
             .select('*')
-            .single()),
-        )
-        const failedCompletion = completionResults.find((result) => result.error)
-        if (failedCompletion?.error) throw failedCompletion.error
+          if (completionError) throw completionError
 
-        const savedCompletions = completionResults.map((result) => result.data as TaskCompletion)
-        const savedTaskIds = new Set(savedCompletions.map((completion) => completion.task_id))
-        setCompletions((previous) => [
-          ...previous.filter((completion) => !(
-            completion.completed_on === completedOn
-            && savedTaskIds.has(completion.task_id)
-          )),
-          ...savedCompletions,
+          const savedCompletions = (savedRows ?? []) as TaskCompletion[]
+          const savedTaskIds = new Set(savedCompletions.map((completion) => completion.task_id))
+          setCompletions((previous) => [
+            ...previous.filter((completion) => !(
+              completion.completed_on === completedOn
+              && savedTaskIds.has(completion.task_id)
+            )),
+            ...savedCompletions,
+          ])
+        }
+        setPathDayConfirmations((previous) => [
+          ...previous.filter((item) => item.id !== confirmation.id),
+          confirmation,
         ])
       },
       async completeCourseLesson(courseId, lessonNumber) {
