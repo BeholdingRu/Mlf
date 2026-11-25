@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type PointerEvent, type TouchEvent } from 
 type TaskOrderDragOptions = {
   enabled: boolean
   onDrop: (taskId: string, targetTaskId: string) => void
+  canDelete?: (taskId: string) => boolean
+  onDelete?: (taskId: string) => void
 }
 
 type ActiveGesture = {
@@ -12,6 +14,7 @@ type ActiveGesture = {
 
 const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, [contenteditable="true"], [role="button"]'
 const ROW_SELECTOR = '[data-task-order-id]'
+const TRASH_SELECTOR = '[data-task-order-trash]'
 const LONG_PRESS_MS = 350
 const TOUCH_TOLERANCE = 10
 const POINTER_DISTANCE = 6
@@ -27,14 +30,23 @@ function getScrollContainer(element: HTMLElement): HTMLElement | null {
   return null
 }
 
-export function useTaskOrderDrag({ enabled, onDrop }: TaskOrderDragOptions) {
-  const [drag, setDrag] = useState<{ activeTaskId: string | null; overTaskId: string | null }>({
+export function useTaskOrderDrag({ enabled, onDrop, canDelete, onDelete }: TaskOrderDragOptions) {
+  const [drag, setDrag] = useState<{
+    activeTaskId: string | null
+    overTaskId: string | null
+    overTrash: boolean
+  }>({
     activeTaskId: null,
     overTaskId: null,
+    overTrash: false,
   })
   const gestureRef = useRef<ActiveGesture | null>(null)
   const onDropRef = useRef(onDrop)
+  const canDeleteRef = useRef(canDelete)
+  const onDeleteRef = useRef(onDelete)
   onDropRef.current = onDrop
+  canDeleteRef.current = canDelete
+  onDeleteRef.current = onDelete
 
   useEffect(() => {
     if (!enabled) {
@@ -72,6 +84,7 @@ export function useTaskOrderDrag({ enabled, onDrop }: TaskOrderDragOptions) {
     let lastY = startY
     let offset = 0
     let overTaskId: string | null = taskId
+    let overTrash = false
     let longPressTimer = 0
     let scrollFrame = 0
 
@@ -86,7 +99,18 @@ export function useTaskOrderDrag({ enabled, onDrop }: TaskOrderDragOptions) {
       const top = Math.max(0, listRect.top, scrollRect?.top ?? 0)
       const bottom = Math.min(window.innerHeight, listRect.bottom, scrollRect?.bottom ?? window.innerHeight)
       let targetId: string | null = null
-      if (lastX >= left && lastX <= right && lastY >= top && lastY <= bottom) {
+      const trash = document.querySelector<HTMLElement>(TRASH_SELECTOR)
+      const trashRect = trash?.getBoundingClientRect()
+      const trashScrollRect = trash ? getScrollContainer(trash)?.getBoundingClientRect() : undefined
+      const insideTrash = !!trash && !!trashRect && trashRect.width > 0 && trashRect.height > 0
+        && window.getComputedStyle(trash).visibility !== 'hidden'
+        && lastX >= Math.max(0, trashRect.left, trashScrollRect?.left ?? 0)
+        && lastX <= Math.min(window.innerWidth, trashRect.right, trashScrollRect?.right ?? window.innerWidth)
+        && lastY >= Math.max(0, trashRect.top, trashScrollRect?.top ?? 0)
+        && lastY <= Math.min(window.innerHeight, trashRect.bottom, trashScrollRect?.bottom ?? window.innerHeight)
+      overTrash = insideTrash && !trash!.matches(':disabled')
+        && !!canDeleteRef.current?.(taskId) && !!onDeleteRef.current
+      if (!insideTrash && lastX >= left && lastX <= right && lastY >= top && lastY <= bottom) {
         let distance = Infinity
         list!.querySelectorAll<HTMLLIElement>(ROW_SELECTOR).forEach((row) => {
           if (row.dataset.taskOrderGroup !== groupId) return
@@ -100,9 +124,9 @@ export function useTaskOrderDrag({ enabled, onDrop }: TaskOrderDragOptions) {
         })
       }
       overTaskId = targetId
-      setDrag((current) => current.activeTaskId === taskId && current.overTaskId === targetId
+      setDrag((current) => current.activeTaskId === taskId && current.overTaskId === targetId && current.overTrash === overTrash
         ? current
-        : { activeTaskId: taskId, overTaskId: targetId })
+        : { activeTaskId: taskId, overTaskId: targetId, overTrash })
     }
 
     function autoScroll() {
@@ -153,7 +177,7 @@ export function useTaskOrderDrag({ enabled, onDrop }: TaskOrderDragOptions) {
       window.removeEventListener('resize', cancel)
       element.style.removeProperty('--task-order-drag-offset')
       if (pointerId !== null && element.hasPointerCapture(pointerId)) element.releasePointerCapture(pointerId)
-      setDrag({ activeTaskId: null, overTaskId: null })
+      setDrag({ activeTaskId: null, overTaskId: null, overTrash: false })
     }
 
     function cancel() {
@@ -163,8 +187,10 @@ export function useTaskOrderDrag({ enabled, onDrop }: TaskOrderDragOptions) {
     function finish() {
       if (finished) return
       const targetId = active ? overTaskId : null
+      const shouldDelete = active && overTrash && !!canDeleteRef.current?.(taskId)
       cleanup()
-      if (targetId !== null && targetId !== taskId) onDropRef.current(taskId, targetId)
+      if (shouldDelete) onDeleteRef.current?.(taskId)
+      else if (targetId !== null && targetId !== taskId) onDropRef.current(taskId, targetId)
     }
 
     function movePointer(event: globalThis.PointerEvent) {

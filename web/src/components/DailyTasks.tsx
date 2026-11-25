@@ -20,6 +20,9 @@ import {
 import { NegativeHabitsPinForm } from './NegativeHabitsPinForm'
 import { DefaultTaskSettings } from './DefaultTaskSettings'
 import { FluidSubtabIndicator } from './FluidSubtabIndicator'
+import { getTaskSeparatorNumber, isTaskSeparator, MAX_TASK_SEPARATORS } from '../lib/task-separators'
+import { TaskSeparatorVisual } from './TaskSeparatorVisual'
+import { TaskSeparatorAppearanceModal } from './TaskSeparatorAppearanceModal'
 
 type DailyTasksSubTab = 'list' | 'manage' | 'order'
 
@@ -95,6 +98,7 @@ function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
 export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?: () => void }) {
   const {
     tasks,
+    taskSeparators,
     completions,
     completeToday,
     profile,
@@ -104,6 +108,9 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
     deleteTask,
     saveNegativeHabitsSecurity,
     saveDailyTaskOrder,
+    addTaskSeparator,
+    deleteTaskSeparator,
+    saveTaskSeparatorStyle,
     adminMode,
     bibleChaptersReadToday,
   } = useData()
@@ -112,6 +119,8 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   const [taskOrderBusy, setTaskOrderBusy] = useState(false)
   const [pendingTaskOrder, setPendingTaskOrder] = useState<string[] | null>(null)
   const [taskOrderError, setTaskOrderError] = useState<string | null>(null)
+  const [selectedSeparatorId, setSelectedSeparatorId] = useState<string | null>(null)
+  const [separatorAppearanceId, setSeparatorAppearanceId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState(taskSettingsDraft?.newTitle ?? '')
   const [newDays, setNewDays] = useState(taskSettingsDraft?.newDays ?? '21')
@@ -169,11 +178,12 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
   }, [profile?.time_zone])
   const newTaskIsAutomatic = isNutritionTask({ title: newTitle }) || isBibleReadingTask({ title: newTitle })
   const taskOrder = pendingTaskOrder ?? profile?.daily_task_order ?? []
-  const withdrawalTasks = applyDailyTaskOrder(tasks.filter((task) => task.withdrawal_syndrome), taskOrder)
+  const displayItems = [...tasks, ...taskSeparators]
+  const withdrawalTasks = applyDailyTaskOrder(displayItems.filter((task) => task.withdrawal_syndrome), taskOrder)
   const negativeHabitsPin = profile?.negative_habits_pin ?? (withdrawalTasks.length > 0 ? '0000' : null)
   const negativeHabitsPinRequired = profile?.negative_habits_pin_required !== false
   const regularTasks = tasks.filter((task) => !task.withdrawal_syndrome)
-  const displayedRegularTasks = applyDailyTaskOrder([...regularTasks].sort((first, second) => (
+  const displayedRegularTasks = applyDailyTaskOrder(displayItems.filter((task) => !task.withdrawal_syndrome).sort((first, second) => (
     compareRegularTasksForDisplay(first, second, Boolean(profile?.weight_enabled))
   )), taskOrder)
   const nutritionDefaultTask = regularTasks.find((task) => task.task_kind === 'nutrition')
@@ -184,11 +194,46 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
     { id: 'regular', tasks: displayedRegularTasks },
     { id: 'withdrawal', tasks: withdrawalTasks },
   ].filter((group) => group.tasks.length > 0)
-  const { activeTaskId, overTaskId, rowProps } = useTaskOrderDrag({
-    enabled: subTab === 'order' && !taskOrderBusy,
+  const appearanceSeparator = taskSeparators.find((task) => task.id === separatorAppearanceId)
+  const { activeTaskId, overTaskId, overTrash, rowProps } = useTaskOrderDrag({
+    enabled: subTab === 'order' && !taskOrderBusy && !appearanceSeparator,
     onDrop: reorderTask,
+    canDelete: (taskId) => taskSeparators.some((task) => task.id === taskId),
+    onDelete: (taskId) => void removeSeparator(taskId),
   })
   const taskOrderInteractionBusy = taskOrderBusy || activeTaskId !== null
+  const activeSeparator = taskSeparators.find((task) => task.id === activeTaskId)
+  const selectedSeparator = taskSeparators.find((task) => (
+    task.id === selectedSeparatorId && (!task.withdrawal_syndrome || negativeHabitsListOpen)
+  ))
+  const firstTask = taskGroups.flatMap((group) => group.tasks).find((task) => !isTaskSeparator(task))
+
+  async function createSeparator() {
+    if (taskOrderInteractionBusy || !firstTask || taskSeparators.length >= MAX_TASK_SEPARATORS) return
+    setTaskOrderBusy(true)
+    setTaskOrderError(null)
+    try {
+      await addTaskSeparator(firstTask.id)
+    } catch (createError) {
+      setTaskOrderError(createError instanceof Error ? createError.message : 'Не удалось добавить разделитель.')
+    } finally {
+      setTaskOrderBusy(false)
+    }
+  }
+
+  async function removeSeparator(taskId: string) {
+    if (taskOrderBusy || !taskSeparators.some((task) => task.id === taskId)) return
+    setTaskOrderBusy(true)
+    setTaskOrderError(null)
+    try {
+      await deleteTaskSeparator(taskId)
+      setSelectedSeparatorId((current) => current === taskId ? null : current)
+    } catch (deleteError) {
+      setTaskOrderError(deleteError instanceof Error ? deleteError.message : 'Не удалось удалить разделитель.')
+    } finally {
+      setTaskOrderBusy(false)
+    }
+  }
 
   async function updateTaskOrder(taskIds: string[]) {
     if (taskOrderBusy) return
@@ -476,27 +521,53 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
         </button>
       </nav>
 
+      {subTab === 'order' && (
+        <div className="task-order-toolbar">
+          <p className="hint" role="status">
+            {taskOrderBusy
+              ? 'Сохраняем изменения…'
+              : 'Перетаскивайте задачи и разделители мышкой, а на телефоне — удерживайте пальцем. Чтобы удалить разделитель, перетащите его в корзину или выберите и нажмите корзину.'}
+          </p>
+          <div className="task-order-tools">
+            <button
+              type="button"
+              className="ghost compact"
+              disabled={taskOrderInteractionBusy || !firstTask || taskSeparators.length >= MAX_TASK_SEPARATORS}
+              onClick={() => void createSeparator()}
+              title={taskSeparators.length >= MAX_TASK_SEPARATORS ? 'Можно добавить не более пяти разделителей' : 'Добавить разделитель под первой задачей'}
+            >
+              Добавить разделитель
+              <span className="task-separator-count">{taskSeparators.length}/{MAX_TASK_SEPARATORS}</span>
+            </button>
+            <button
+              type="button"
+              className={`ghost compact task-order-trash${overTrash ? ' is-over' : ''}`}
+              data-task-order-trash=""
+              disabled={taskOrderBusy || (activeTaskId !== null ? !activeSeparator : !selectedSeparator)}
+              onClick={() => {
+                if (!activeTaskId && selectedSeparator) void removeSeparator(selectedSeparator.id)
+              }}
+              aria-label="Удалить выбранный разделитель"
+              title={selectedSeparator ? 'Удалить выбранный разделитель' : 'Перетащите сюда разделитель или выберите его нажатием'}
+            >
+              <TrashIcon />
+            </button>
+            <button
+              type="button"
+              className="ghost compact"
+              disabled={taskOrderInteractionBusy || taskOrder.length === 0}
+              onClick={() => void updateTaskOrder([])}
+            >
+              Стандартный порядок
+            </button>
+          </div>
+          {taskOrderError && <p className="banner error" role="alert">{taskOrderError}</p>}
+        </div>
+      )}
+
       {subTab !== 'manage' ? (
-        tasks.length ? (
+        tasks.length || (subTab === 'order' && taskSeparators.length) ? (
           <>
-            {subTab === 'order' && (
-              <div className="task-order-toolbar">
-                <p className="hint" role="status">
-                  {taskOrderBusy
-                    ? 'Сохраняем порядок…'
-                    : 'Перетаскивайте задачи мышкой, а на телефоне — удерживайте задачу пальцем и перемещайте. Также можно использовать кнопки «Выше» и «Ниже».'}
-                </p>
-                <button
-                  type="button"
-                  className="ghost compact"
-                  disabled={taskOrderInteractionBusy || taskOrder.length === 0}
-                  onClick={() => void updateTaskOrder([])}
-                >
-                  Стандартный порядок
-                </button>
-                {taskOrderError && <p className="banner error" role="alert">{taskOrderError}</p>}
-              </div>
-            )}
             {adminMode && subTab === 'list' && (
               <label className="withdrawal-test-date">
                 Тестовая дата
@@ -547,6 +618,8 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                     className="task-group-list"
                   >
                   {group.tasks.map((task, index) => {
+              const separator = isTaskSeparator(task)
+              const itemLabel = separator ? `Разделитель ${getTaskSeparatorNumber(task)}` : task.title
               if (subTab === 'order') {
                 const activeIndex = group.tasks.findIndex((item) => item.id === activeTaskId)
                 const dropIndicator = overTaskId === task.id && activeTaskId !== task.id && activeIndex >= 0
@@ -555,18 +628,50 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 return (
                   <li
                     key={task.id}
-                    className={`task-order-row${activeTaskId === task.id ? ' is-dragging' : ''}${dropIndicator}`}
+                    className={`task-order-row${separator ? ' task-separator-row' : ''}${separator && selectedSeparator?.id === task.id ? ' is-selected' : ''}${activeTaskId === task.id ? ' is-dragging' : ''}${dropIndicator}`}
                     {...rowProps(task.id, group.id)}
+                    tabIndex={separator ? 0 : undefined}
+                    aria-label={separator ? itemLabel : undefined}
+                    onClick={() => {
+                      if (separator && !taskOrderInteractionBusy) setSelectedSeparatorId(task.id)
+                    }}
+                    onFocus={() => {
+                      if (separator && !taskOrderInteractionBusy) setSelectedSeparatorId(task.id)
+                    }}
+                    onKeyDown={(event) => {
+                      if (!separator || event.target !== event.currentTarget || taskOrderInteractionBusy) return
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        setSelectedSeparatorId(task.id)
+                      } else if (event.key === 'Delete' || event.key === 'Backspace') {
+                        event.preventDefault()
+                        void removeSeparator(task.id)
+                      }
+                    }}
                   >
                     <TaskOrderIcon />
-                    <strong>{task.title}</strong>
+                    {separator
+                      ? <TaskSeparatorVisual style={task.separator_style} />
+                      : <strong>{task.title}</strong>}
                     <div className="task-order-actions">
+                      {separator && (
+                        <button
+                          type="button"
+                          className="ghost compact task-separator-appearance-button"
+                          disabled={taskOrderInteractionBusy}
+                          onClick={() => setSeparatorAppearanceId(task.id)}
+                          aria-label={`Изменить вид «${itemLabel}»`}
+                          title="Изменить вид разделителя"
+                        >
+                          <PaletteIcon />
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="ghost compact"
                         disabled={taskOrderInteractionBusy || index === 0}
                         onClick={() => moveTask(task.id, 'up')}
-                        aria-label={`Переместить «${task.title}» выше`}
+                        aria-label={`Переместить «${itemLabel}» выше`}
                       >
                         Выше
                       </button>
@@ -575,11 +680,20 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                         className="ghost compact"
                         disabled={taskOrderInteractionBusy || index === group.tasks.length - 1}
                         onClick={() => moveTask(task.id, 'down')}
-                        aria-label={`Переместить «${task.title}» ниже`}
+                        aria-label={`Переместить «${itemLabel}» ниже`}
                       >
                         Ниже
                       </button>
                     </div>
+                  </li>
+                )
+              }
+              if (separator) {
+                return (
+                  <li key={task.id} className="task-separator">
+                    <span className="task-separator-graphic" role="separator" aria-label={itemLabel} aria-orientation="horizontal">
+                      <TaskSeparatorVisual style={task.separator_style} />
+                    </span>
                   </li>
                 )
               }
@@ -1259,6 +1373,13 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
           {error && <p className="banner error">{error}</p>}
         </div>
       )}
+      {subTab === 'order' && appearanceSeparator && (
+        <TaskSeparatorAppearanceModal
+          separator={appearanceSeparator}
+          onClose={() => setSeparatorAppearanceId(null)}
+          onSave={(style) => saveTaskSeparatorStyle(appearanceSeparator.id, style)}
+        />
+      )}
     </section>
   )
 }
@@ -1276,6 +1397,26 @@ function TaskOrderIcon() {
       focusable="false"
     >
       <path d="M5 9h14M5 15h14" />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" />
+    </svg>
+  )
+}
+
+function PaletteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3a9 9 0 1 0 0 18h1.3a2.2 2.2 0 0 0 1.5-3.8 1.6 1.6 0 0 1 1.1-2.8h1.4A3.7 3.7 0 0 0 21 10.7C21 6.4 17 3 12 3Z" />
+      <circle cx="7.5" cy="10" r=".7" />
+      <circle cx="10.5" cy="6.8" r=".7" />
+      <circle cx="15" cy="7.5" r=".7" />
+      <circle cx="6.7" cy="14.3" r=".7" />
     </svg>
   )
 }

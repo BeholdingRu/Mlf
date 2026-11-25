@@ -1,0 +1,220 @@
+.separator-appearance-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-width: none;
+  max-height: min(90dvh, 900px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 16px);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 24px 80px color-mix(in srgb, #000 40%, transparent);
+  font: inherit;
+}
+
+.separator-appearance-dialog::backdrop {
+  background: color-mix(in srgb, #000 64%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.separator-appearance-form {
+  display: flex;
+  flex-direction: column;
+  max-height: min(90dvh, 900px);
+  margin: 0;
+}
+
+.separator-appearance-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 24px 18px;
+}
+
+.separator-appearance-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.separator-appearance-header p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.separator-appearance-dialog .separator-appearance-header > .separator-appearance-close {
+  flex: 0 0 44px;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.separator-appearance-scroll {
+  min-height: 0;
+  padding: 0 24px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.separator-appearance-preview {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-muted, var(--surface));
+}
+
+.separator-appearance-preview > span:not(.task-separator-visual) {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.separator-appearance-options {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.separator-appearance-options > legend {
+  margin-bottom: 12px;
+  padding: 0;
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.separator-appearance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.separator-appearance-choice {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-muted, var(--surface));
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.separator-appearance-choice:hover {
+  border-color: var(--moss-deep);
+}
+
+.separator-appearance-choice.is-selected {
+  border-color: var(--moss-deep);
+  background: color-mix(in srgb, var(--moss-deep) 9%, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--moss-deep);
+}
+
+.separator-appearance-choice:focus-within {
+  outline: 2px solid var(--moss-deep);
+  outline-offset: 2px;
+}
+
+.separator-appearance-choice-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.separator-appearance-choice-title > input {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--moss-deep);
+}
+
+.separator-appearance-description {
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.separator-appearance-options:disabled .separator-appearance-choice {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.separator-appearance-footer {
+  flex: 0 0 auto;
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.separator-appearance-footer > .banner {
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+}
+
+.separator-appearance-actions {
+  display: flex;
+  justify-content: end;
+  gap: 10px;
+}
+
+.separator-appearance-actions > button {
+  min-width: 120px;
+  min-height: 44px;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 520px) {
+  .separator-appearance-dialog {
+    width: calc(100vw - 20px);
+    max-height: 92dvh;
+  }
+
+  .separator-appearance-form {
+    max-height: 92dvh;
+  }
+
+  .separator-appearance-header {
+    padding: 18px 16px 16px;
+  }
+
+  .separator-appearance-scroll {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .separator-appearance-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .separator-appearance-footer {
+    padding: 14px 16px 16px;
+  }
+
+  .separator-appearance-actions > button {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .separator-appearance-choice {
+    transition: none;
+  }
+}

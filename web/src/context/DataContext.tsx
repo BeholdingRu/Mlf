@@ -60,6 +60,13 @@ import {
 import { isSabbathSchoolTask } from '../lib/sabbath-school-task'
 import { getTimeZoneOption } from '../lib/sunset'
 import { cacheAppearanceSettings } from '../lib/appearance-cache'
+import { applyDailyTaskOrder, compareRegularTasksForDisplay } from '../lib/daily-task-order'
+import {
+  getAvailableTaskSeparatorNumber,
+  isReservedTaskSeparatorTitle,
+  isTaskSeparator,
+} from '../lib/task-separators'
+import { isTaskSeparatorStyle } from '../lib/task-separator-styles'
 
 const ADMIN_MODE_STORAGE_KEY = 'mlf:admin-mode'
 const DATA_LOAD_TIMEOUT_MS = 20_000
@@ -1107,7 +1114,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value = useMemo<DataContextValue>(
     () => ({
       profile,
-      tasks,
+      tasks: tasks.filter((task) => !isTaskSeparator(task)),
+      taskSeparators: tasks.filter(isTaskSeparator),
       completions,
       weightLogs,
       foodLogs,
@@ -1137,6 +1145,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       async completeToday(taskId) {
         if (!user) return
         const task = tasks.find((item) => item.id === taskId)
+        if (task && isTaskSeparator(task)) throw new Error('Разделитель нельзя отмечать как задачу')
         if (profile?.weight_enabled && task && isNutritionTask(task)) {
           throw new Error('Эта задача отмечается автоматически по дневной норме калорий')
         }
@@ -1172,6 +1181,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         options = {},
       ) {
         if (!user) return
+        if (isReservedTaskSeparatorTitle(title)) {
+          throw new Error('Это имя зарезервировано для разделителей задач')
+        }
         const taskKind = withdrawalSyndrome ? null : options.taskKind ?? null
         const bibleDailyChapterTarget = taskKind === 'bible_reading'
           ? options.bibleDailyChapterTarget ?? 5
@@ -1230,6 +1242,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       async updateTask(id, patch) {
         const currentTask = tasks.find((task) => task.id === id)
         const nextTitle = patch.title ?? currentTask?.title ?? ''
+        if ((currentTask && isTaskSeparator(currentTask)) || isReservedTaskSeparatorTitle(nextTitle)) {
+          throw new Error('Разделитель нельзя редактировать как обычную задачу')
+        }
         const nextTaskKind = patch.task_kind ?? currentTask?.task_kind ?? null
         if (
           patch.bible_daily_chapter_target != null
@@ -1292,6 +1307,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : task)))
       },
       async restartWithdrawalTask(taskId) {
+        const currentTask = tasks.find((task) => task.id === taskId)
+        if (currentTask && isTaskSeparator(currentTask)) {
+          throw new Error('Разделитель нельзя перезапускать как задачу')
+        }
         const tomorrow = parseISODate(isoDateInTimeZone(profile?.time_zone))
         tomorrow.setDate(tomorrow.getDate() + 1)
         const { data, error: updError } = await requireSupabase()
@@ -1319,10 +1338,118 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : task)))
       },
       async deleteTask(id) {
+        const currentTask = tasks.find((task) => task.id === id)
+        if (currentTask && isTaskSeparator(currentTask)) {
+          throw new Error('Удалите разделитель в разделе изменения порядка задач')
+        }
         const { error: delError } = await requireSupabase().from('tasks').delete().eq('id', id)
         if (delError) throw delError
         setTasks((prev) => prev.filter((t) => t.id !== id))
         setCompletions((prev) => prev.filter((c) => c.task_id !== id))
+      },
+      async addTaskSeparator(anchorTaskId) {
+        if (!user || !profile) throw new Error('Пользователь не авторизован')
+        const anchorTask = tasks.find((task) => task.id === anchorTaskId && !isTaskSeparator(task))
+        if (!anchorTask) throw new Error('Добавьте хотя бы одну задачу перед созданием разделителя')
+        if (getAvailableTaskSeparatorNumber(tasks) === null) {
+          throw new Error('Можно добавить не более пяти разделителей')
+        }
+        const savedOrder = profile.daily_task_order ?? []
+        const regularTasks = tasks.filter((task) => !task.withdrawal_syndrome).sort((first, second) => (
+          compareRegularTasksForDisplay(first, second, Boolean(profile.weight_enabled))
+        ))
+        const withdrawalTasks = tasks.filter((task) => task.withdrawal_syndrome)
+        const orderedTaskIds = [
+          ...applyDailyTaskOrder(regularTasks, savedOrder),
+          ...applyDailyTaskOrder(withdrawalTasks, savedOrder),
+        ].map((task) => task.id)
+        const { data, error: createError } = await requireSupabase().rpc('create_task_separator', {
+          anchor_task_id: anchorTaskId,
+          ordered_task_ids: orderedTaskIds,
+        })
+        if (createError) {
+          if (createError.code === 'PGRST202' || createError.code === '42883') {
+            throw new Error('Для разделителей выполните supabase/add_task_separators.sql в Supabase.')
+          }
+          if (createError.code === 'P0001') throw new Error(createError.message)
+          throw new Error('Не удалось добавить разделитель. Обновите список и попробуйте ещё раз.')
+        }
+        const result = data as { task: Task; daily_task_order: string[] }
+        if (!result?.task || !isTaskSeparator(result.task) || !Array.isArray(result.daily_task_order)) {
+          throw new Error('Не удалось прочитать сохранённый разделитель. Обновите страницу.')
+        }
+        const insertedTask = result.task
+        setTasks((current) => [...current.filter((task) => task.id !== insertedTask.id), {
+          ...insertedTask,
+          task_kind: insertedTask.task_kind ?? null,
+          bible_daily_chapter_target: insertedTask.bible_daily_chapter_target ?? null,
+          countdown_enabled: insertedTask.countdown_enabled ?? false,
+          inverted_logic_history: normalizeTaskInvertedLogicHistory(
+            insertedTask.inverted_logic_history,
+            insertedTask.inverted_logic,
+            isoDateInTimeZone(profile.time_zone),
+          ),
+        }])
+        setProfile((current) => current && current.id === user.id
+          ? { ...current, daily_task_order: result.daily_task_order }
+          : current)
+      },
+      async deleteTaskSeparator(id) {
+        if (!user || !profile) throw new Error('Пользователь не авторизован')
+        const separator = tasks.find((task) => task.id === id)
+        if (!separator || !isTaskSeparator(separator)) {
+          throw new Error('Удалять через корзину можно только разделители')
+        }
+        const { data, error: deleteError } = await requireSupabase().rpc('delete_task_separator', {
+          separator_task_id: id,
+        })
+        if (deleteError) {
+          if (deleteError.code === 'PGRST202' || deleteError.code === '42883') {
+            throw new Error('Для разделителей выполните supabase/add_task_separators.sql в Supabase.')
+          }
+          if (deleteError.code === 'P0001') throw new Error(deleteError.message)
+          throw new Error('Не удалось удалить разделитель. Проверьте соединение и попробуйте ещё раз.')
+        }
+        const result = data as { daily_task_order: string[] | null }
+        if (!result || (result.daily_task_order !== null && !Array.isArray(result.daily_task_order))) {
+          throw new Error('Не удалось прочитать порядок задач. Обновите страницу.')
+        }
+        setTasks((current) => current.filter((task) => task.id !== id))
+        setCompletions((current) => current.filter((completion) => completion.task_id !== id))
+        setProfile((current) => current && current.id === user.id
+          ? { ...current, daily_task_order: result.daily_task_order }
+          : current)
+      },
+      async saveTaskSeparatorStyle(id, style) {
+        if (!user || !profile) throw new Error('Пользователь не авторизован')
+        const separator = tasks.find((task) => task.id === id)
+        if (!separator || !isTaskSeparator(separator)) {
+          throw new Error('Менять оформление можно только у разделителя')
+        }
+        if (!isTaskSeparatorStyle(style)) throw new Error('Выберите доступный вид разделителя')
+        const { data, error: saveError } = await requireSupabase().rpc('set_task_separator_style', {
+          separator_task_id: id,
+          visual_style: style,
+        })
+        if (saveError) {
+          if (['PGRST202', '42883', '42703', 'PGRST204'].includes(saveError.code)) {
+            throw new Error('Для оформления разделителей выполните supabase/add_task_separator_styles.sql в Supabase.')
+          }
+          if (saveError.code === 'P0001') throw new Error(saveError.message)
+          throw new Error('Не удалось сохранить оформление. Проверьте соединение и попробуйте ещё раз.')
+        }
+        const savedTask = data as Task
+        if (
+          !savedTask
+          || savedTask.id !== id
+          || !isTaskSeparator(savedTask)
+          || !isTaskSeparatorStyle(savedTask.separator_style)
+        ) {
+          throw new Error('Не удалось прочитать оформление разделителя. Обновите страницу.')
+        }
+        setTasks((current) => current.map((task) => task.id === id && isTaskSeparator(task)
+          ? { ...task, separator_style: savedTask.separator_style }
+          : task))
       },
       async saveDailyTaskOrder(taskIds) {
         if (!user || !profile) throw new Error('Пользователь не авторизован')

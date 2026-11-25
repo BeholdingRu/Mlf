@@ -1,4 +1,5 @@
 import type { InterfaceStyleId, ShabbatThemeId, ThemeId } from './theme'
+import type { TaskSeparatorStyle } from './task-separator-styles'
 
 export type DiaryStatisticsTargets = {
   proteins?: number
@@ -105,6 +106,7 @@ export type Task = {
   id: string
   user_id: string
   title: string
+  separator_style?: TaskSeparatorStyle | null
   task_kind: TaskKind | null
   bible_daily_chapter_target: number | null
   habit_days: number

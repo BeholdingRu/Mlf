@@ -1,0 +1,22 @@
+.task-separator-visual {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  color: var(--moss-deep);
+  line-height: 0;
+  pointer-events: none;
+}
+
+.task-separator-visual > svg {
+  display: block;
+  overflow: hidden;
+}
+
+.task-separator-visual--line > svg {
+  filter: drop-shadow(0 1px 3px color-mix(in srgb, var(--moss-deep) 18%, transparent));
+}
+
+.task-separator-visual--fade > svg {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--moss-deep) 45%, transparent));
+}

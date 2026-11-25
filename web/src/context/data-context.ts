@@ -28,10 +28,12 @@ import type {
 } from '../lib/types'
 import type { FontScale, InterfaceStyleId, ShabbatThemeId, ThemeId } from '../lib/theme'
 import type { ProductCategory } from '../lib/product-categories'
+import type { TaskSeparatorStyle } from '../lib/task-separator-styles'
 
 export type DataContextValue = {
   profile: Profile | null
   tasks: Task[]
+  taskSeparators: Task[]
   completions: TaskCompletion[]
   weightLogs: WeightLog[]
   foodLogs: FoodLog[]
@@ -77,6 +79,9 @@ export type DataContextValue = {
   }) => Promise<void>
   restartWithdrawalTask: (taskId: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
+  addTaskSeparator: (anchorTaskId: string) => Promise<void>
+  deleteTaskSeparator: (id: string) => Promise<void>
+  saveTaskSeparatorStyle: (id: string, style: TaskSeparatorStyle) => Promise<void>
   saveDailyTaskOrder: (taskIds: string[] | null) => Promise<void>
   saveNegativeHabitsSecurity: (patch: { pin?: string; requirePin?: boolean }) => Promise<void>
   saveWeightSettings: (target: number | null) => Promise<void>
