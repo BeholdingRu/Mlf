@@ -39,6 +39,7 @@ export type Profile = {
   bible_chapter_positions: Record<string, number>
   bible_bookmark_color_labels: Record<string, string>
   diary_statistics_targets: DiaryStatisticsTargets
+  daily_task_order: string[] | null
   negative_habits_pin: string | null
   negative_habits_pin_required: boolean
 }

@@ -77,6 +77,7 @@ export type DataContextValue = {
   }) => Promise<void>
   restartWithdrawalTask: (taskId: string) => Promise<void>
   deleteTask: (id: string) => Promise<void>
+  saveDailyTaskOrder: (taskIds: string[] | null) => Promise<void>
   saveNegativeHabitsSecurity: (patch: { pin?: string; requirePin?: boolean }) => Promise<void>
   saveWeightSettings: (target: number | null) => Promise<void>
   saveWeightVisibility: (enabled: boolean) => Promise<void>

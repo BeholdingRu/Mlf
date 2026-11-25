@@ -1324,6 +1324,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setTasks((prev) => prev.filter((t) => t.id !== id))
         setCompletions((prev) => prev.filter((c) => c.task_id !== id))
       },
+      async saveDailyTaskOrder(taskIds) {
+        if (!user || !profile) throw new Error('Пользователь не авторизован')
+        const currentTaskIds = new Set(tasks.map((task) => task.id))
+        const nextOrder = taskIds === null ? null : [...new Set(taskIds)]
+        if (nextOrder?.some((id) => !currentTaskIds.has(id))) {
+          throw new Error('Список задач изменился. Обновите страницу и попробуйте ещё раз.')
+        }
+        const { data, error: saveError } = await requireSupabase()
+          .from('profiles')
+          .update({ daily_task_order: nextOrder })
+          .eq('id', user.id)
+          .select('daily_task_order')
+          .single()
+        if (saveError) {
+          if (saveError.code === '42703' || saveError.code === 'PGRST204') {
+            throw new Error('Для сохранения порядка задач выполните supabase/add_daily_task_order.sql в Supabase.')
+          }
+          throw new Error('Не удалось сохранить порядок задач. Проверьте соединение и попробуйте ещё раз.')
+        }
+        setProfile((current) => current && current.id === user.id
+          ? { ...current, daily_task_order: data.daily_task_order as string[] | null }
+          : current)
+      },
       async saveNegativeHabitsSecurity(patch) {
         if (!user || !profile) return
         if (patch.pin !== undefined && !/^\d{4}$/.test(patch.pin)) {

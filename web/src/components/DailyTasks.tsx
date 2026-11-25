@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HabitBar } from './HabitBar'
 import { useData } from '../hooks/useData'
+import { useTaskOrderDrag } from '../hooks/useTaskOrderDrag'
 import { daysInclusive, isoDateInTimeZone, millisecondsUntilNextDayInTimeZone, parseISODate, percent } from '../lib/dates'
 import { isNutritionTask } from '../lib/nutrition-task'
 import {
@@ -12,12 +13,15 @@ import {
 import { getWithdrawalPhase } from '../lib/withdrawal-phase'
 import { isBibleReadingTask } from '../lib/bible-books'
 import { isSabbathSchoolTask } from '../lib/sabbath-school-task'
-import { compareRegularTasksForDisplay } from '../lib/daily-task-order'
+import {
+  applyDailyTaskOrder,
+  compareRegularTasksForDisplay,
+} from '../lib/daily-task-order'
 import { NegativeHabitsPinForm } from './NegativeHabitsPinForm'
 import { DefaultTaskSettings } from './DefaultTaskSettings'
 import { FluidSubtabIndicator } from './FluidSubtabIndicator'
 
-type DailyTasksSubTab = 'list' | 'manage'
+type DailyTasksSubTab = 'list' | 'manage' | 'order'
 
 const DAILY_TASKS_SUB_TAB_STORAGE_KEY = 'mlf:daily-tasks-sub-tab'
 const TASK_SETTINGS_DRAFT_STORAGE_KEY = 'mlf:task-settings-draft'
@@ -38,9 +42,8 @@ type TaskSettingsDraft = {
 }
 
 function getSavedDailyTasksSubTab(): DailyTasksSubTab {
-  return window.sessionStorage.getItem(DAILY_TASKS_SUB_TAB_STORAGE_KEY) === 'manage'
-    ? 'manage'
-    : 'list'
+  const savedTab = window.sessionStorage.getItem(DAILY_TASKS_SUB_TAB_STORAGE_KEY)
+  return savedTab === 'manage' || savedTab === 'order' ? savedTab : 'list'
 }
 
 function getSavedTaskSettingsDraft(): TaskSettingsDraft | null {
@@ -100,11 +103,15 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
     restartWithdrawalTask,
     deleteTask,
     saveNegativeHabitsSecurity,
+    saveDailyTaskOrder,
     adminMode,
     bibleChaptersReadToday,
   } = useData()
   const [taskSettingsDraft] = useState<TaskSettingsDraft | null>(getSavedTaskSettingsDraft)
   const [subTab, setSubTab] = useState<DailyTasksSubTab>(getSavedDailyTasksSubTab)
+  const [taskOrderBusy, setTaskOrderBusy] = useState(false)
+  const [pendingTaskOrder, setPendingTaskOrder] = useState<string[] | null>(null)
+  const [taskOrderError, setTaskOrderError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState(taskSettingsDraft?.newTitle ?? '')
   const [newDays, setNewDays] = useState(taskSettingsDraft?.newDays ?? '21')
@@ -161,13 +168,14 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
     }
   }, [profile?.time_zone])
   const newTaskIsAutomatic = isNutritionTask({ title: newTitle }) || isBibleReadingTask({ title: newTitle })
-  const withdrawalTasks = tasks.filter((task) => task.withdrawal_syndrome)
+  const taskOrder = pendingTaskOrder ?? profile?.daily_task_order ?? []
+  const withdrawalTasks = applyDailyTaskOrder(tasks.filter((task) => task.withdrawal_syndrome), taskOrder)
   const negativeHabitsPin = profile?.negative_habits_pin ?? (withdrawalTasks.length > 0 ? '0000' : null)
   const negativeHabitsPinRequired = profile?.negative_habits_pin_required !== false
   const regularTasks = tasks.filter((task) => !task.withdrawal_syndrome)
-  const displayedRegularTasks = [...regularTasks].sort((first, second) => (
+  const displayedRegularTasks = applyDailyTaskOrder([...regularTasks].sort((first, second) => (
     compareRegularTasksForDisplay(first, second, Boolean(profile?.weight_enabled))
-  ))
+  )), taskOrder)
   const nutritionDefaultTask = regularTasks.find((task) => task.task_kind === 'nutrition')
     ?? regularTasks.find(isNutritionTask)
   const bibleDefaultTask = regularTasks.find((task) => task.task_kind === 'bible_reading')
@@ -176,6 +184,51 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
     { id: 'regular', tasks: displayedRegularTasks },
     { id: 'withdrawal', tasks: withdrawalTasks },
   ].filter((group) => group.tasks.length > 0)
+  const { activeTaskId, overTaskId, rowProps } = useTaskOrderDrag({
+    enabled: subTab === 'order' && !taskOrderBusy,
+    onDrop: reorderTask,
+  })
+  const taskOrderInteractionBusy = taskOrderBusy || activeTaskId !== null
+
+  async function updateTaskOrder(taskIds: string[]) {
+    if (taskOrderBusy) return
+    setTaskOrderBusy(true)
+    setPendingTaskOrder(taskIds)
+    setTaskOrderError(null)
+    try {
+      await saveDailyTaskOrder(taskIds.length > 0 ? taskIds : null)
+    } catch (saveError) {
+      setTaskOrderError(saveError instanceof Error
+        ? saveError.message
+        : 'Не удалось сохранить порядок задач. Попробуйте ещё раз.')
+    } finally {
+      setPendingTaskOrder(null)
+      setTaskOrderBusy(false)
+    }
+  }
+
+  function reorderTask(taskId: string, targetTaskId: string) {
+    if (taskOrderBusy || taskId === targetTaskId) return
+    const group = taskGroups.find((item) => item.tasks.some((task) => task.id === taskId))
+    if (!group) return
+    const reorderedTasks = [...group.tasks]
+    const index = reorderedTasks.findIndex((task) => task.id === taskId)
+    const targetIndex = reorderedTasks.findIndex((task) => task.id === targetTaskId)
+    if (targetIndex < 0) return
+    const [movedTask] = reorderedTasks.splice(index, 1)
+    reorderedTasks.splice(targetIndex, 0, movedTask)
+    void updateTaskOrder(taskGroups.flatMap((item) => (
+      (item.id === group.id ? reorderedTasks : item.tasks).map((task) => task.id)
+    )))
+  }
+
+  function moveTask(taskId: string, direction: 'up' | 'down') {
+    const group = taskGroups.find((item) => item.tasks.some((task) => task.id === taskId))
+    if (!group) return
+    const index = group.tasks.findIndex((task) => task.id === taskId)
+    const targetTask = group.tasks[index + (direction === 'up' ? -1 : 1)]
+    if (targetTask) reorderTask(taskId, targetTask.id)
+  }
 
   useEffect(() => {
     window.sessionStorage.setItem(DAILY_TASKS_SUB_TAB_STORAGE_KEY, subTab)
@@ -411,12 +464,40 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
         >
           <span aria-hidden="true">⚙</span>
         </button>
+        <button
+          type="button"
+          className={`daily-tasks-tab task-order-tab${subTab === 'order' ? ' active' : ''}`}
+          onClick={() => setSubTab('order')}
+          aria-pressed={subTab === 'order'}
+          aria-label="Изменить порядок задач"
+          title="Изменить порядок задач"
+        >
+          <TaskOrderIcon />
+        </button>
       </nav>
 
-      {subTab === 'list' ? (
+      {subTab !== 'manage' ? (
         tasks.length ? (
           <>
-            {adminMode && (
+            {subTab === 'order' && (
+              <div className="task-order-toolbar">
+                <p className="hint" role="status">
+                  {taskOrderBusy
+                    ? 'Сохраняем порядок…'
+                    : 'Перетаскивайте задачи мышкой, а на телефоне — удерживайте задачу пальцем и перемещайте. Также можно использовать кнопки «Выше» и «Ниже».'}
+                </p>
+                <button
+                  type="button"
+                  className="ghost compact"
+                  disabled={taskOrderInteractionBusy || taskOrder.length === 0}
+                  onClick={() => void updateTaskOrder([])}
+                >
+                  Стандартный порядок
+                </button>
+                {taskOrderError && <p className="banner error" role="alert">{taskOrderError}</p>}
+              </div>
+            )}
+            {adminMode && subTab === 'list' && (
               <label className="withdrawal-test-date">
                 Тестовая дата
                 <input
@@ -427,7 +508,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                 <span className="hint">Используется только для тестового отображения прогресса задач в этой вкладке.</span>
               </label>
             )}
-            <ul className="task-list">
+            <ul className={`task-list${activeTaskId ? ' is-reordering' : ''}`}>
               {taskGroups.map((group) => (
                 <li key={group.id} className={`task-group${group.id === 'withdrawal' ? ' negative-habits-group' : ''}`}>
                   {group.id === 'withdrawal' && (
@@ -436,6 +517,7 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                       className="ghost compact negative-habits-toggle"
                       aria-expanded={negativeHabitsListOpen}
                       aria-controls="negative-habits-task-list"
+                      disabled={activeTaskId !== null}
                       onClick={toggleNegativeHabitsList}
                     >
                       <span>Негативные привычки/зависимости</span>
@@ -464,7 +546,43 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
                     id={group.id === 'withdrawal' ? 'negative-habits-task-list' : undefined}
                     className="task-group-list"
                   >
-                  {group.tasks.map((task) => {
+                  {group.tasks.map((task, index) => {
+              if (subTab === 'order') {
+                const activeIndex = group.tasks.findIndex((item) => item.id === activeTaskId)
+                const dropIndicator = overTaskId === task.id && activeTaskId !== task.id && activeIndex >= 0
+                  ? activeIndex > index ? ' is-drop-before' : ' is-drop-after'
+                  : ''
+                return (
+                  <li
+                    key={task.id}
+                    className={`task-order-row${activeTaskId === task.id ? ' is-dragging' : ''}${dropIndicator}`}
+                    {...rowProps(task.id, group.id)}
+                  >
+                    <TaskOrderIcon />
+                    <strong>{task.title}</strong>
+                    <div className="task-order-actions">
+                      <button
+                        type="button"
+                        className="ghost compact"
+                        disabled={taskOrderInteractionBusy || index === 0}
+                        onClick={() => moveTask(task.id, 'up')}
+                        aria-label={`Переместить «${task.title}» выше`}
+                      >
+                        Выше
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost compact"
+                        disabled={taskOrderInteractionBusy || index === group.tasks.length - 1}
+                        onClick={() => moveTask(task.id, 'down')}
+                        aria-label={`Переместить «${task.title}» ниже`}
+                      >
+                        Ниже
+                      </button>
+                    </div>
+                  </li>
+                )
+              }
               const taskToday = isBibleReadingTask(task) ? bibleToday : today
               const bibleChapterTarget = task.bible_daily_chapter_target ?? 5
               const bibleChaptersRemaining = isBibleReadingTask(task)
@@ -1142,6 +1260,23 @@ export function DailyTasks({ onContinueBibleReading }: { onContinueBibleReading?
         </div>
       )}
     </section>
+  )
+}
+
+function TaskOrderIcon() {
+  return (
+    <svg
+      className="task-order-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M5 9h14M5 15h14" />
+    </svg>
   )
 }
 

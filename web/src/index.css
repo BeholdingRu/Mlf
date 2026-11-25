@@ -1025,6 +1025,110 @@ nav {
   line-height: 1;
 }
 
+.daily-tasks-view .daily-tasks-tabs > .daily-tasks-tab.task-order-tab {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  min-height: 44px;
+  padding: 10px 0;
+}
+
+.task-order-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.task-order-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.task-order-toolbar > .hint {
+  flex: 1 1 280px;
+  margin: 0;
+}
+
+.task-order-toolbar > .banner {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.task-order-row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: grab;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.task-order-row.is-dragging {
+  z-index: 5;
+  transform: translateY(var(--task-order-drag-offset, 0px));
+  border-color: var(--moss-deep);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--ink) 20%, transparent);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.task-list.is-reordering,
+.task-list.is-reordering .task-order-row {
+  cursor: grabbing;
+}
+
+.task-order-row.is-drop-before::before,
+.task-order-row.is-drop-after::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--moss-deep);
+  content: '';
+  pointer-events: none;
+}
+
+.task-order-row.is-drop-before::before {
+  top: -7px;
+}
+
+.task-order-row.is-drop-after::after {
+  bottom: -7px;
+}
+
+.task-order-row > .task-order-icon {
+  flex: 0 0 24px;
+  color: var(--muted);
+}
+
+.task-order-row > strong {
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.task-order-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.task-order-actions > button {
+  min-height: 44px;
+}
+
 .statistics-tab {
   width: 48px;
   padding-right: 0;

@@ -35,8 +35,12 @@ create table if not exists public.profiles (
     check (jsonb_typeof(diary_statistics_targets) = 'object'),
   negative_habits_pin text check (negative_habits_pin ~ '^[0-9]{4}$'),
   negative_habits_pin_required boolean not null default true,
+  daily_task_order uuid[] default null,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists daily_task_order uuid[] default null;
 
 create table if not exists public.calorie_norm_history (
   user_id uuid not null references public.profiles (id) on delete cascade,

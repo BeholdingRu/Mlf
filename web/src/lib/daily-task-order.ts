@@ -2,6 +2,24 @@ import { isBibleReadingTask } from './bible-books'
 import { isNutritionTask } from './nutrition-task'
 import type { Task } from './types'
 
+export function applyDailyTaskOrder(tasks: Task[], taskIds: string[]): Task[] {
+  const remainingTasks = new Map(tasks.map((task) => [task.id, task]))
+  const orderedTasks: Task[] = []
+
+  for (const id of taskIds) {
+    const task = remainingTasks.get(id)
+    if (!task) continue
+    orderedTasks.push(task)
+    remainingTasks.delete(id)
+  }
+
+  for (const task of tasks) {
+    if (remainingTasks.has(task.id)) orderedTasks.push(task)
+  }
+
+  return orderedTasks
+}
+
 export function getRegularTaskDisplayPriority(
   task: Task,
   automaticNutritionEnabled: boolean,
